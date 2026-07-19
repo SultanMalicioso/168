@@ -28,6 +28,8 @@ export interface Activity {
   daysPerWeek: number;
   color: string;
   category: Category;
+  permanent?: boolean;
+  notes?: string;
 }
 
 export interface Goal {
