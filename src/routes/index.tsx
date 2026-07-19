@@ -62,16 +62,16 @@ import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "168 · Visualiza tu semana en horas" },
+      { title: "168 · Visualiza tu semana en un círculo" },
       {
         name: "description",
         content:
           "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
       },
-      { property: "og:title", content: "168 · Visualiza tu semana" },
+      { property: "og:title", content: "168 · Visualiza tu semana en un círculo" },
       {
         property: "og:description",
-        content: "Un dashboard elegante para entender y equilibrar tu tiempo semanal.",
+        content: "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
