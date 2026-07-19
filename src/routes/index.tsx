@@ -7,7 +7,10 @@ import {
   FileText,
   Moon,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
+  RotateCcw,
   Sun,
   Table2,
   Trash2,
@@ -21,6 +24,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,8 +129,27 @@ function Index() {
   const duplicate = (a: Activity) =>
     setStore({
       ...store,
-      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)` }],
+      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false }],
     });
+
+  const togglePermanent = (id: string) =>
+    setStore({
+      ...store,
+      activities: store.activities.map((a) =>
+        a.id === id ? { ...a, permanent: !a.permanent } : a,
+      ),
+    });
+
+  const startNewWeek = () => {
+    const kept = store.activities.filter((a) => a.permanent);
+    const removed = store.activities.length - kept.length;
+    setStore({ ...store, activities: kept });
+    toast.success(
+      removed > 0
+        ? `Nueva semana iniciada · ${kept.length} permanentes conservadas, ${removed} eliminadas`
+        : "Nueva semana iniciada",
+    );
+  };
 
   const toggleTheme = () =>
     setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
@@ -145,6 +178,54 @@ function Index() {
           </div>
 
           <div className="flex items-center gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" className="gap-1.5">
+                  <RotateCcw className="h-4 w-4" /> Nueva semana
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="font-display text-2xl">
+                    ¿Comenzar una nueva semana?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se eliminarán todas las actividades temporales. Las actividades
+                    marcadas como <span className="font-medium text-foreground">permanentes</span>{" "}
+                    se conservarán con toda su información.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                {(() => {
+                  const perm = store.activities.filter((a) => a.permanent).length;
+                  const temp = store.activities.length - perm;
+                  return (
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-lg border p-3">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Se conservan
+                        </div>
+                        <div className="font-display text-2xl mt-1">{perm}</div>
+                        <div className="text-xs text-muted-foreground">permanentes</div>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Se eliminan
+                        </div>
+                        <div className="font-display text-2xl mt-1">{temp}</div>
+                        <div className="text-xs text-muted-foreground">temporales</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={startNewWeek}>
+                    Sí, comenzar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -334,18 +415,33 @@ function Index() {
                           style={{ background: a.color }}
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium truncate">{a.name}</span>
                             <Badge variant="secondary" className="text-[10px] font-normal">
                               {CATEGORIES.find((c) => c.id === a.category)?.label ?? a.category}
                             </Badge>
+                            {a.permanent && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-foreground/8 border border-foreground/15 px-1.5 py-0.5 text-[10px] font-medium">
+                                <Pin className="h-2.5 w-2.5" /> Permanente
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground tabular-nums">
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
                         </div>
-                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                          <IconBtn
+                            onClick={() => togglePermanent(a.id)}
+                            label={a.permanent ? "Quitar permanente" : "Marcar permanente"}
+                          >
+                            {a.permanent ? (
+                              <PinOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Pin className="h-3.5 w-3.5" />
+                            )}
+                          </IconBtn>
                           <IconBtn onClick={() => duplicate(a)} label="Duplicar">
                             <Copy className="h-3.5 w-3.5" />
                           </IconBtn>

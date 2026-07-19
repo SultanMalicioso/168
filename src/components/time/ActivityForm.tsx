@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { Pin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -35,6 +38,8 @@ export function ActivityForm({ initial, defaultColor, onCancel, onSubmit }: Prop
   const [daysPerWeek, setDaysPerWeek] = useState(initial?.daysPerWeek ?? 5);
   const [color, setColor] = useState(initial?.color ?? defaultColor);
   const [category, setCategory] = useState<Category>(initial?.category ?? "otro");
+  const [permanent, setPermanent] = useState<boolean>(initial?.permanent ?? false);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
 
   useEffect(() => {
     if (!initial) setColor(defaultColor);
@@ -47,7 +52,15 @@ export function ActivityForm({ initial, defaultColor, onCancel, onSubmit }: Prop
       onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
-        onSubmit({ name: name.trim(), hoursPerDay, daysPerWeek, color, category });
+        onSubmit({
+          name: name.trim(),
+          hoursPerDay,
+          daysPerWeek,
+          color,
+          category,
+          permanent,
+          notes: notes.trim() || undefined,
+        });
       }}
       className="space-y-4"
     >
@@ -129,6 +142,31 @@ export function ActivityForm({ initial, defaultColor, onCancel, onSubmit }: Prop
           ))}
         </div>
       </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="notes">Notas (opcional)</Label>
+        <Textarea
+          id="notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Detalles o recordatorios sobre esta actividad…"
+          rows={2}
+        />
+      </div>
+
+      <label className="flex items-start gap-3 rounded-xl border bg-muted/40 p-3 cursor-pointer">
+        <Switch checked={permanent} onCheckedChange={setPermanent} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <Pin className="h-3.5 w-3.5" /> Actividad permanente
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Se conserva al iniciar una nueva semana. Ideal para rutinas fijas
+            (dormir, trabajo, gimnasio…).
+          </p>
+        </div>
+      </label>
+
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="ghost" onClick={onCancel}>

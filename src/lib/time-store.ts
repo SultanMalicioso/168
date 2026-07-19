@@ -28,6 +28,8 @@ export interface Activity {
   daysPerWeek: number;
   color: string;
   category: Category;
+  permanent?: boolean;
+  notes?: string;
 }
 
 export interface Goal {
@@ -64,10 +66,10 @@ interface Store {
 
 const defaultStore: Store = {
   activities: [
-    { id: "seed-1", name: "Dormir", hoursPerDay: 8, daysPerWeek: 7, color: PALETTE[0], category: "salud" },
-    { id: "seed-2", name: "Trabajo", hoursPerDay: 8, daysPerWeek: 5, color: PALETTE[1], category: "trabajo" },
-    { id: "seed-3", name: "Comer", hoursPerDay: 1.5, daysPerWeek: 7, color: PALETTE[2], category: "salud" },
-    { id: "seed-4", name: "Gimnasio", hoursPerDay: 1, daysPerWeek: 4, color: PALETTE[3], category: "deporte" },
+    { id: "seed-1", name: "Dormir", hoursPerDay: 8, daysPerWeek: 7, color: PALETTE[0], category: "salud", permanent: true },
+    { id: "seed-2", name: "Trabajo", hoursPerDay: 8, daysPerWeek: 5, color: PALETTE[1], category: "trabajo", permanent: true },
+    { id: "seed-3", name: "Comer", hoursPerDay: 1.5, daysPerWeek: 7, color: PALETTE[2], category: "salud", permanent: true },
+    { id: "seed-4", name: "Gimnasio", hoursPerDay: 1, daysPerWeek: 4, color: PALETTE[3], category: "deporte", permanent: true },
     { id: "seed-5", name: "Ocio", hoursPerDay: 2, daysPerWeek: 7, color: PALETTE[4], category: "ocio" },
   ],
   goals: [
