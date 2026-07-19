@@ -129,8 +129,27 @@ function Index() {
   const duplicate = (a: Activity) =>
     setStore({
       ...store,
-      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)` }],
+      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false }],
     });
+
+  const togglePermanent = (id: string) =>
+    setStore({
+      ...store,
+      activities: store.activities.map((a) =>
+        a.id === id ? { ...a, permanent: !a.permanent } : a,
+      ),
+    });
+
+  const startNewWeek = () => {
+    const kept = store.activities.filter((a) => a.permanent);
+    const removed = store.activities.length - kept.length;
+    setStore({ ...store, activities: kept });
+    toast.success(
+      removed > 0
+        ? `Nueva semana iniciada · ${kept.length} permanentes conservadas, ${removed} eliminadas`
+        : "Nueva semana iniciada",
+    );
+  };
 
   const toggleTheme = () =>
     setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
