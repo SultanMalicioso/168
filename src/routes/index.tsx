@@ -415,18 +415,33 @@ function Index() {
                           style={{ background: a.color }}
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium truncate">{a.name}</span>
                             <Badge variant="secondary" className="text-[10px] font-normal">
                               {CATEGORIES.find((c) => c.id === a.category)?.label ?? a.category}
                             </Badge>
+                            {a.permanent && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-foreground/8 border border-foreground/15 px-1.5 py-0.5 text-[10px] font-medium">
+                                <Pin className="h-2.5 w-2.5" /> Permanente
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground tabular-nums">
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
                         </div>
-                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                          <IconBtn
+                            onClick={() => togglePermanent(a.id)}
+                            label={a.permanent ? "Quitar permanente" : "Marcar permanente"}
+                          >
+                            {a.permanent ? (
+                              <PinOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Pin className="h-3.5 w-3.5" />
+                            )}
+                          </IconBtn>
                           <IconBtn onClick={() => duplicate(a)} label="Duplicar">
                             <Copy className="h-3.5 w-3.5" />
                           </IconBtn>
