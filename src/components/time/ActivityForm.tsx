@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { Pin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -35,6 +38,8 @@ export function ActivityForm({ initial, defaultColor, onCancel, onSubmit }: Prop
   const [daysPerWeek, setDaysPerWeek] = useState(initial?.daysPerWeek ?? 5);
   const [color, setColor] = useState(initial?.color ?? defaultColor);
   const [category, setCategory] = useState<Category>(initial?.category ?? "otro");
+  const [permanent, setPermanent] = useState<boolean>(initial?.permanent ?? false);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
 
   useEffect(() => {
     if (!initial) setColor(defaultColor);
@@ -47,7 +52,15 @@ export function ActivityForm({ initial, defaultColor, onCancel, onSubmit }: Prop
       onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
-        onSubmit({ name: name.trim(), hoursPerDay, daysPerWeek, color, category });
+        onSubmit({
+          name: name.trim(),
+          hoursPerDay,
+          daysPerWeek,
+          color,
+          category,
+          permanent,
+          notes: notes.trim() || undefined,
+        });
       }}
       className="space-y-4"
     >
