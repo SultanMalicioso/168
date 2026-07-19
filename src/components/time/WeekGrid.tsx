@@ -45,24 +45,22 @@ export function WeekGrid({ activities }: Props) {
             {d}
           </div>
         ))}
-        {Array.from({ length: HOURS }).map((_, h) => (
-          <>
-            <div key={`h-${h}`} className="pr-1 text-right tabular-nums leading-[10px]">
-              {h % 3 === 0 ? `${h}h` : ""}
-            </div>
-            {Array.from({ length: 7 }).map((_, d) => {
-              const a = grid[d][h];
-              return (
-                <div
-                  key={`c-${d}-${h}`}
-                  className="h-[10px] rounded-[2px] border border-border/40"
-                  style={{ background: a ? a.color : "transparent" }}
-                  title={a ? `${a.name} — ${a.hoursPerDay}h` : ""}
-                />
-              );
-            })}
-          </>
-        ))}
+        {Array.from({ length: HOURS }).flatMap((_, h) => [
+          <div key={`h-${h}`} className="pr-1 text-right tabular-nums leading-[10px]">
+            {h % 3 === 0 ? `${h}h` : ""}
+          </div>,
+          ...Array.from({ length: 7 }).map((_, d) => {
+            const a = grid[d][h];
+            return (
+              <div
+                key={`c-${d}-${h}`}
+                className="h-[10px] rounded-[2px] border border-border/40"
+                style={{ background: a ? a.color : "transparent" }}
+                title={a ? `${a.name} — ${a.hoursPerDay}h` : ""}
+              />
+            );
+          }),
+        ])}
       </div>
     </div>
   );
