@@ -331,8 +331,28 @@ function Index() {
 
           {/* Chart card */}
           <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
+            <div className="flex justify-center mb-4">
+              <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
+                <button
+                  onClick={() => setChartView("activities")}
+                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                    chartView === "activities" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                  }`}
+                >
+                  <LayoutGrid className="h-3 w-3" /> Actividades
+                </button>
+                <button
+                  onClick={() => setChartView("goals")}
+                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                    chartView === "goals" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                  }`}
+                >
+                  <Target className="h-3 w-3" /> Objetivos
+                </button>
+              </div>
+            </div>
             <div ref={chartRef}>
-              <DonutChart activities={filtered} />
+              <DonutChart activities={chartActivities} />
             </div>
 
             {/* Live counter */}
