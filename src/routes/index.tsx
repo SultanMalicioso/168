@@ -5,6 +5,7 @@ import {
   Download,
   FileImage,
   FileText,
+  LayoutGrid,
   Moon,
   Pencil,
   Pin,
@@ -13,6 +14,7 @@ import {
   RotateCcw,
   Sun,
   Table2,
+  Target,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +49,7 @@ import { toast } from "sonner";
 import { DonutChart } from "@/components/time/DonutChart";
 import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
-import { GoalsPanel } from "@/components/time/GoalsPanel";
+import { GoalsManager } from "@/components/time/GoalsManager";
 import {
   CATEGORIES,
   nextColor,
@@ -56,6 +58,7 @@ import {
   weeklyHours,
   type Activity,
   type Category,
+  type Goal,
 } from "@/lib/time-store";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
