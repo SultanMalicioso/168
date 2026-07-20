@@ -448,6 +448,8 @@ function Index() {
                   <ActivityForm
                     initial={editing ?? undefined}
                     defaultColor={nextColor(store.activities)}
+                    goals={store.goals}
+                    onCreateGoal={createGoal}
                     onCancel={() => {
                       setOpen(false);
                       setEditing(null);
@@ -485,6 +487,22 @@ function Index() {
                                 <Pin className="h-2.5 w-2.5" /> Permanente
                               </span>
                             )}
+                            {(a.goalIds ?? []).map((gid) => {
+                              const g = store.goals.find((x) => x.id === gid);
+                              if (!g) return null;
+                              return (
+                                <span
+                                  key={gid}
+                                  className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                                  style={{
+                                    background: `color-mix(in oklab, ${g.color} 15%, transparent)`,
+                                    borderColor: `color-mix(in oklab, ${g.color} 40%, transparent)`,
+                                  }}
+                                >
+                                  {g.icon ?? "🎯"} {g.name}
+                                </span>
+                              );
+                            })}
                           </div>
                           <div className="text-xs text-muted-foreground tabular-nums">
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
@@ -527,11 +545,11 @@ function Index() {
           </div>
 
           <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-            <h2 className="font-display text-lg mb-3">Objetivos</h2>
-            <GoalsPanel
+            <GoalsManager
               goals={store.goals}
               activities={store.activities}
-              onChange={(goals) => setStore({ ...store, goals })}
+              onGoalsChange={(goals) => setStore({ ...store, goals })}
+              onActivitiesChange={(activities) => setStore({ ...store, activities })}
             />
           </div>
         </aside>
