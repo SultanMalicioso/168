@@ -180,6 +180,13 @@ function Index() {
       ),
     });
 
+  const createGoal = (data: Omit<Goal, "id" | "createdAt">): Goal => {
+    const g: Goal = { ...data, id: uid(), createdAt: Date.now() };
+    setStore({ ...store, goals: [...store.goals, g] });
+    toast.success(`Objetivo "${g.name}" creado`);
+    return g;
+  };
+
   const startNewWeek = () => {
     const kept = store.activities.filter((a) => a.permanent);
     const removed = store.activities.length - kept.length;
