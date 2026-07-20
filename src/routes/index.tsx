@@ -92,10 +92,47 @@ function Index() {
   const [filter, setFilter] = useState<Category | "all">("all");
   const chartRef = useRef<HTMLDivElement>(null);
 
+  const chartView = store.chartView ?? "activities";
+  const setChartView = (v: "activities" | "goals") => setStore({ ...store, chartView: v });
+
   const filtered = useMemo(
     () => (filter === "all" ? store.activities : store.activities.filter((a) => a.category === filter)),
     [store.activities, filter],
   );
+
+  // For "goals" view, synthesize pseudo-activities grouped by goal so the donut renders groups.
+  const chartActivities = useMemo<Activity[]>(() => {
+    if (chartView === "activities") return filtered;
+    const items: Activity[] = [];
+    for (const g of store.goals) {
+      if (!g.active) continue;
+      const linked = filtered.filter((a) => a.goalIds?.includes(g.id));
+      const hours = linked.reduce((s, a) => s + weeklyHours(a), 0);
+      if (hours <= 0) continue;
+      items.push({
+        id: `goal-${g.id}`,
+        name: `${g.icon ?? "🎯"} ${g.name}`,
+        hoursPerDay: hours,
+        daysPerWeek: 1,
+        color: g.color,
+        category: "otro",
+      });
+    }
+    // Unlinked activities go in one bucket
+    const unlinked = filtered.filter((a) => !a.goalIds || a.goalIds.length === 0);
+    const unlinkedHours = unlinked.reduce((s, a) => s + weeklyHours(a), 0);
+    if (unlinkedHours > 0) {
+      items.push({
+        id: "goal-unlinked",
+        name: "Sin objetivo",
+        hoursPerDay: unlinkedHours,
+        daysPerWeek: 1,
+        color: "var(--muted-foreground)",
+        category: "otro",
+      });
+    }
+    return items;
+  }, [chartView, filtered, store.goals]);
 
   const totalUsed = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
   const free = Math.max(0, TOTAL - totalUsed);
