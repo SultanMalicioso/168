@@ -5,6 +5,7 @@ import {
   Download,
   FileImage,
   FileText,
+  LayoutGrid,
   Moon,
   Pencil,
   Pin,
@@ -13,6 +14,7 @@ import {
   RotateCcw,
   Sun,
   Table2,
+  Target,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +49,7 @@ import { toast } from "sonner";
 import { DonutChart } from "@/components/time/DonutChart";
 import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
-import { GoalsPanel } from "@/components/time/GoalsPanel";
+import { GoalsManager } from "@/components/time/GoalsManager";
 import {
   CATEGORIES,
   nextColor,
@@ -56,6 +58,7 @@ import {
   weeklyHours,
   type Activity,
   type Category,
+  type Goal,
 } from "@/lib/time-store";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
@@ -89,10 +92,47 @@ function Index() {
   const [filter, setFilter] = useState<Category | "all">("all");
   const chartRef = useRef<HTMLDivElement>(null);
 
+  const chartView = store.chartView ?? "activities";
+  const setChartView = (v: "activities" | "goals") => setStore({ ...store, chartView: v });
+
   const filtered = useMemo(
     () => (filter === "all" ? store.activities : store.activities.filter((a) => a.category === filter)),
     [store.activities, filter],
   );
+
+  // For "goals" view, synthesize pseudo-activities grouped by goal so the donut renders groups.
+  const chartActivities = useMemo<Activity[]>(() => {
+    if (chartView === "activities") return filtered;
+    const items: Activity[] = [];
+    for (const g of store.goals) {
+      if (!g.active) continue;
+      const linked = filtered.filter((a) => a.goalIds?.includes(g.id));
+      const hours = linked.reduce((s, a) => s + weeklyHours(a), 0);
+      if (hours <= 0) continue;
+      items.push({
+        id: `goal-${g.id}`,
+        name: `${g.icon ?? "🎯"} ${g.name}`,
+        hoursPerDay: hours,
+        daysPerWeek: 1,
+        color: g.color,
+        category: "otro",
+      });
+    }
+    // Unlinked activities go in one bucket
+    const unlinked = filtered.filter((a) => !a.goalIds || a.goalIds.length === 0);
+    const unlinkedHours = unlinked.reduce((s, a) => s + weeklyHours(a), 0);
+    if (unlinkedHours > 0) {
+      items.push({
+        id: "goal-unlinked",
+        name: "Sin objetivo",
+        hoursPerDay: unlinkedHours,
+        daysPerWeek: 1,
+        color: "var(--muted-foreground)",
+        category: "otro",
+      });
+    }
+    return items;
+  }, [chartView, filtered, store.goals]);
 
   const totalUsed = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
   const free = Math.max(0, TOTAL - totalUsed);
@@ -139,6 +179,13 @@ function Index() {
         a.id === id ? { ...a, permanent: !a.permanent } : a,
       ),
     });
+
+  const createGoal = (data: Omit<Goal, "id" | "createdAt">): Goal => {
+    const g: Goal = { ...data, id: uid(), createdAt: Date.now() };
+    setStore({ ...store, goals: [...store.goals, g] });
+    toast.success(`Objetivo "${g.name}" creado`);
+    return g;
+  };
 
   const startNewWeek = () => {
     const kept = store.activities.filter((a) => a.permanent);
@@ -291,8 +338,28 @@ function Index() {
 
           {/* Chart card */}
           <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
+            <div className="flex justify-center mb-4">
+              <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
+                <button
+                  onClick={() => setChartView("activities")}
+                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                    chartView === "activities" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                  }`}
+                >
+                  <LayoutGrid className="h-3 w-3" /> Actividades
+                </button>
+                <button
+                  onClick={() => setChartView("goals")}
+                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                    chartView === "goals" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                  }`}
+                >
+                  <Target className="h-3 w-3" /> Objetivos
+                </button>
+              </div>
+            </div>
             <div ref={chartRef}>
-              <DonutChart activities={filtered} />
+              <DonutChart activities={chartActivities} />
             </div>
 
             {/* Live counter */}
@@ -388,6 +455,8 @@ function Index() {
                   <ActivityForm
                     initial={editing ?? undefined}
                     defaultColor={nextColor(store.activities)}
+                    goals={store.goals}
+                    onCreateGoal={createGoal}
                     onCancel={() => {
                       setOpen(false);
                       setEditing(null);
@@ -425,6 +494,22 @@ function Index() {
                                 <Pin className="h-2.5 w-2.5" /> Permanente
                               </span>
                             )}
+                            {(a.goalIds ?? []).map((gid) => {
+                              const g = store.goals.find((x) => x.id === gid);
+                              if (!g) return null;
+                              return (
+                                <span
+                                  key={gid}
+                                  className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                                  style={{
+                                    background: `color-mix(in oklab, ${g.color} 15%, transparent)`,
+                                    borderColor: `color-mix(in oklab, ${g.color} 40%, transparent)`,
+                                  }}
+                                >
+                                  {g.icon ?? "🎯"} {g.name}
+                                </span>
+                              );
+                            })}
                           </div>
                           <div className="text-xs text-muted-foreground tabular-nums">
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
@@ -467,11 +552,11 @@ function Index() {
           </div>
 
           <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-            <h2 className="font-display text-lg mb-3">Objetivos</h2>
-            <GoalsPanel
+            <GoalsManager
               goals={store.goals}
               activities={store.activities}
-              onChange={(goals) => setStore({ ...store, goals })}
+              onGoalsChange={(goals) => setStore({ ...store, goals })}
+              onActivitiesChange={(activities) => setStore({ ...store, activities })}
             />
           </div>
         </aside>
