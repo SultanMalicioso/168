@@ -30,12 +30,19 @@ export interface Activity {
   category: Category;
   permanent?: boolean;
   notes?: string;
+  goalIds?: string[];
 }
 
 export interface Goal {
   id: string;
-  activityName: string;
-  minHours: number;
+  name: string;
+  color: string;
+  icon?: string;
+  description?: string;
+  targetHours: number;
+  active: boolean;
+  createdAt: number;
+  // Reserved for future: period ("week" | "month" | "year"), parentId, etc.
 }
 
 const PALETTE = [
@@ -49,35 +56,106 @@ const PALETTE = [
   "var(--chart-8)",
 ];
 
-export function nextColor(existing: Activity[]): string {
+export const GOAL_ICONS = ["💪", "📚", "💼", "🎮", "🧘", "❤️", "🎯", "🏃", "🌱", "🎨", "🍽️", "😴", "👨‍👩‍👧", "✈️", "💰", "⭐"];
+
+export function nextColor(existing: { color: string }[]): string {
   const used = new Set(existing.map((a) => a.color));
   return PALETTE.find((c) => !used.has(c)) ?? PALETTE[existing.length % PALETTE.length];
 }
 
 export const weeklyHours = (a: Activity) => a.hoursPerDay * a.daysPerWeek;
 
-const KEY = "week168.v1";
+export const goalProgress = (goal: Goal, activities: Activity[]) => {
+  const linked = activities.filter((a) => a.goalIds?.includes(goal.id));
+  const hours = linked.reduce((s, a) => s + weeklyHours(a), 0);
+  const pct = goal.targetHours > 0 ? (hours / goal.targetHours) * 100 : 0;
+  return { hours, linked, pct, remaining: Math.max(0, goal.targetHours - hours) };
+};
+
+export type ProgressState = "exceeded" | "completed" | "near" | "behind" | "empty";
+export function progressState(pct: number): ProgressState {
+  if (pct <= 0) return "empty";
+  if (pct > 105) return "exceeded";
+  if (pct >= 95) return "completed";
+  if (pct >= 60) return "near";
+  return "behind";
+}
+export const PROGRESS_COLORS: Record<ProgressState, string> = {
+  empty: "oklch(0.7 0 0)",
+  behind: "oklch(0.65 0.22 25)",
+  near: "oklch(0.78 0.16 85)",
+  completed: "oklch(0.7 0.16 155)",
+  exceeded: "oklch(0.65 0.18 250)",
+};
+export const PROGRESS_LABEL: Record<ProgressState, string> = {
+  empty: "Sin registro",
+  behind: "Atrasado",
+  near: "Cerca",
+  completed: "Alcanzado",
+  exceeded: "Superado",
+};
+
+const KEY = "week168.v2";
+const LEGACY_KEY = "week168.v1";
 
 interface Store {
   activities: Activity[];
   goals: Goal[];
   theme: "light" | "dark";
+  chartView?: "activities" | "goals";
 }
+
+const seedGoals: Goal[] = [
+  { id: "gs-salud", name: "Salud", color: PALETTE[1], icon: "💪", targetHours: 70, active: true, createdAt: Date.now() },
+  { id: "gs-trabajo", name: "Trabajo", color: PALETTE[0], icon: "💼", targetHours: 40, active: true, createdAt: Date.now() },
+  { id: "gs-ocio", name: "Ocio", color: PALETTE[2], icon: "🎮", targetHours: 12, active: true, createdAt: Date.now() },
+];
 
 const defaultStore: Store = {
   activities: [
-    { id: "seed-1", name: "Dormir", hoursPerDay: 8, daysPerWeek: 7, color: PALETTE[0], category: "salud", permanent: true },
-    { id: "seed-2", name: "Trabajo", hoursPerDay: 8, daysPerWeek: 5, color: PALETTE[1], category: "trabajo", permanent: true },
-    { id: "seed-3", name: "Comer", hoursPerDay: 1.5, daysPerWeek: 7, color: PALETTE[2], category: "salud", permanent: true },
-    { id: "seed-4", name: "Gimnasio", hoursPerDay: 1, daysPerWeek: 4, color: PALETTE[3], category: "deporte", permanent: true },
-    { id: "seed-5", name: "Ocio", hoursPerDay: 2, daysPerWeek: 7, color: PALETTE[4], category: "ocio" },
+    { id: "seed-1", name: "Dormir", hoursPerDay: 8, daysPerWeek: 7, color: PALETTE[0], category: "salud", permanent: true, goalIds: ["gs-salud"] },
+    { id: "seed-2", name: "Trabajo", hoursPerDay: 8, daysPerWeek: 5, color: PALETTE[1], category: "trabajo", permanent: true, goalIds: ["gs-trabajo"] },
+    { id: "seed-3", name: "Comer", hoursPerDay: 1.5, daysPerWeek: 7, color: PALETTE[2], category: "salud", permanent: true, goalIds: ["gs-salud"] },
+    { id: "seed-4", name: "Gimnasio", hoursPerDay: 1, daysPerWeek: 4, color: PALETTE[3], category: "deporte", permanent: true, goalIds: ["gs-salud"] },
+    { id: "seed-5", name: "Ocio", hoursPerDay: 2, daysPerWeek: 7, color: PALETTE[4], category: "ocio", goalIds: ["gs-ocio"] },
   ],
-  goals: [
-    { id: "g1", activityName: "Dormir", minHours: 56 },
-    { id: "g2", activityName: "Gimnasio", minHours: 4 },
-  ],
+  goals: seedGoals,
   theme: "light",
+  chartView: "activities",
 };
+
+// Migrate legacy {activityName, minHours} goals → new Goal + link matching activities.
+function migrate(raw: any): Store {
+  if (!raw || typeof raw !== "object") return defaultStore;
+  const activities: Activity[] = Array.isArray(raw.activities) ? raw.activities : defaultStore.activities;
+  let goals: Goal[] = [];
+  if (Array.isArray(raw.goals)) {
+    goals = raw.goals.map((g: any, i: number): Goal => {
+      if (g && typeof g === "object" && "targetHours" in g) return g as Goal;
+      // legacy
+      const match = activities.find((a) => a.name.toLowerCase() === String(g?.activityName ?? "").toLowerCase());
+      const id = g?.id ?? Math.random().toString(36).slice(2, 10);
+      const color = match?.color ?? PALETTE[i % PALETTE.length];
+      if (match) {
+        match.goalIds = Array.from(new Set([...(match.goalIds ?? []), id]));
+      }
+      return {
+        id,
+        name: g?.activityName ?? "Objetivo",
+        color,
+        targetHours: g?.minHours ?? 10,
+        active: true,
+        createdAt: Date.now(),
+      };
+    });
+  }
+  return {
+    activities,
+    goals,
+    theme: raw.theme === "dark" ? "dark" : "light",
+    chartView: raw.chartView === "goals" ? "goals" : "activities",
+  };
+}
 
 export function useTimeStore() {
   const [store, setStore] = useState<Store>(defaultStore);
@@ -86,7 +164,12 @@ export function useTimeStore() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setStore({ ...defaultStore, ...JSON.parse(raw) });
+      if (raw) {
+        setStore({ ...defaultStore, ...JSON.parse(raw) });
+      } else {
+        const legacy = localStorage.getItem(LEGACY_KEY);
+        if (legacy) setStore(migrate(JSON.parse(legacy)));
+      }
     } catch {}
     setHydrated(true);
   }, []);
