@@ -143,6 +143,39 @@ function Index() {
   const overflow = totalUsed > TOTAL;
   const topActivity = [...store.activities].sort((a, b) => weeklyHours(b) - weeklyHours(a))[0];
 
+  const taskStats = useMemo(() => {
+    let total = 0,
+      done = 0,
+      inProg = 0,
+      pending = 0;
+    let topByCount: { name: string; count: number } | null = null;
+    let topByCompletion: { name: string; pct: number; total: number } | null = null;
+    for (const a of store.activities) {
+      const tp = taskProgress(a);
+      total += tp.total;
+      done += tp.completed;
+      inProg += tp.inProgress;
+      pending += tp.pending;
+      if (tp.total > 0 && (!topByCount || tp.total > topByCount.count)) {
+        topByCount = { name: a.name, count: tp.total };
+      }
+      if (tp.total >= 2 && (!topByCompletion || tp.pct > topByCompletion.pct)) {
+        topByCompletion = { name: a.name, pct: tp.pct, total: tp.total };
+      }
+    }
+    const pct = total > 0 ? (done / total) * 100 : 0;
+    return { total, done, inProg, pending, pct, topByCount, topByCompletion };
+  }, [store.activities]);
+
+  const updateTasks = (activityId: string, updater: (tasks: Task[]) => Task[]) => {
+    setStore({
+      ...store,
+      activities: store.activities.map((a) =>
+        a.id === activityId ? { ...a, tasks: updater(a.tasks ?? []) } : a,
+      ),
+    });
+  };
+
   const upsert = (data: Omit<Activity, "id">) => {
     if (editing) {
       const next = store.activities.map((a) => (a.id === editing.id ? { ...editing, ...data } : a));
