@@ -58,6 +58,7 @@ export function ActivityForm({
   const [permanent, setPermanent] = useState<boolean>(initial?.permanent ?? false);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [goalIds, setGoalIds] = useState<string[]>(initial?.goalIds ?? []);
+  const [tasks, setTasks] = useState<Task[]>(initial?.tasks ?? []);
   const [showGoalForm, setShowGoalForm] = useState(false);
 
   useEffect(() => {
@@ -83,6 +84,7 @@ export function ActivityForm({
             permanent,
             notes: notes.trim() || undefined,
             goalIds: goalIds.length > 0 ? goalIds : undefined,
+            tasks,
           });
         }}
         className="space-y-4"
@@ -233,6 +235,10 @@ export function ActivityForm({
               />
             ))}
           </div>
+        </div>
+
+        <div className="rounded-xl border p-3 bg-muted/20">
+          <TaskList tasks={tasks} onChange={setTasks} accentColor={color} />
         </div>
 
         <div className="space-y-1.5">
