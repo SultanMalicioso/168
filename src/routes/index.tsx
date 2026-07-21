@@ -89,8 +89,10 @@ function Index() {
   const { store, setStore, hydrated } = useTimeStore();
   const [editing, setEditing] = useState<Activity | null>(null);
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState<Activity | null>(null);
   const [filter, setFilter] = useState<Category | "all">("all");
   const chartRef = useRef<HTMLDivElement>(null);
+
 
   const chartView = store.chartView ?? "activities";
   const setChartView = (v: "activities" | "goals") => setStore({ ...store, chartView: v });
