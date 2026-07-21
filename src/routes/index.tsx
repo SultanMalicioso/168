@@ -706,6 +706,79 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
+function InlineTasks({
+  activity,
+  onChange,
+}: {
+  activity: Activity;
+  onChange: (tasks: Task[]) => void;
+}) {
+  const tasks = activity.tasks ?? [];
+  if (tasks.length === 0) return null;
+  const done = tasks.filter((t) => t.status === "completed").length;
+  const pct = (done / tasks.length) * 100;
+  const preview = tasks.slice(0, 3);
+  const more = tasks.length - preview.length;
+  const toggle = (id: string) =>
+    onChange(
+      tasks.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              status: t.status === "completed" ? "pending" : "completed",
+              completedAt: t.status === "completed" ? undefined : Date.now(),
+            }
+          : t,
+      ),
+    );
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums mb-1">
+        <span>
+          {done}/{tasks.length} tareas
+        </span>
+        <span>{pct.toFixed(0)}%</span>
+      </div>
+      <div className="h-1 w-full rounded-full bg-muted overflow-hidden mb-1.5">
+        <div
+          className="h-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: activity.color }}
+        />
+      </div>
+      <ul className="space-y-0.5">
+        {preview.map((t) => {
+          const isDone = t.status === "completed";
+          return (
+            <li key={t.id} className="flex items-center gap-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() => toggle(t.id)}
+                aria-label={isDone ? "Desmarcar" : "Completar"}
+                className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition ${
+                  isDone
+                    ? "bg-foreground border-foreground"
+                    : "border-muted-foreground/40 hover:border-foreground"
+                }`}
+              >
+                {isDone && <Check className="h-2.5 w-2.5 text-background" />}
+              </button>
+              <span className={`truncate ${isDone ? "line-through text-muted-foreground" : ""}`}>
+                {t.name}
+              </span>
+              {t.dueDate && !isDone && (
+                <span className="text-[10px] text-muted-foreground shrink-0">· {t.dueDate}</span>
+              )}
+            </li>
+          );
+        })}
+        {more > 0 && (
+          <li className="text-[10px] text-muted-foreground pl-5">+{more} más</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 function IconBtn({
   children,
   onClick,
