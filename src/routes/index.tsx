@@ -165,8 +165,14 @@ function Index() {
     setOpen(false);
   };
 
-  const remove = (id: string) =>
-    setStore({ ...store, activities: store.activities.filter((a) => a.id !== id) });
+  const remove = (id: string) => {
+    setStore({
+      ...store,
+      activities: store.activities.filter((a) => a.id !== id),
+    });
+    toast.success("Actividad eliminada");
+  };
+
 
   const duplicate = (a: Activity) =>
     setStore({
