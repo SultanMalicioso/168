@@ -603,6 +603,11 @@ function Index() {
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
+                          <InlineTasks
+                            activity={a}
+                            onChange={(tasks) => updateTasks(a.id, () => tasks)}
+                          />
+
                           <div className="mt-2 flex items-center gap-1 -ml-1.5">
                             <IconBtn
                               onClick={() => togglePermanent(a.id)}
