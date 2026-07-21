@@ -21,6 +21,40 @@ export const CATEGORIES: { id: Category; label: string; color: string }[] = [
   { id: "otro", label: "Otro", color: "var(--chart-8)" },
 ];
 
+export type TaskStatus = "pending" | "in_progress" | "completed";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
+
+export interface Task {
+  id: string;
+  name: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate?: string; // ISO yyyy-mm-dd
+  dueTime?: string; // HH:mm
+  color?: string;
+  notes?: string;
+  createdAt: number;
+  completedAt?: number;
+  // Reserved: subtasks?, recurrence?, reminders?, attachments?, tags?, comments?
+}
+
+export const TASK_PRIORITY_META: Record<
+  TaskPriority,
+  { label: string; color: string; weight: number }
+> = {
+  low: { label: "Baja", color: "oklch(0.72 0.05 250)", weight: 0 },
+  medium: { label: "Media", color: "oklch(0.75 0.14 85)", weight: 1 },
+  high: { label: "Alta", color: "oklch(0.68 0.18 45)", weight: 2 },
+  urgent: { label: "Urgente", color: "oklch(0.62 0.22 25)", weight: 3 },
+};
+
+export const TASK_STATUS_META: Record<TaskStatus, { label: string; color: string }> = {
+  pending: { label: "Pendiente", color: "oklch(0.72 0.02 250)" },
+  in_progress: { label: "En progreso", color: "oklch(0.72 0.15 85)" },
+  completed: { label: "Completada", color: "oklch(0.7 0.16 155)" },
+};
+
 export interface Activity {
   id: string;
   name: string;
@@ -31,6 +65,7 @@ export interface Activity {
   permanent?: boolean;
   notes?: string;
   goalIds?: string[];
+  tasks?: Task[];
 }
 
 export interface Goal {
@@ -42,7 +77,6 @@ export interface Goal {
   targetHours: number;
   active: boolean;
   createdAt: number;
-  // Reserved for future: period ("week" | "month" | "year"), parentId, etc.
 }
 
 const PALETTE = [
@@ -95,6 +129,17 @@ export const PROGRESS_LABEL: Record<ProgressState, string> = {
   exceeded: "Superado",
 };
 
+// Task helpers
+export const taskProgress = (a: Activity) => {
+  const tasks = a.tasks ?? [];
+  const total = tasks.length;
+  const completed = tasks.filter((t) => t.status === "completed").length;
+  const inProgress = tasks.filter((t) => t.status === "in_progress").length;
+  const pending = tasks.filter((t) => t.status === "pending").length;
+  const pct = total > 0 ? (completed / total) * 100 : 0;
+  return { total, completed, inProgress, pending, pct };
+};
+
 const KEY = "week168.v2";
 const LEGACY_KEY = "week168.v1";
 
@@ -124,7 +169,6 @@ const defaultStore: Store = {
   chartView: "activities",
 };
 
-// Migrate legacy {activityName, minHours} goals → new Goal + link matching activities.
 function migrate(raw: any): Store {
   if (!raw || typeof raw !== "object") return defaultStore;
   const activities: Activity[] = Array.isArray(raw.activities) ? raw.activities : defaultStore.activities;
@@ -132,7 +176,6 @@ function migrate(raw: any): Store {
   if (Array.isArray(raw.goals)) {
     goals = raw.goals.map((g: any, i: number): Goal => {
       if (g && typeof g === "object" && "targetHours" in g) return g as Goal;
-      // legacy
       const match = activities.find((a) => a.name.toLowerCase() === String(g?.activityName ?? "").toLowerCase());
       const id = g?.id ?? Math.random().toString(36).slice(2, 10);
       const color = match?.color ?? PALETTE[i % PALETTE.length];
@@ -157,6 +200,17 @@ function migrate(raw: any): Store {
   };
 }
 
+// Ensure tasks array always exists on every activity for consumer simplicity.
+function normalize(store: Store): Store {
+  return {
+    ...store,
+    activities: store.activities.map((a) => ({
+      ...a,
+      tasks: Array.isArray(a.tasks) ? a.tasks : [],
+    })),
+  };
+}
+
 export function useTimeStore() {
   const [store, setStore] = useState<Store>(defaultStore);
   const [hydrated, setHydrated] = useState(false);
@@ -165,10 +219,10 @@ export function useTimeStore() {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        setStore({ ...defaultStore, ...JSON.parse(raw) });
+        setStore(normalize({ ...defaultStore, ...JSON.parse(raw) }));
       } else {
         const legacy = localStorage.getItem(LEGACY_KEY);
-        if (legacy) setStore(migrate(JSON.parse(legacy)));
+        if (legacy) setStore(normalize(migrate(JSON.parse(legacy))));
       }
     } catch {}
     setHydrated(true);

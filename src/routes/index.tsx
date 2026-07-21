@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import {
   Copy,
   Download,
@@ -53,12 +54,14 @@ import { GoalsManager } from "@/components/time/GoalsManager";
 import {
   CATEGORIES,
   nextColor,
+  taskProgress,
   uid,
   useTimeStore,
   weeklyHours,
   type Activity,
   type Category,
   type Goal,
+  type Task,
 } from "@/lib/time-store";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
@@ -140,6 +143,39 @@ function Index() {
   const free = Math.max(0, TOTAL - totalUsed);
   const overflow = totalUsed > TOTAL;
   const topActivity = [...store.activities].sort((a, b) => weeklyHours(b) - weeklyHours(a))[0];
+
+  const taskStats = useMemo(() => {
+    let total = 0,
+      done = 0,
+      inProg = 0,
+      pending = 0;
+    let topByCount: { name: string; count: number } | null = null;
+    let topByCompletion: { name: string; pct: number; total: number } | null = null;
+    for (const a of store.activities) {
+      const tp = taskProgress(a);
+      total += tp.total;
+      done += tp.completed;
+      inProg += tp.inProgress;
+      pending += tp.pending;
+      if (tp.total > 0 && (!topByCount || tp.total > topByCount.count)) {
+        topByCount = { name: a.name, count: tp.total };
+      }
+      if (tp.total >= 2 && (!topByCompletion || tp.pct > topByCompletion.pct)) {
+        topByCompletion = { name: a.name, pct: tp.pct, total: tp.total };
+      }
+    }
+    const pct = total > 0 ? (done / total) * 100 : 0;
+    return { total, done, inProg, pending, pct, topByCount, topByCompletion };
+  }, [store.activities]);
+
+  const updateTasks = (activityId: string, updater: (tasks: Task[]) => Task[]) => {
+    setStore({
+      ...store,
+      activities: store.activities.map((a) =>
+        a.id === activityId ? { ...a, tasks: updater(a.tasks ?? []) } : a,
+      ),
+    });
+  };
 
   const upsert = (data: Omit<Activity, "id">) => {
     if (editing) {
@@ -420,6 +456,51 @@ function Index() {
             />
           </div>
 
+          {/* Task stats */}
+          <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-display text-lg">Tareas</h2>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {taskStats.done}/{taskStats.total} completadas
+              </span>
+            </div>
+            {taskStats.total > 0 ? (
+              <>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-4">
+                  <div
+                    className="h-full bg-foreground transition-all duration-500"
+                    style={{ width: `${taskStats.pct}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatCard label="Total" value={String(taskStats.total)} sub="tareas registradas" />
+                  <StatCard label="Pendientes" value={String(taskStats.pending)} sub="por hacer" />
+                  <StatCard label="En progreso" value={String(taskStats.inProg)} sub="activas" />
+                  <StatCard label="Completadas" value={`${taskStats.pct.toFixed(0)}%`} sub={`${taskStats.done} tareas`} />
+                  {taskStats.topByCount && (
+                    <StatCard
+                      label="Más tareas"
+                      value={taskStats.topByCount.name}
+                      sub={`${taskStats.topByCount.count} tareas`}
+                    />
+                  )}
+                  {taskStats.topByCompletion && (
+                    <StatCard
+                      label="Mayor avance"
+                      value={taskStats.topByCompletion.name}
+                      sub={`${taskStats.topByCompletion.pct.toFixed(0)}% completado`}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Aún no hay tareas. Editá una actividad para agregar tareas dentro de ella.
+              </p>
+            )}
+          </div>
+
+
           {/* Week grid */}
           <div className="rounded-3xl border bg-card p-6 shadow-[var(--shadow-soft)]">
             <div className="flex items-center justify-between mb-4">
@@ -523,6 +604,11 @@ function Index() {
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
+                          <InlineTasks
+                            activity={a}
+                            onChange={(tasks) => updateTasks(a.id, () => tasks)}
+                          />
+
                           <div className="mt-2 flex items-center gap-1 -ml-1.5">
                             <IconBtn
                               onClick={() => togglePermanent(a.id)}
@@ -617,6 +703,79 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="font-display text-2xl mt-1 leading-none truncate">{value}</div>
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+function InlineTasks({
+  activity,
+  onChange,
+}: {
+  activity: Activity;
+  onChange: (tasks: Task[]) => void;
+}) {
+  const tasks = activity.tasks ?? [];
+  if (tasks.length === 0) return null;
+  const done = tasks.filter((t) => t.status === "completed").length;
+  const pct = (done / tasks.length) * 100;
+  const preview = tasks.slice(0, 3);
+  const more = tasks.length - preview.length;
+  const toggle = (id: string) =>
+    onChange(
+      tasks.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              status: t.status === "completed" ? "pending" : "completed",
+              completedAt: t.status === "completed" ? undefined : Date.now(),
+            }
+          : t,
+      ),
+    );
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums mb-1">
+        <span>
+          {done}/{tasks.length} tareas
+        </span>
+        <span>{pct.toFixed(0)}%</span>
+      </div>
+      <div className="h-1 w-full rounded-full bg-muted overflow-hidden mb-1.5">
+        <div
+          className="h-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: activity.color }}
+        />
+      </div>
+      <ul className="space-y-0.5">
+        {preview.map((t) => {
+          const isDone = t.status === "completed";
+          return (
+            <li key={t.id} className="flex items-center gap-1.5 text-xs">
+              <button
+                type="button"
+                onClick={() => toggle(t.id)}
+                aria-label={isDone ? "Desmarcar" : "Completar"}
+                className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition ${
+                  isDone
+                    ? "bg-foreground border-foreground"
+                    : "border-muted-foreground/40 hover:border-foreground"
+                }`}
+              >
+                {isDone && <Check className="h-2.5 w-2.5 text-background" />}
+              </button>
+              <span className={`truncate ${isDone ? "line-through text-muted-foreground" : ""}`}>
+                {t.name}
+              </span>
+              {t.dueDate && !isDone && (
+                <span className="text-[10px] text-muted-foreground shrink-0">· {t.dueDate}</span>
+              )}
+            </li>
+          );
+        })}
+        {more > 0 && (
+          <li className="text-[10px] text-muted-foreground pl-5">+{more} más</li>
+        )}
+      </ul>
     </div>
   );
 }
