@@ -53,12 +53,14 @@ import { GoalsManager } from "@/components/time/GoalsManager";
 import {
   CATEGORIES,
   nextColor,
+  taskProgress,
   uid,
   useTimeStore,
   weeklyHours,
   type Activity,
   type Category,
   type Goal,
+  type Task,
 } from "@/lib/time-store";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
