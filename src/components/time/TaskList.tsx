@@ -65,20 +65,14 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
 
   const update = (id: string, patch: Partial<Task>) => {
     onChange(
-      tasks.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              ...patch,
-              completedAt:
-                patch.status === "completed"
-                  ? Date.now()
-                  : patch.status && patch.status !== "completed"
-                    ? undefined
-                    : t.completedAt,
-            }
-          : t,
-      ),
+      tasks.map((t) => {
+        if (t.id !== id) return t;
+        const merged: Task = { ...t, ...patch };
+        if (patch.status !== undefined) {
+          merged.completedAt = patch.status === "completed" ? Date.now() : undefined;
+        }
+        return merged;
+      }),
     );
   };
 
