@@ -129,7 +129,7 @@ export function GoalForm({ initial, existing, onCancel, onSubmit }: Props) {
         </div>
       </label>
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="sticky bottom-0 -mx-6 -mb-6 flex justify-end gap-2 border-t bg-background/95 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancelar
         </Button>
