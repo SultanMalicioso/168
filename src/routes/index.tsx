@@ -475,7 +475,7 @@ function Index() {
               </Dialog>
             </div>
 
-            <ScrollArea className="max-h-[420px]">
+            <ScrollArea className="h-[min(60vh,480px)]">
               <ul className="divide-y">
                 {store.activities.length === 0 && (
                   <li className="p-6 text-sm text-muted-foreground text-center">
@@ -485,10 +485,10 @@ function Index() {
                 {store.activities.map((a) => {
                   const h = weeklyHours(a);
                   return (
-                    <li key={a.id} className="p-4 group">
-                      <div className="flex items-center gap-3">
+                    <li key={a.id} className="p-4">
+                      <div className="flex items-start gap-3">
                         <span
-                          className="h-3 w-3 rounded-full shrink-0"
+                          className="h-3 w-3 mt-1.5 rounded-full shrink-0"
                           style={{ background: a.color }}
                         />
                         <div className="min-w-0 flex-1">
@@ -519,37 +519,41 @@ function Index() {
                               );
                             })}
                           </div>
-                          <div className="text-xs text-muted-foreground tabular-nums">
+                          <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
-                        </div>
-                        <div className="flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                          <IconBtn
-                            onClick={() => togglePermanent(a.id)}
-                            label={a.permanent ? "Quitar permanente" : "Marcar permanente"}
-                          >
-                            {a.permanent ? (
-                              <PinOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Pin className="h-3.5 w-3.5" />
-                            )}
-                          </IconBtn>
-                          <IconBtn onClick={() => duplicate(a)} label="Duplicar">
-                            <Copy className="h-3.5 w-3.5" />
-                          </IconBtn>
-                          <IconBtn
-                            onClick={() => {
-                              setEditing(a);
-                              setOpen(true);
-                            }}
-                            label="Editar"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </IconBtn>
-                          <IconBtn onClick={() => remove(a.id)} label="Eliminar">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </IconBtn>
+                          <div className="mt-2 flex items-center gap-1 -ml-1.5">
+                            <IconBtn
+                              onClick={() => togglePermanent(a.id)}
+                              label={a.permanent ? "Quitar permanente" : "Marcar permanente"}
+                            >
+                              {a.permanent ? (
+                                <PinOff className="h-3.5 w-3.5" />
+                              ) : (
+                                <Pin className="h-3.5 w-3.5" />
+                              )}
+                            </IconBtn>
+                            <IconBtn onClick={() => duplicate(a)} label="Duplicar">
+                              <Copy className="h-3.5 w-3.5" />
+                            </IconBtn>
+                            <IconBtn
+                              onClick={() => {
+                                setEditing(a);
+                                setOpen(true);
+                              }}
+                              label="Editar"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </IconBtn>
+                            <IconBtn
+                              onClick={() => setDeleting(a)}
+                              label="Eliminar"
+                              danger
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </IconBtn>
+                          </div>
                         </div>
                       </div>
                     </li>
@@ -558,6 +562,36 @@ function Index() {
               </ul>
             </ScrollArea>
           </div>
+
+          <AlertDialog
+            open={deleting !== null}
+            onOpenChange={(v) => !v && setDeleting(null)}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="font-display text-2xl">
+                  ¿Eliminar “{deleting?.name}”?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  ¿Estás seguro de que querés eliminar esta actividad? Esta acción no
+                  se puede deshacer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (deleting) remove(deleting.id);
+                    setDeleting(null);
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Eliminar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
 
           <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
             <GoalsManager
