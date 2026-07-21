@@ -625,18 +625,26 @@ function IconBtn({
   children,
   onClick,
   label,
+  danger,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   label: string;
+  danger?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       aria-label={label}
-      className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+      title={label}
+      className={`h-8 w-8 inline-flex items-center justify-center rounded-md transition ${
+        danger
+          ? "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+      }`}
     >
       {children}
     </button>
   );
 }
+
