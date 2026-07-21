@@ -455,6 +455,51 @@ function Index() {
             />
           </div>
 
+          {/* Task stats */}
+          <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-display text-lg">Tareas</h2>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {taskStats.done}/{taskStats.total} completadas
+              </span>
+            </div>
+            {taskStats.total > 0 ? (
+              <>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-4">
+                  <div
+                    className="h-full bg-foreground transition-all duration-500"
+                    style={{ width: `${taskStats.pct}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatCard label="Total" value={String(taskStats.total)} sub="tareas registradas" />
+                  <StatCard label="Pendientes" value={String(taskStats.pending)} sub="por hacer" />
+                  <StatCard label="En progreso" value={String(taskStats.inProg)} sub="activas" />
+                  <StatCard label="Completadas" value={`${taskStats.pct.toFixed(0)}%`} sub={`${taskStats.done} tareas`} />
+                  {taskStats.topByCount && (
+                    <StatCard
+                      label="Más tareas"
+                      value={taskStats.topByCount.name}
+                      sub={`${taskStats.topByCount.count} tareas`}
+                    />
+                  )}
+                  {taskStats.topByCompletion && (
+                    <StatCard
+                      label="Mayor avance"
+                      value={taskStats.topByCompletion.name}
+                      sub={`${taskStats.topByCompletion.pct.toFixed(0)}% completado`}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Aún no hay tareas. Editá una actividad para agregar tareas dentro de ella.
+              </p>
+            )}
+          </div>
+
+
           {/* Week grid */}
           <div className="rounded-3xl border bg-card p-6 shadow-[var(--shadow-soft)]">
             <div className="flex items-center justify-between mb-4">
