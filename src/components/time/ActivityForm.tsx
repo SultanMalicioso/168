@@ -18,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES, type Activity, type Category, type Goal } from "@/lib/time-store";
+import { CATEGORIES, type Activity, type Category, type Goal, type Task } from "@/lib/time-store";
 import { GoalForm } from "./GoalForm";
+import { TaskList } from "./TaskList";
 
 const PALETTE = [
   "var(--chart-1)",
