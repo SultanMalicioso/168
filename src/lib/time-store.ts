@@ -104,6 +104,12 @@ export const weeklyHours = (a: Activity) => a.hoursPerDay * a.daysPerWeek;
 // Days the activity is scheduled on (Monday=0 … Sunday=6), spread evenly across the week.
 export function activityDays(a: Activity): Set<number> {
   const days = new Set<number>();
+  if (a.dayIndices && a.dayIndices.length > 0) {
+    for (const d of a.dayIndices) {
+      if (d >= 0 && d < 7) days.add(d);
+    }
+    return days;
+  }
   const n = Math.max(0, Math.min(7, a.daysPerWeek));
   if (n <= 0) return days;
   const step = n >= 7 ? 1 : 7 / n;
