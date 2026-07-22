@@ -87,6 +87,7 @@ export function ActivityForm({
             name: name.trim(),
             hoursPerDay,
             daysPerWeek,
+            dayIndices: dayIndices.length > 0 ? [...dayIndices].sort((a, b) => a - b) : undefined,
             color,
             category,
             permanent,
