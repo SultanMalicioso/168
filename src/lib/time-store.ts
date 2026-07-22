@@ -99,6 +99,27 @@ export function nextColor(existing: { color: string }[]): string {
 
 export const weeklyHours = (a: Activity) => a.hoursPerDay * a.daysPerWeek;
 
+// Days the activity is scheduled on (Monday=0 … Sunday=6), spread evenly across the week.
+export function activityDays(a: Activity): Set<number> {
+  const days = new Set<number>();
+  const n = Math.max(0, Math.min(7, a.daysPerWeek));
+  if (n <= 0) return days;
+  const step = n >= 7 ? 1 : 7 / n;
+  for (let i = 0; i < n; i++) days.add(Math.floor(i * step) % 7);
+  return days;
+}
+
+export const DAY_NAMES = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
+];
+export const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
 export const goalProgress = (goal: Goal, activities: Activity[]) => {
   const linked = activities.filter((a) => a.goalIds?.includes(goal.id));
   const hours = linked.reduce((s, a) => s + weeklyHours(a), 0);
