@@ -51,6 +51,7 @@ import { DonutChart } from "@/components/time/DonutChart";
 import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
 import { GoalsManager } from "@/components/time/GoalsManager";
+import { DayPlanner } from "@/components/time/DayPlanner";
 import {
   CATEGORIES,
   nextColor,
