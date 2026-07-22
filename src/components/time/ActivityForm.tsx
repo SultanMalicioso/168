@@ -52,7 +52,9 @@ export function ActivityForm({
 }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [hoursPerDay, setHoursPerDay] = useState(initial?.hoursPerDay ?? 1);
-  const [daysPerWeek, setDaysPerWeek] = useState(initial?.daysPerWeek ?? 5);
+  const [dayIndices, setDayIndices] = useState<number[]>(
+    initial ? Array.from(activityDays(initial)).sort((a, b) => a - b) : [0, 1, 2, 3, 4],
+  );
   const [color, setColor] = useState(initial?.color ?? defaultColor);
   const [category, setCategory] = useState<Category>(initial?.category ?? "otro");
   const [permanent, setPermanent] = useState<boolean>(initial?.permanent ?? false);
@@ -60,6 +62,12 @@ export function ActivityForm({
   const [goalIds, setGoalIds] = useState<string[]>(initial?.goalIds ?? []);
   const [tasks, setTasks] = useState<Task[]>(initial?.tasks ?? []);
   const [showGoalForm, setShowGoalForm] = useState(false);
+
+  const daysPerWeek = dayIndices.length;
+  const toggleDay = (d: number) =>
+    setDayIndices((prev) =>
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b),
+    );
 
   useEffect(() => {
     if (!initial) setColor(defaultColor);
