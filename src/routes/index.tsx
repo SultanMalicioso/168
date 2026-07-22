@@ -501,16 +501,33 @@ function Index() {
           </div>
 
 
-          {/* Week grid */}
-          <div className="rounded-3xl border bg-card p-6 shadow-[var(--shadow-soft)]">
-            <div className="flex items-center justify-between mb-4">
+          {/* Week grid + day planner */}
+          <div className="rounded-3xl border bg-card p-6 shadow-[var(--shadow-soft)] space-y-6">
+            <div className="flex items-center justify-between">
               <h2 className="font-display text-lg">Vista semanal</h2>
               <span className="text-xs text-muted-foreground">
-                Distribución aproximada por día
+                Global de la semana y planificación diaria
               </span>
             </div>
             <WeekGrid activities={filtered} />
+            <div className="pt-4 border-t">
+              <DayPlanner
+                activities={filtered}
+                goals={store.goals}
+                onNew={() => {
+                  setEditing(null);
+                  setOpen(true);
+                }}
+                onEdit={(a) => {
+                  setEditing(a);
+                  setOpen(true);
+                }}
+                onDuplicate={(a) => duplicate(a)}
+                onDelete={(a) => setDeleting(a)}
+              />
+            </div>
           </div>
+
         </div>
 
         {/* RIGHT: side panel */}
