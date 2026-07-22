@@ -1,4 +1,4 @@
-import type { Activity } from "@/lib/time-store";
+import { activityDays, type Activity } from "@/lib/time-store";
 
 const DAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -24,11 +24,7 @@ export function WeekGrid({ activities }: Props) {
   for (let day = 0; day < 7; day++) {
     let cursor = 0;
     for (const a of activities) {
-      const activeDays = new Set<number>();
-      const step = a.daysPerWeek >= 7 ? 1 : 7 / Math.max(a.daysPerWeek, 1);
-      for (let i = 0; i < a.daysPerWeek; i++) {
-        activeDays.add(Math.floor(i * step) % 7);
-      }
+      const activeDays = activityDays(a);
       if (!activeDays.has(day)) continue;
       const hrs = Math.min(a.hoursPerDay, HOURS - cursor);
       for (let h = 0; h < hrs; h++) {
