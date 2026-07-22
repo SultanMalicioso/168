@@ -109,35 +109,74 @@ export function ActivityForm({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="hpd">Horas por día</Label>
-            <Input
-              id="hpd"
-              type="number"
-              min={0}
-              max={24}
-              step={0.25}
-              value={hoursPerDay}
-              onChange={(e) =>
-                setHoursPerDay(Math.max(0, Math.min(24, Number(e.target.value) || 0)))
-              }
-            />
+        <div className="space-y-1.5">
+          <Label htmlFor="hpd">Horas por día</Label>
+          <Input
+            id="hpd"
+            type="number"
+            min={0}
+            max={24}
+            step={0.25}
+            value={hoursPerDay}
+            onChange={(e) =>
+              setHoursPerDay(Math.max(0, Math.min(24, Number(e.target.value) || 0)))
+            }
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label>Días de la semana</Label>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setDayIndices([0, 1, 2, 3, 4])}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                L-V
+              </button>
+              <button
+                type="button"
+                onClick={() => setDayIndices([0, 1, 2, 3, 4, 5, 6])}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setDayIndices([])}
+                className="hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Ninguno
+              </button>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="dpw">Días por semana</Label>
-            <Input
-              id="dpw"
-              type="number"
-              min={0}
-              max={7}
-              step={1}
-              value={daysPerWeek}
-              onChange={(e) =>
-                setDaysPerWeek(Math.max(0, Math.min(7, Number(e.target.value) || 0)))
-              }
-            />
+          <div className="grid grid-cols-7 gap-1">
+            {DAY_SHORT.map((label, i) => {
+              const on = dayIndices.includes(i);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => toggleDay(i)}
+                  aria-pressed={on}
+                  className={`h-10 rounded-lg border text-xs font-medium transition ${
+                    on
+                      ? "border-transparent text-background"
+                      : "bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  }`}
+                  style={on ? { background: color } : undefined}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
+          <p className="text-[10px] text-muted-foreground">
+            {daysPerWeek === 0
+              ? "Elegí al menos un día"
+              : `${daysPerWeek} día${daysPerWeek === 1 ? "" : "s"} seleccionado${daysPerWeek === 1 ? "" : "s"}`}
+          </p>
         </div>
 
         <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
