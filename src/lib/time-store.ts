@@ -60,6 +60,8 @@ export interface Activity {
   name: string;
   hoursPerDay: number;
   daysPerWeek: number;
+  /** Explicit days the activity runs on. Monday=0 … Sunday=6. If present, overrides the auto spread. */
+  dayIndices?: number[];
   color: string;
   category: Category;
   permanent?: boolean;
