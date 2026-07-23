@@ -411,8 +411,11 @@ function Index() {
             ))}
           </div>
 
+          {scope === "week" ? (
+          <>
           {/* Chart card */}
           <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
+
             <div className="flex justify-center mb-4">
               <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
                 <button
