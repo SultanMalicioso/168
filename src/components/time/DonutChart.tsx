@@ -5,11 +5,19 @@ import { weeklyHours } from "@/lib/time-store";
 interface Props {
   activities: Activity[];
   size?: number;
+  total?: number;
+  unitLabel?: string;
+  freeLabel?: string;
 }
 
-const TOTAL = 168;
+export function DonutChart({
+  activities,
+  size = 460,
+  total: TOTAL = 168,
+  unitLabel,
+  freeLabel = "de la semana",
+}: Props) {
 
-export function DonutChart({ activities, size = 460 }: Props) {
   const [hover, setHover] = useState<string | null>(null);
   const cx = size / 2;
   const cy = size / 2;
@@ -132,7 +140,7 @@ export function DonutChart({ activities, size = 460 }: Props) {
                 textAnchor="middle"
                 style={{ fontSize: size * 0.028, fill: "var(--muted-foreground)" }}
               >
-                {pct(hovered.hours)}% de la semana
+                {pct(hovered.hours)}% {freeLabel}
               </text>
             </>
           ) : (
@@ -155,7 +163,7 @@ export function DonutChart({ activities, size = 460 }: Props) {
                 textAnchor="middle"
                 style={{ fontSize: size * 0.03, fill: "var(--muted-foreground)", letterSpacing: 2 }}
               >
-                DE 168 HORAS
+                {unitLabel ?? `DE ${TOTAL} HORAS`}
               </text>
               <text
                 x={cx}

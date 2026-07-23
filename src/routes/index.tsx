@@ -52,6 +52,9 @@ import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
 import { GoalsManager } from "@/components/time/GoalsManager";
 import { DayPlanner } from "@/components/time/DayPlanner";
+import { DayView } from "@/components/time/DayView";
+import { Calendar, CalendarDays } from "lucide-react";
+
 import {
   CATEGORIES,
   nextColor,
@@ -95,7 +98,9 @@ function Index() {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<Activity | null>(null);
   const [filter, setFilter] = useState<Category | "all">("all");
+  const [scope, setScope] = useState<"week" | "day">("week");
   const chartRef = useRef<HTMLDivElement>(null);
+
 
 
   const chartView = store.chartView ?? "activities";
@@ -351,8 +356,33 @@ function Index() {
       <main className="mx-auto max-w-[1400px] px-6 py-8 grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* LEFT: chart + stats + week */}
         <div className="space-y-6 min-w-0">
+          {/* Scope tabs: Semana / Día */}
+          <div className="flex justify-center">
+            <div className="inline-flex rounded-full border bg-muted/40 p-1 text-sm">
+              <button
+                onClick={() => setScope("week")}
+                className={`px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                  scope === "week" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" /> Semana
+                <span className="text-[10px] text-muted-foreground ml-1">168h</span>
+              </button>
+              <button
+                onClick={() => setScope("day")}
+                className={`px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                  scope === "day" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                }`}
+              >
+                <Calendar className="h-3.5 w-3.5" /> Día
+                <span className="text-[10px] text-muted-foreground ml-1">24h</span>
+              </button>
+            </div>
+          </div>
+
           {/* Filter chips */}
           <div className="flex flex-wrap items-center gap-2">
+
             <span className="text-xs text-muted-foreground mr-1">Filtrar:</span>
             <button
               onClick={() => setFilter("all")}
@@ -381,8 +411,11 @@ function Index() {
             ))}
           </div>
 
+          {scope === "week" ? (
+          <>
           {/* Chart card */}
           <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
+
             <div className="flex justify-center mb-4">
               <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
                 <button
@@ -528,8 +561,22 @@ function Index() {
               />
             </div>
           </div>
+          </>
+          ) : (
+            <DayView
+              activities={filtered}
+              goals={store.goals}
+              onEdit={(a) => {
+                setEditing(a);
+                setOpen(true);
+              }}
+              onDuplicate={(a) => duplicate(a)}
+              onDelete={(a) => setDeleting(a)}
+            />
+          )}
 
         </div>
+
 
         {/* RIGHT: side panel */}
         <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
