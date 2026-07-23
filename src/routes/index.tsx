@@ -98,7 +98,9 @@ function Index() {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<Activity | null>(null);
   const [filter, setFilter] = useState<Category | "all">("all");
+  const [scope, setScope] = useState<"week" | "day">("week");
   const chartRef = useRef<HTMLDivElement>(null);
+
 
 
   const chartView = store.chartView ?? "activities";
