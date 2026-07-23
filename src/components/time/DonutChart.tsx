@@ -163,7 +163,7 @@ export function DonutChart({
                 textAnchor="middle"
                 style={{ fontSize: size * 0.03, fill: "var(--muted-foreground)", letterSpacing: 2 }}
               >
-                DE 168 HORAS
+                {unitLabel ?? `DE ${TOTAL} HORAS`}
               </text>
               <text
                 x={cx}
