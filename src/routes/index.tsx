@@ -52,6 +52,9 @@ import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
 import { GoalsManager } from "@/components/time/GoalsManager";
 import { DayPlanner } from "@/components/time/DayPlanner";
+import { DayView } from "@/components/time/DayView";
+import { Calendar, CalendarDays } from "lucide-react";
+
 import {
   CATEGORIES,
   nextColor,
