@@ -383,7 +383,6 @@ function Index() {
           {/* Filter chips */}
           <div className="flex flex-wrap items-center gap-2">
 
-          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground mr-1">Filtrar:</span>
             <button
               onClick={() => setFilter("all")}
