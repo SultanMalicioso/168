@@ -140,7 +140,7 @@ export function DonutChart({
                 textAnchor="middle"
                 style={{ fontSize: size * 0.028, fill: "var(--muted-foreground)" }}
               >
-                {pct(hovered.hours)}% de la semana
+                {pct(hovered.hours)}% {freeLabel}
               </text>
             </>
           ) : (
