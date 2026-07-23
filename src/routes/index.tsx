@@ -561,8 +561,22 @@ function Index() {
               />
             </div>
           </div>
+          </>
+          ) : (
+            <DayView
+              activities={filtered}
+              goals={store.goals}
+              onEdit={(a) => {
+                setEditing(a);
+                setOpen(true);
+              }}
+              onDuplicate={(a) => duplicate(a)}
+              onDelete={(a) => setDeleting(a)}
+            />
+          )}
 
         </div>
+
 
         {/* RIGHT: side panel */}
         <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
