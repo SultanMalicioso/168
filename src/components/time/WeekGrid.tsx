@@ -47,6 +47,14 @@ export function WeekGrid({ activities }: Props) {
     }
   }
 
+  // All activities scheduled per weekday (for the marker row, so nothing gets
+  // hidden even if the stacked hours exceed 24h on a given day).
+  const activitiesPerDay: Activity[][] = Array.from({ length: 7 }, () => []);
+  for (const a of activities) {
+    const activeDays = activityDays(a);
+    for (const d of activeDays) activitiesPerDay[d].push(a);
+  }
+
   return (
     <div className="w-full space-y-2">
       <div className="grid grid-cols-[auto_repeat(7,1fr)] gap-px text-[10px] text-muted-foreground">
@@ -73,6 +81,32 @@ export function WeekGrid({ activities }: Props) {
           }),
         ])}
       </div>
+
+      {/* Activity markers row — always shows every scheduled activity per day */}
+      <div className="grid grid-cols-[auto_repeat(7,1fr)] gap-px text-[10px]">
+        <div className="pr-1 text-right text-muted-foreground">Activ.</div>
+        {activitiesPerDay.map((cell, d) => (
+          <div
+            key={`a-${d}`}
+            className="min-h-[18px] rounded-md border border-border/60 bg-muted/20 px-1 py-0.5 flex flex-wrap items-center gap-0.5"
+            title={cell.map((a) => `${a.name} — ${a.hoursPerDay}h`).join("\n")}
+          >
+            {cell.slice(0, 6).map((a) => (
+              <span
+                key={a.id}
+                className="h-1.5 w-3 rounded-[2px]"
+                style={{ background: a.color }}
+              />
+            ))}
+            {cell.length > 6 && (
+              <span className="text-[9px] text-muted-foreground tabular-nums">
+                +{cell.length - 6}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
 
       {/* Task markers row */}
       {tasksPerDay.some((c) => c.length > 0) && (
