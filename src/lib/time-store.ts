@@ -111,9 +111,9 @@ export function activityDays(a: Activity): Set<number> {
     return days;
   }
   const n = Math.max(0, Math.min(7, a.daysPerWeek));
-  if (n <= 0) return days;
-  const step = n >= 7 ? 1 : 7 / n;
-  for (let i = 0; i < n; i++) days.add(Math.floor(i * step) % 7);
+  // Default: consecutive days starting Monday (0..n-1). Predictable and
+  // matches typical routines (e.g. 5 days = L-V, not a scattered spread).
+  for (let i = 0; i < n; i++) days.add(i);
   return days;
 }
 
