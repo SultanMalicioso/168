@@ -1,4 +1,4 @@
-import { activityDays, type Activity } from "@/lib/time-store";
+import { activityDays, DAY_SHORT, type Activity } from "@/lib/time-store";
 
 const DAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -6,36 +6,22 @@ interface Props {
   activities: Activity[];
 }
 
-// Map an ISO date (yyyy-mm-dd) to a weekday index where Monday = 0 … Sunday = 6.
 function isoDayIndex(iso: string): number | null {
   const d = new Date(iso + "T00:00:00");
   if (Number.isNaN(d.getTime())) return null;
-  const js = d.getDay(); // 0 = Sun … 6 = Sat
+  const js = d.getDay();
   return (js + 6) % 7;
 }
 
 export function WeekGrid({ activities }: Props) {
-  const HOURS = 24;
-
-  const grid: (Activity | null)[][] = Array.from({ length: 7 }, () =>
-    Array(HOURS).fill(null),
-  );
-
-  for (let day = 0; day < 7; day++) {
-    let cursor = 0;
-    for (const a of activities) {
-      const activeDays = activityDays(a);
-      if (!activeDays.has(day)) continue;
-      const hrs = Math.min(a.hoursPerDay, HOURS - cursor);
-      for (let h = 0; h < hrs; h++) {
-        if (cursor + h < HOURS) grid[day][cursor + h] = a;
-      }
-      cursor = Math.min(HOURS, cursor + hrs);
-      if (cursor >= HOURS) break;
-    }
+  // Build per-day activity lists (respect explicit dayIndices).
+  const perDay: Activity[][] = Array.from({ length: 7 }, () => []);
+  for (const a of activities) {
+    const days = activityDays(a);
+    for (const d of days) perDay[d].push(a);
   }
 
-  // Aggregate dated tasks per weekday (from all activities passed in).
+  // Aggregate dated tasks per weekday.
   const tasksPerDay: { activity: Activity; task: NonNullable<Activity["tasks"]>[number] }[][] =
     Array.from({ length: 7 }, () => []);
   for (const a of activities) {
@@ -47,71 +33,80 @@ export function WeekGrid({ activities }: Props) {
     }
   }
 
-  // All activities scheduled per weekday (for the marker row, so nothing gets
-  // hidden even if the stacked hours exceed 24h on a given day).
-  const activitiesPerDay: Activity[][] = Array.from({ length: 7 }, () => []);
-  for (const a of activities) {
-    const activeDays = activityDays(a);
-    for (const d of activeDays) activitiesPerDay[d].push(a);
-  }
+  const COL_HEIGHT = 260; // px – tall enough to read labels
 
   return (
     <div className="w-full space-y-2">
-      <div className="grid grid-cols-[auto_repeat(7,1fr)] gap-px text-[10px] text-muted-foreground">
-        <div />
+      {/* Day headers */}
+      <div className="grid grid-cols-7 gap-1 text-[10px] font-medium text-muted-foreground">
         {DAYS.map((d, i) => (
-          <div key={i} className="text-center pb-1 font-medium">
+          <div key={i} className="text-center">
             {d}
-          </div>
-        ))}
-        {Array.from({ length: HOURS }).flatMap((_, h) => [
-          <div key={`h-${h}`} className="pr-1 text-right tabular-nums leading-[10px]">
-            {h % 3 === 0 ? `${h}h` : ""}
-          </div>,
-          ...Array.from({ length: 7 }).map((_, d) => {
-            const a = grid[d][h];
-            return (
-              <div
-                key={`c-${d}-${h}`}
-                className="h-[10px] rounded-[2px] border border-border/40"
-                style={{ background: a ? a.color : "transparent" }}
-                title={a ? `${a.name} — ${a.hoursPerDay}h` : ""}
-              />
-            );
-          }),
-        ])}
-      </div>
-
-      {/* Activity markers row — always shows every scheduled activity per day */}
-      <div className="grid grid-cols-[auto_repeat(7,1fr)] gap-px text-[10px]">
-        <div className="pr-1 text-right text-muted-foreground">Activ.</div>
-        {activitiesPerDay.map((cell, d) => (
-          <div
-            key={`a-${d}`}
-            className="min-h-[18px] rounded-md border border-border/60 bg-muted/20 px-1 py-0.5 flex flex-wrap items-center gap-0.5"
-            title={cell.map((a) => `${a.name} — ${a.hoursPerDay}h`).join("\n")}
-          >
-            {cell.slice(0, 6).map((a) => (
-              <span
-                key={a.id}
-                className="h-1.5 w-3 rounded-[2px]"
-                style={{ background: a.color }}
-              />
-            ))}
-            {cell.length > 6 && (
-              <span className="text-[9px] text-muted-foreground tabular-nums">
-                +{cell.length - 6}
-              </span>
-            )}
+            <span className="ml-1 tabular-nums text-muted-foreground/70">
+              {perDay[i].reduce((s, a) => s + a.hoursPerDay, 0)}h
+            </span>
           </div>
         ))}
       </div>
 
+      {/* Day columns filled proportionally with activity blocks */}
+      <div
+        className="grid grid-cols-7 gap-1"
+        style={{ height: COL_HEIGHT }}
+      >
+        {perDay.map((list, d) => {
+          const total = list.reduce((s, a) => s + a.hoursPerDay, 0);
+          // Scale: if total <= 24, use 24h as reference so free time is visible.
+          // If total > 24, scale by total so everything fits.
+          const scale = Math.max(24, total);
+          const freeHours = Math.max(0, 24 - total);
+          return (
+            <div
+              key={d}
+              className="relative flex flex-col overflow-hidden rounded-md border border-border/60 bg-muted/20"
+              title={DAY_SHORT[d]}
+            >
+              {list.map((a, i) => {
+                const pct = (a.hoursPerDay / scale) * 100;
+                return (
+                  <div
+                    key={`${a.id}-${i}`}
+                    className="flex items-center justify-center overflow-hidden px-1 text-[9px] font-medium leading-tight text-foreground/90"
+                    style={{
+                      height: `${pct}%`,
+                      background: a.color,
+                      minHeight: 2,
+                    }}
+                    title={`${a.name} — ${a.hoursPerDay}h`}
+                  >
+                    <span className="truncate mix-blend-luminosity">
+                      {pct > 6 ? a.name : ""}
+                    </span>
+                  </div>
+                );
+              })}
+              {freeHours > 0 && (
+                <div
+                  className="flex items-center justify-center text-[9px] text-muted-foreground/70"
+                  style={{ height: `${(freeHours / scale) * 100}%` }}
+                  title={`Libre — ${freeHours}h`}
+                >
+                  {freeHours >= 2 ? `${freeHours}h libre` : ""}
+                </div>
+              )}
+              {list.length === 0 && (
+                <div className="flex h-full items-center justify-center text-[9px] text-muted-foreground/60">
+                  —
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {/* Task markers row */}
       {tasksPerDay.some((c) => c.length > 0) && (
-        <div className="grid grid-cols-[auto_repeat(7,1fr)] gap-px text-[10px]">
-          <div className="pr-1 text-right text-muted-foreground">Tareas</div>
+        <div className="grid grid-cols-7 gap-1 text-[10px]">
           {tasksPerDay.map((cell, d) => {
             const total = cell.length;
             const done = cell.filter((c) => c.task.status === "completed").length;
@@ -126,7 +121,7 @@ export function WeekGrid({ activities }: Props) {
                   )
                   .join("\n")}
               >
-                {cell.slice(0, 4).map((c) => (
+                {cell.slice(0, 3).map((c) => (
                   <span
                     key={c.task.id}
                     className="h-1.5 w-1.5 rounded-full"
@@ -136,9 +131,9 @@ export function WeekGrid({ activities }: Props) {
                     }}
                   />
                 ))}
-                {total > 4 && (
+                {total > 3 && (
                   <span className="text-[9px] text-muted-foreground tabular-nums">
-                    +{total - 4}
+                    +{total - 3}
                   </span>
                 )}
                 {total > 0 && (
