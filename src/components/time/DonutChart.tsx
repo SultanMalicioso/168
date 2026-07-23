@@ -5,11 +5,19 @@ import { weeklyHours } from "@/lib/time-store";
 interface Props {
   activities: Activity[];
   size?: number;
+  total?: number;
+  unitLabel?: string;
+  freeLabel?: string;
 }
 
-const TOTAL = 168;
+export function DonutChart({
+  activities,
+  size = 460,
+  total: TOTAL = 168,
+  unitLabel,
+  freeLabel = "de la semana",
+}: Props) {
 
-export function DonutChart({ activities, size = 460 }: Props) {
   const [hover, setHover] = useState<string | null>(null);
   const cx = size / 2;
   const cy = size / 2;
