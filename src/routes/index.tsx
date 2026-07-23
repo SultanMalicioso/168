@@ -356,7 +356,33 @@ function Index() {
       <main className="mx-auto max-w-[1400px] px-6 py-8 grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* LEFT: chart + stats + week */}
         <div className="space-y-6 min-w-0">
+          {/* Scope tabs: Semana / Día */}
+          <div className="flex justify-center">
+            <div className="inline-flex rounded-full border bg-muted/40 p-1 text-sm">
+              <button
+                onClick={() => setScope("week")}
+                className={`px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                  scope === "week" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" /> Semana
+                <span className="text-[10px] text-muted-foreground ml-1">168h</span>
+              </button>
+              <button
+                onClick={() => setScope("day")}
+                className={`px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                  scope === "day" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                }`}
+              >
+                <Calendar className="h-3.5 w-3.5" /> Día
+                <span className="text-[10px] text-muted-foreground ml-1">24h</span>
+              </button>
+            </div>
+          </div>
+
           {/* Filter chips */}
+          <div className="flex flex-wrap items-center gap-2">
+
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground mr-1">Filtrar:</span>
             <button
