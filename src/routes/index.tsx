@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import {
@@ -14,6 +14,9 @@ import {
   Plus,
   RotateCcw,
   Sun,
+  CheckSquare,
+  ListChecks,
+  Layers,
   Table2,
   Target,
   Trash2,
