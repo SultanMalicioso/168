@@ -313,6 +313,12 @@ function Index() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              to="/todo"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border hover:bg-accent transition"
+            >
+              <CheckSquare className="h-4 w-4" /> To-Do
+            </Link>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button size="sm" className="gap-1.5">
