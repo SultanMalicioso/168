@@ -108,17 +108,34 @@ function Index() {
 
 
 
-  const chartView = store.chartView ?? "activities";
-  const setChartView = (v: "activities" | "goals") => setStore({ ...store, chartView: v });
+  const chartView: ChartView = store.chartView ?? "activities";
+  const setChartView = (v: ChartView) => setStore({ ...store, chartView: v });
 
   const filtered = useMemo(
     () => (filter === "all" ? store.activities : store.activities.filter((a) => a.category === filter)),
     [store.activities, filter],
   );
 
+  // Aggregate top-level + activity-inline tasks
+  const allT = useMemo(() => allTasks(store), [store]);
+
   // For "goals" view, synthesize pseudo-activities grouped by goal so the donut renders groups.
   const chartActivities = useMemo<Activity[]>(() => {
-    if (chartView === "activities") return filtered;
+    if (chartView === "activities" || chartView === "combined") return filtered;
+    if (chartView === "tasks") {
+      // Each task → pseudo-activity with weeklyHours = estimatedMinutes/60
+      return allT
+        .filter((t) => !t.archived)
+        .map((t) => ({
+          id: `task-${t.id}`,
+          name: t.name,
+          hoursPerDay: taskMinutes(t) / 60,
+          daysPerWeek: 1,
+          color: taskColor(t, store),
+          category: t.category ?? "otro",
+        }));
+    }
+    // goals
     const items: Activity[] = [];
     for (const g of store.goals) {
       if (!g.active) continue;
@@ -134,7 +151,6 @@ function Index() {
         category: "otro",
       });
     }
-    // Unlinked activities go in one bucket
     const unlinked = filtered.filter((a) => !a.goalIds || a.goalIds.length === 0);
     const unlinkedHours = unlinked.reduce((s, a) => s + weeklyHours(a), 0);
     if (unlinkedHours > 0) {
@@ -148,7 +164,24 @@ function Index() {
       });
     }
     return items;
-  }, [chartView, filtered, store.goals]);
+  }, [chartView, filtered, store, allT]);
+
+  // For combined mode: subdivide each activity outer arc by its tasks
+  const subSegments = useMemo<Record<string, { id: string; name: string; hours: number; color: string }[]>>(() => {
+    if (chartView !== "combined") return {};
+    const map: Record<string, { id: string; name: string; hours: number; color: string }[]> = {};
+    for (const a of filtered) {
+      const linked = allT.filter((t) => t.activityId === a.id && !t.archived);
+      if (linked.length === 0) continue;
+      map[a.id] = linked.map((t) => ({
+        id: t.id,
+        name: t.name,
+        hours: taskMinutes(t) / 60,
+        color: taskColor(t, store),
+      }));
+    }
+    return map;
+  }, [chartView, filtered, allT, store]);
 
   const totalUsed = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
   const free = Math.max(0, TOTAL - totalUsed);
