@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import {
@@ -14,6 +14,9 @@ import {
   Plus,
   RotateCcw,
   Sun,
+  CheckSquare,
+  ListChecks,
+  Layers,
   Table2,
   Target,
   Trash2,
@@ -64,9 +67,11 @@ import {
   weeklyHours,
   type Activity,
   type Category,
+  type ChartView,
   type Goal,
   type Task,
 } from "@/lib/time-store";
+import { allTasks, taskColor, taskMinutes } from "@/lib/task-utils";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
@@ -103,17 +108,34 @@ function Index() {
 
 
 
-  const chartView = store.chartView ?? "activities";
-  const setChartView = (v: "activities" | "goals") => setStore({ ...store, chartView: v });
+  const chartView: ChartView = store.chartView ?? "activities";
+  const setChartView = (v: ChartView) => setStore({ ...store, chartView: v });
 
   const filtered = useMemo(
     () => (filter === "all" ? store.activities : store.activities.filter((a) => a.category === filter)),
     [store.activities, filter],
   );
 
+  // Aggregate top-level + activity-inline tasks
+  const allT = useMemo(() => allTasks(store), [store]);
+
   // For "goals" view, synthesize pseudo-activities grouped by goal so the donut renders groups.
   const chartActivities = useMemo<Activity[]>(() => {
-    if (chartView === "activities") return filtered;
+    if (chartView === "activities" || chartView === "combined") return filtered;
+    if (chartView === "tasks") {
+      // Each task → pseudo-activity with weeklyHours = estimatedMinutes/60
+      return allT
+        .filter((t) => !t.archived)
+        .map((t) => ({
+          id: `task-${t.id}`,
+          name: t.name,
+          hoursPerDay: taskMinutes(t) / 60,
+          daysPerWeek: 1,
+          color: taskColor(t, store),
+          category: t.category ?? "otro",
+        }));
+    }
+    // goals
     const items: Activity[] = [];
     for (const g of store.goals) {
       if (!g.active) continue;
@@ -129,7 +151,6 @@ function Index() {
         category: "otro",
       });
     }
-    // Unlinked activities go in one bucket
     const unlinked = filtered.filter((a) => !a.goalIds || a.goalIds.length === 0);
     const unlinkedHours = unlinked.reduce((s, a) => s + weeklyHours(a), 0);
     if (unlinkedHours > 0) {
@@ -143,7 +164,24 @@ function Index() {
       });
     }
     return items;
-  }, [chartView, filtered, store.goals]);
+  }, [chartView, filtered, store, allT]);
+
+  // For combined mode: subdivide each activity outer arc by its tasks
+  const subSegments = useMemo<Record<string, { id: string; name: string; hours: number; color: string }[]>>(() => {
+    if (chartView !== "combined") return {};
+    const map: Record<string, { id: string; name: string; hours: number; color: string }[]> = {};
+    for (const a of filtered) {
+      const linked = allT.filter((t) => t.activityId === a.id && !t.archived);
+      if (linked.length === 0) continue;
+      map[a.id] = linked.map((t) => ({
+        id: t.id,
+        name: t.name,
+        hours: taskMinutes(t) / 60,
+        color: taskColor(t, store),
+      }));
+    }
+    return map;
+  }, [chartView, filtered, allT, store]);
 
   const totalUsed = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
   const free = Math.max(0, TOTAL - totalUsed);
@@ -275,6 +313,12 @@ function Index() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              to="/todo"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border hover:bg-accent transition"
+            >
+              <CheckSquare className="h-4 w-4" /> To-Do
+            </Link>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button size="sm" className="gap-1.5">
@@ -417,27 +461,30 @@ function Index() {
           <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
 
             <div className="flex justify-center mb-4">
-              <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
-                <button
-                  onClick={() => setChartView("activities")}
-                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
-                    chartView === "activities" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
-                  }`}
-                >
-                  <LayoutGrid className="h-3 w-3" /> Actividades
-                </button>
-                <button
-                  onClick={() => setChartView("goals")}
-                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
-                    chartView === "goals" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
-                  }`}
-                >
-                  <Target className="h-3 w-3" /> Objetivos
-                </button>
+              <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs flex-wrap">
+                {([
+                  ["activities", "Actividades", <LayoutGrid className="h-3 w-3" key="a" />],
+                  ["goals", "Objetivos", <Target className="h-3 w-3" key="g" />],
+                  ["tasks", "Tareas", <ListChecks className="h-3 w-3" key="t" />],
+                  ["combined", "Combinado", <Layers className="h-3 w-3" key="c" />],
+                ] as [ChartView, string, React.ReactElement][]).map(([v, label, icon]) => (
+                  <button
+                    key={v}
+                    onClick={() => setChartView(v)}
+                    className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                      chartView === v ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                    }`}
+                  >
+                    {icon} {label}
+                  </button>
+                ))}
               </div>
             </div>
             <div ref={chartRef}>
-              <DonutChart activities={chartActivities} />
+              <DonutChart
+                activities={chartActivities}
+                subSegments={chartView === "combined" ? subSegments : undefined}
+              />
             </div>
 
             {/* Live counter */}

@@ -30,13 +30,26 @@ export interface Task {
   description?: string;
   status: TaskStatus;
   priority: TaskPriority;
-  dueDate?: string; // ISO yyyy-mm-dd
+  /** Optional activity link. Undefined = independent / standalone task. */
+  activityId?: string;
+  /** Optional goal links. */
+  goalIds?: string[];
+  category?: Category;
+  dueDate?: string; // yyyy-mm-dd
+  startTime?: string; // HH:mm
   dueTime?: string; // HH:mm
+  /** Estimated duration in minutes. Drives donut segments in task mode. */
+  estimatedMinutes?: number;
   color?: string;
   notes?: string;
+  tags?: string[];
   createdAt: number;
+  updatedAt?: number;
   completedAt?: number;
-  // Reserved: subtasks?, recurrence?, reminders?, attachments?, tags?, comments?
+  /** Soft-delete (papelera). */
+  deletedAt?: number;
+  archived?: boolean;
+  // Reserved for future: parentId, rrule, remindAt, attachments, comments
 }
 
 export const TASK_PRIORITY_META: Record<
@@ -60,13 +73,13 @@ export interface Activity {
   name: string;
   hoursPerDay: number;
   daysPerWeek: number;
-  /** Explicit days the activity runs on. Monday=0 … Sunday=6. If present, overrides the auto spread. */
   dayIndices?: number[];
   color: string;
   category: Category;
   permanent?: boolean;
   notes?: string;
   goalIds?: string[];
+  /** Legacy inline tasks — still supported for backward compatibility. */
   tasks?: Task[];
 }
 
@@ -101,7 +114,6 @@ export function nextColor(existing: { color: string }[]): string {
 
 export const weeklyHours = (a: Activity) => a.hoursPerDay * a.daysPerWeek;
 
-// Days the activity is scheduled on (Monday=0 … Sunday=6), spread evenly across the week.
 export function activityDays(a: Activity): Set<number> {
   const days = new Set<number>();
   if (a.dayIndices && a.dayIndices.length > 0) {
@@ -111,8 +123,6 @@ export function activityDays(a: Activity): Set<number> {
     return days;
   }
   const n = Math.max(0, Math.min(7, a.daysPerWeek));
-  // Default: consecutive days starting Monday (0..n-1). Predictable and
-  // matches typical routines (e.g. 5 days = L-V, not a scattered spread).
   for (let i = 0; i < n; i++) days.add(i);
   return days;
 }
@@ -158,7 +168,7 @@ export const PROGRESS_LABEL: Record<ProgressState, string> = {
   exceeded: "Superado",
 };
 
-// Task helpers
+// Task helpers (legacy — used by ActivityForm/TaskList)
 export const taskProgress = (a: Activity) => {
   const tasks = a.tasks ?? [];
   const total = tasks.length;
@@ -172,11 +182,14 @@ export const taskProgress = (a: Activity) => {
 const KEY = "week168.v2";
 const LEGACY_KEY = "week168.v1";
 
-interface Store {
+export type ChartView = "activities" | "goals" | "tasks" | "combined";
+
+export interface Store {
   activities: Activity[];
   goals: Goal[];
+  tasks: Task[]; // top-level tasks (independent or aggregated)
   theme: "light" | "dark";
-  chartView?: "activities" | "goals";
+  chartView?: ChartView;
 }
 
 const seedGoals: Goal[] = [
@@ -194,6 +207,7 @@ const defaultStore: Store = {
     { id: "seed-5", name: "Ocio", hoursPerDay: 2, daysPerWeek: 7, color: PALETTE[4], category: "ocio", goalIds: ["gs-ocio"] },
   ],
   goals: seedGoals,
+  tasks: [],
   theme: "light",
   chartView: "activities",
 };
@@ -224,15 +238,18 @@ function migrate(raw: any): Store {
   return {
     activities,
     goals,
+    tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
     theme: raw.theme === "dark" ? "dark" : "light",
-    chartView: raw.chartView === "goals" ? "goals" : "activities",
+    chartView: raw.chartView === "goals" || raw.chartView === "tasks" || raw.chartView === "combined"
+      ? raw.chartView
+      : "activities",
   };
 }
 
-// Ensure tasks array always exists on every activity for consumer simplicity.
 function normalize(store: Store): Store {
   return {
     ...store,
+    tasks: Array.isArray(store.tasks) ? store.tasks : [],
     activities: store.activities.map((a) => ({
       ...a,
       tasks: Array.isArray(a.tasks) ? a.tasks : [],
