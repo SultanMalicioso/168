@@ -435,7 +435,7 @@ function TodoPage() {
                             onDuplicate={() => dup(t)}
                             onArchive={() => toggleArchive(t)}
                             onPriority={(p) => quickPriority(t, p)}
-                            isTrash={view === "trash"}
+                            isTrash={false}
                           />
                         ))}
                       </GroupSection>
@@ -463,7 +463,7 @@ function TodoPage() {
                           onDuplicate={() => dup(t)}
                           onArchive={() => toggleArchive(t)}
                           onPriority={(p) => quickPriority(t, p)}
-                          isTrash={view === "trash"}
+                          isTrash={false}
                         />
                       ))}
                     </GroupSection>
