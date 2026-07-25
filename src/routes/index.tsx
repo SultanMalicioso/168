@@ -455,27 +455,30 @@ function Index() {
           <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
 
             <div className="flex justify-center mb-4">
-              <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
-                <button
-                  onClick={() => setChartView("activities")}
-                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
-                    chartView === "activities" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
-                  }`}
-                >
-                  <LayoutGrid className="h-3 w-3" /> Actividades
-                </button>
-                <button
-                  onClick={() => setChartView("goals")}
-                  className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
-                    chartView === "goals" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
-                  }`}
-                >
-                  <Target className="h-3 w-3" /> Objetivos
-                </button>
+              <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs flex-wrap">
+                {([
+                  ["activities", "Actividades", <LayoutGrid className="h-3 w-3" key="a" />],
+                  ["goals", "Objetivos", <Target className="h-3 w-3" key="g" />],
+                  ["tasks", "Tareas", <ListChecks className="h-3 w-3" key="t" />],
+                  ["combined", "Combinado", <Layers className="h-3 w-3" key="c" />],
+                ] as [ChartView, string, JSX.Element][]).map(([v, label, icon]) => (
+                  <button
+                    key={v}
+                    onClick={() => setChartView(v)}
+                    className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                      chartView === v ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
+                    }`}
+                  >
+                    {icon} {label}
+                  </button>
+                ))}
               </div>
             </div>
             <div ref={chartRef}>
-              <DonutChart activities={chartActivities} />
+              <DonutChart
+                activities={chartActivities}
+                subSegments={chartView === "combined" ? subSegments : undefined}
+              />
             </div>
 
             {/* Live counter */}
