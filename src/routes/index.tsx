@@ -67,9 +67,11 @@ import {
   weeklyHours,
   type Activity,
   type Category,
+  type ChartView,
   type Goal,
   type Task,
 } from "@/lib/time-store";
+import { allTasks, taskColor, taskMinutes } from "@/lib/task-utils";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
