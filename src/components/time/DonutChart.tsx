@@ -2,12 +2,24 @@ import { useMemo, useState } from "react";
 import type { Activity } from "@/lib/time-store";
 import { weeklyHours } from "@/lib/time-store";
 
+export interface SubSegment {
+  id: string;
+  name: string;
+  hours: number;
+  color: string;
+}
+
 interface Props {
   activities: Activity[];
   size?: number;
   total?: number;
   unitLabel?: string;
   freeLabel?: string;
+  /**
+   * Optional inner ring (combined mode). Map from activity id → sub segments.
+   * If a special activity id `__free__` is provided it is ignored.
+   */
+  subSegments?: Record<string, SubSegment[]>;
 }
 
 export function DonutChart({
@@ -16,13 +28,20 @@ export function DonutChart({
   total: TOTAL = 168,
   unitLabel,
   freeLabel = "de la semana",
+  subSegments,
 }: Props) {
-
   const [hover, setHover] = useState<string | null>(null);
   const cx = size / 2;
   const cy = size / 2;
   const r = size * 0.42;
   const inner = size * 0.28;
+
+  // Combined mode uses two rings: outer (activities) + inner (tasks per activity).
+  const combined = !!subSegments;
+  const outerR = combined ? size * 0.44 : r;
+  const outerInner = combined ? size * 0.34 : inner;
+  const innerR = combined ? size * 0.32 : 0;
+  const innerInner = combined ? size * 0.22 : 0;
 
   const total = activities.reduce((s, a) => s + weeklyHours(a), 0);
   const free = Math.max(0, TOTAL - total);
@@ -49,19 +68,19 @@ export function DonutChart({
     });
   }, [activities, free]);
 
-  const arc = (a0: number, a1: number, gap = 0.008) => {
+  const arc = (a0: number, a1: number, R: number, IR: number, gap = 0.008) => {
     const s = a0 + gap;
     const e = Math.max(a1 - gap, s + 0.0001);
     const large = e - s > Math.PI ? 1 : 0;
-    const x0 = cx + r * Math.cos(s);
-    const y0 = cy + r * Math.sin(s);
-    const x1 = cx + r * Math.cos(e);
-    const y1 = cy + r * Math.sin(e);
-    const ix0 = cx + inner * Math.cos(e);
-    const iy0 = cy + inner * Math.sin(e);
-    const ix1 = cx + inner * Math.cos(s);
-    const iy1 = cy + inner * Math.sin(s);
-    return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} L ${ix0} ${iy0} A ${inner} ${inner} 0 ${large} 0 ${ix1} ${iy1} Z`;
+    const x0 = cx + R * Math.cos(s);
+    const y0 = cy + R * Math.sin(s);
+    const x1 = cx + R * Math.cos(e);
+    const y1 = cy + R * Math.sin(e);
+    const ix0 = cx + IR * Math.cos(e);
+    const iy0 = cy + IR * Math.sin(e);
+    const ix1 = cx + IR * Math.cos(s);
+    const iy1 = cy + IR * Math.sin(s);
+    return `M ${x0} ${y0} A ${R} ${R} 0 ${large} 1 ${x1} ${y1} L ${ix0} ${iy0} A ${IR} ${IR} 0 ${large} 0 ${ix1} ${iy1} Z`;
   };
 
   const hovered = segments.find((s) => s.id === hover);
@@ -77,8 +96,8 @@ export function DonutChart({
         {/* Hour tick marks */}
         {Array.from({ length: 24 }).map((_, i) => {
           const a = (i / 24) * Math.PI * 2 - Math.PI / 2;
-          const r1 = r + 6;
-          const r2 = r + (i % 6 === 0 ? 14 : 10);
+          const r1 = outerR + 6;
+          const r2 = outerR + (i % 6 === 0 ? 14 : 10);
           return (
             <line
               key={i}
@@ -98,7 +117,7 @@ export function DonutChart({
           return (
             <path
               key={s.id}
-              d={arc(s.a0, s.a1)}
+              d={arc(s.a0, s.a1, outerR, outerInner)}
               fill={s.color}
               opacity={hover && !active ? 0.35 : 1}
               style={{
@@ -112,6 +131,46 @@ export function DonutChart({
             />
           );
         })}
+
+        {/* Inner ring: subdivided by tasks (combined mode only) */}
+        {combined &&
+          segments.flatMap((s) => {
+            if (s.id === "__free__") return [];
+            const subs = subSegments?.[s.id] ?? [];
+            const totalSub = subs.reduce((sum, x) => sum + x.hours, 0);
+            const width = s.a1 - s.a0;
+            if (totalSub <= 0 || width <= 0) {
+              return [
+                <path
+                  key={`in-${s.id}`}
+                  d={arc(s.a0, s.a1, innerR, innerInner)}
+                  fill={s.color}
+                  opacity={0.25}
+                />,
+              ];
+            }
+            let angle = s.a0;
+            return subs.map((sub) => {
+              const frac = sub.hours / totalSub;
+              const a0 = angle;
+              const a1 = angle + frac * width;
+              angle = a1;
+              const active = hover === `sub-${sub.id}`;
+              return (
+                <path
+                  key={`sub-${sub.id}`}
+                  d={arc(a0, a1, innerR, innerInner, 0.004)}
+                  fill={sub.color}
+                  opacity={hover && !active && hover !== s.id ? 0.4 : 0.95}
+                  style={{ cursor: "pointer", transition: "opacity 200ms ease" }}
+                  onMouseEnter={() => setHover(`sub-${sub.id}`)}
+                  onMouseLeave={() => setHover(null)}
+                >
+                  <title>{`${sub.name} · ${sub.hours.toFixed(2)}h`}</title>
+                </path>
+              );
+            });
+          })}
 
         {/* Center label */}
         <g pointerEvents="none">
