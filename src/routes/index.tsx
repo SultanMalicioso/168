@@ -461,7 +461,7 @@ function Index() {
                   ["goals", "Objetivos", <Target className="h-3 w-3" key="g" />],
                   ["tasks", "Tareas", <ListChecks className="h-3 w-3" key="t" />],
                   ["combined", "Combinado", <Layers className="h-3 w-3" key="c" />],
-                ] as [ChartView, string, JSX.Element][]).map(([v, label, icon]) => (
+                ] as [ChartView, string, React.ReactElement][]).map(([v, label, icon]) => (
                   <button
                     key={v}
                     onClick={() => setChartView(v)}
