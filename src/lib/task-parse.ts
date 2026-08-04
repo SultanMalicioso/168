@@ -80,7 +80,7 @@ export function parseQuickTask(
   activities: Activity[],
   goals: Goal[],
 ): ParsedTask {
-  const out: ParsedTask = { tags: [], goalIds: [] };
+  const out: ParsedTask = { name: "", tags: [], goalIds: [] };
   const words = input.split(/\s+/).filter(Boolean);
   const rest: string[] = [];
 
