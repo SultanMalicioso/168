@@ -1,20 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Archive,
-  ArchiveRestore,
-  Calendar as CalendarIcon,
+  ArrowLeft,
+  CalendarCheck,
+  CalendarClock,
   Check,
   CheckCircle2,
   ChevronDown,
   Clock,
-  Copy,
   Flag,
   Inbox,
   ListTodo,
   Moon,
-  Pencil,
   Plus,
   Search,
   Sun,
@@ -24,8 +22,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -33,12 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,45 +39,54 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import {
-  CATEGORIES,
   TASK_PRIORITY_META,
-  TASK_STATUS_META,
   useTimeStore,
+  type Store,
   type Task,
   type TaskPriority,
   type TaskStatus,
 } from "@/lib/time-store";
 import {
+  allTags,
   allTasks,
-  allTasksWithTrash,
   createTask,
   dailyStreak,
+  dateLabel,
   duplicateTask,
+  fmtMinutes,
+  groupByActivity,
+  groupByDate,
   groupByGoal,
   groupByPriority,
   purgeAllTrashed,
   purgeTask,
   restoreTask,
   sortTasks,
-  taskColor,
-  taskMinutes,
   taskStats,
   tasksArchived,
   tasksCompleted,
+  tasksNoDate,
   tasksOverdue,
   tasksToday,
   tasksTrashed,
   tasksUnassigned,
   tasksUpcoming,
   todayISO,
+  trashManyTasks,
   trashTask,
+  updateManyTasks,
   updateTask,
   weeklyStreak,
 } from "@/lib/task-utils";
+import type { ParsedTask } from "@/lib/task-parse";
+import { emptyTaskDraft } from "@/lib/task-parse";
+import { TaskRow } from "@/components/todo/TaskRow";
+import { QuickAdd } from "@/components/todo/QuickAdd";
+import { TaskEditorSheet } from "@/components/todo/TaskEditorSheet";
+import { WeekStrip } from "@/components/todo/WeekStrip";
 
 export const Route = createFileRoute("/todo")({
   head: () => ({
@@ -115,24 +114,42 @@ type View =
   | "today"
   | "upcoming"
   | "overdue"
-  | "completed"
+  | "nodate"
+  | "all"
   | "unassigned"
-  | "by_priority"
-  | "by_goal"
+  | "completed"
   | "archived"
-  | "trash"
-  | "all";
+  | "trash";
 
 type SortBy = "priority" | "date" | "duration" | "name" | "created";
+type GroupBy = "none" | "activity" | "priority" | "goal" | "date";
+
+const VIEW_META: { id: View; label: string; icon: React.ReactNode; accent?: boolean }[] = [
+  { id: "today", label: "Hoy", icon: <CalendarCheck className="h-3.5 w-3.5" /> },
+  { id: "upcoming", label: "Próximas", icon: <Clock className="h-3.5 w-3.5" /> },
+  { id: "overdue", label: "Atrasadas", icon: <Flag className="h-3.5 w-3.5" />, accent: true },
+  { id: "nodate", label: "Sin fecha", icon: <CalendarClock className="h-3.5 w-3.5" /> },
+  { id: "all", label: "Todas", icon: <ListTodo className="h-3.5 w-3.5" /> },
+  { id: "unassigned", label: "Sin actividad", icon: <Inbox className="h-3.5 w-3.5" /> },
+  { id: "completed", label: "Completadas", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
+  { id: "archived", label: "Archivadas", icon: <Archive className="h-3.5 w-3.5" /> },
+  { id: "trash", label: "Papelera", icon: <Trash2 className="h-3.5 w-3.5" /> },
+];
 
 function TodoPage() {
   const { store, setStore, hydrated } = useTimeStore();
   const [view, setView] = useState<View>("today");
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [sortBy, setSortBy] = useState<SortBy>("priority");
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [priorityFilter, setPriorityFilter] = useState<Set<TaskPriority>>(new Set());
+  const [activityFilter, setActivityFilter] = useState<string>("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
+  const [hideDone, setHideDone] = useState(true);
   const [editing, setEditing] = useState<Task | null>(null);
   const [openEditor, setOpenEditor] = useState(false);
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   if (!hydrated) return <div className="min-h-screen bg-background" />;
@@ -140,37 +157,23 @@ function TodoPage() {
   const toggleTheme = () =>
     setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
 
+  const viewDefaults = (): Partial<ParsedTask> =>
+    view === "today"
+      ? { dueDate: todayISO() }
+      : view === "unassigned"
+        ? {}
+        : {};
+
   const openNew = (preset?: Partial<Task>) => {
-    setEditing({
-      id: "",
-      name: "",
-      status: "pending",
-      priority: "medium",
-      estimatedMinutes: 30,
-      createdAt: Date.now(),
-      ...preset,
-    });
+    setEditing(emptyTaskDraft({ ...viewDefaults(), ...preset }));
     setOpenEditor(true);
   };
-
   const openEdit = (t: Task) => {
     setEditing(t);
     setOpenEditor(true);
   };
 
   const saveTask = (t: Task) => {
-    if (!t.name.trim()) {
-      toast.error("El nombre no puede estar vacío");
-      return;
-    }
-    if (!t.estimatedMinutes || t.estimatedMinutes < 1) {
-      toast.error("La duración debe ser mayor a 0");
-      return;
-    }
-    if (t.startTime && t.dueTime && t.dueTime < t.startTime) {
-      toast.error("La hora límite es anterior a la hora de inicio");
-      return;
-    }
     if (t.id) {
       setStore(updateTask(store, t.id, t));
       toast.success("Tarea actualizada");
@@ -182,33 +185,39 @@ function TodoPage() {
     setEditing(null);
   };
 
-  const quickToggleStatus = (t: Task) => {
-    const next: TaskStatus = t.status === "completed" ? "pending" : "completed";
-    setStore(updateTask(store, t.id, { status: next }));
+  const quickCreate = (p: ParsedTask) => {
+    setStore(createTask(store, p as Partial<Task>));
+    toast.success("Tarea creada", { duration: 1200 });
   };
-
-  const quickPriority = (t: Task, p: TaskPriority) =>
-    setStore(updateTask(store, t.id, { priority: p }));
 
   const remove = (t: Task) => {
     setStore(trashTask(store, t.id));
     toast.success("Tarea enviada a papelera", {
-      action: {
-        label: "Deshacer",
-        onClick: () => setStore(restoreTask(store, t.id)),
-      },
+      action: { label: "Deshacer", onClick: () => setStore(restoreTask(store, t.id)) },
     });
   };
-  const restore = (t: Task) => setStore(restoreTask(store, t.id));
-  const dup = (t: Task) => {
-    setStore(duplicateTask(store, t.id));
-    toast.success("Tarea duplicada");
-  };
-  const purge = (t: Task) => setStore(purgeTask(store, t.id));
-  const toggleArchive = (t: Task) =>
-    setStore(updateTask(store, t.id, { archived: !t.archived }));
 
-  // Derived: base list per view
+  const rowActions = (t: Task) => ({
+    onToggle: () =>
+      setStore(
+        updateTask(store, t.id, {
+          status: (t.status === "completed" ? "pending" : "completed") as TaskStatus,
+        }),
+      ),
+    onEdit: () => openEdit(t),
+    onDuplicate: () => {
+      setStore(duplicateTask(store, t.id));
+      toast.success("Tarea duplicada");
+    },
+    onArchive: () => setStore(updateTask(store, t.id, { archived: !t.archived })),
+    onDelete: () => remove(t),
+    onRestore: () => setStore(restoreTask(store, t.id)),
+    onPurge: () => setStore(purgeTask(store, t.id)),
+    onPriority: (p: TaskPriority) => setStore(updateTask(store, t.id, { priority: p })),
+    onReschedule: (iso?: string) => setStore(updateTask(store, t.id, { dueDate: iso })),
+  });
+
+  // ---- derived ----
   const baseList = useMemo<Task[]>(() => {
     switch (view) {
       case "today":
@@ -217,6 +226,8 @@ function TodoPage() {
         return tasksUpcoming(store);
       case "overdue":
         return tasksOverdue(store);
+      case "nodate":
+        return tasksNoDate(store);
       case "completed":
         return tasksCompleted(store);
       case "unassigned":
@@ -225,96 +236,172 @@ function TodoPage() {
         return tasksArchived(store);
       case "trash":
         return tasksTrashed(store);
-      case "by_priority":
-      case "by_goal":
-      case "all":
       default:
         return allTasks(store).filter((t) => !t.archived);
     }
   }, [store, view]);
 
-  // Search + sort
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? baseList.filter(
-          (t) =>
-            t.name.toLowerCase().includes(q) ||
-            (t.description ?? "").toLowerCase().includes(q) ||
-            (t.tags ?? []).some((x) => x.toLowerCase().includes(q)),
-        )
-      : baseList;
-    return sortTasks(filtered, sortBy);
-  }, [baseList, query, sortBy]);
+    let out = baseList;
+    if (q)
+      out = out.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          (t.description ?? "").toLowerCase().includes(q) ||
+          (t.tags ?? []).some((x) => x.toLowerCase().includes(q)),
+      );
+    if (priorityFilter.size > 0) out = out.filter((t) => priorityFilter.has(t.priority));
+    if (activityFilter !== "all")
+      out = out.filter((t) =>
+        activityFilter === "__none__" ? !t.activityId : t.activityId === activityFilter,
+      );
+    if (tagFilter !== "all") out = out.filter((t) => (t.tags ?? []).includes(tagFilter));
+    if (hideDone && view !== "completed" && view !== "trash" && view !== "archived")
+      out = out.filter((t) => t.status !== "completed");
+    return sortTasks(out, sortBy);
+  }, [baseList, query, sortBy, priorityFilter, activityFilter, tagFilter, hideDone, view]);
 
-  // Global stats (all non-trashed)
+  const listStats = useMemo(() => taskStats(list), [list]);
+
   const gStats = useMemo(() => {
     const all = allTasks(store);
+    const today = tasksToday(store);
+    const ts = taskStats(today);
     return {
       ...taskStats(all),
       streakDay: dailyStreak(all),
       streakWeek: weeklyStreak(all),
+      todayScore: ts.plannedMin > 0 ? (ts.doneMin / ts.plannedMin) * 100 : 0,
+      todayDone: ts.doneMin,
+      todayPlanned: ts.plannedMin,
+      overdue: tasksOverdue(store).length,
     };
   }, [store]);
 
-  // Today productivity: done_min / planned_min for today
-  const todayProd = useMemo(() => {
-    const t = tasksToday(store);
-    const s = taskStats(t);
-    return { ...s, score: s.plannedMin > 0 ? (s.doneMin / s.plannedMin) * 100 : 0 };
-  }, [store]);
-
-  // Counts per view for sidebar
   const counts = useMemo(
     () => ({
-      today: tasksToday(store).length,
-      upcoming: tasksUpcoming(store).length,
+      today: tasksToday(store).filter((t) => t.status !== "completed").length,
+      upcoming: tasksUpcoming(store).filter((t) => t.status !== "completed").length,
       overdue: tasksOverdue(store).length,
+      nodate: tasksNoDate(store).length,
+      all: allTasks(store).filter((t) => !t.archived && t.status !== "completed").length,
+      unassigned: tasksUnassigned(store).filter((t) => t.status !== "completed").length,
       completed: tasksCompleted(store).length,
-      unassigned: tasksUnassigned(store).length,
       archived: tasksArchived(store).length,
       trash: tasksTrashed(store).length,
-      all: allTasks(store).filter((t) => !t.archived).length,
     }),
     [store],
+  ) as Record<View, number>;
+
+  const tags = useMemo(() => allTags(store), [store]);
+
+  const clearSelection = () => {
+    setSelected(new Set());
+    setSelectMode(false);
+  };
+
+  const bulk = (fn: (ids: string[]) => Store, msg: string) => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    setStore(fn(ids));
+    clearSelection();
+    toast.success(msg);
+  };
+
+  const renderRow = (t: Task) => (
+    <TaskRow
+      key={t.id}
+      task={t}
+      store={store}
+      isTrash={view === "trash"}
+      selectMode={selectMode}
+      selected={selected.has(t.id)}
+      onSelectChange={(v) =>
+        setSelected((prev) => {
+          const n = new Set(prev);
+          if (v) n.add(t.id);
+          else n.delete(t.id);
+          return n;
+        })
+      }
+      actions={rowActions(t)}
+    />
   );
 
+  const grouped = useMemo(() => {
+    if (groupBy === "none") return null;
+    if (groupBy === "priority")
+      return (Object.entries(groupByPriority(list)) as [TaskPriority, Task[]][])
+        .filter(([, arr]) => arr.length > 0)
+        .sort(([a], [b]) => TASK_PRIORITY_META[b].weight - TASK_PRIORITY_META[a].weight)
+        .map(([p, arr]) => ({
+          key: p,
+          title: TASK_PRIORITY_META[p].label,
+          color: TASK_PRIORITY_META[p].color,
+          tasks: arr,
+        }));
+    if (groupBy === "goal")
+      return groupByGoal(list, store.goals).map(({ goal, tasks }) => ({
+        key: goal?.id ?? "none",
+        title: goal ? `${goal.icon ?? "🎯"} ${goal.name}` : "Sin objetivo",
+        color: goal?.color ?? "var(--muted-foreground)",
+        tasks,
+      }));
+    if (groupBy === "activity")
+      return groupByActivity(list, store.activities).map(({ activity, tasks }) => ({
+        key: activity?.id ?? "none",
+        title: activity?.name ?? "Sin actividad",
+        color: activity?.color ?? "var(--muted-foreground)",
+        tasks,
+      }));
+    return groupByDate(list).map(({ date, tasks }) => ({
+      key: date,
+      title: date === "__none__" ? "Sin fecha" : dateLabel(date),
+      color: "var(--muted-foreground)",
+      tasks,
+    }));
+  }, [groupBy, list, store.goals, store.activities]);
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pb-24 lg:pb-0">
       <Toaster position="top-center" />
 
-      {/* Header */}
-      <header className="border-b border-border/60 backdrop-blur-xl bg-background/80 sticky top-0 z-30">
-        <div className="mx-auto max-w-[1400px] px-4 md:px-6 py-3 flex items-center gap-3">
+      <header className="border-b border-border/60 backdrop-blur-xl bg-background/85 sticky top-0 z-30">
+        <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-2.5 flex items-center gap-2">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition shrink-0"
           >
             <ArrowLeft className="h-4 w-4" /> 168
           </Link>
-          <div className="hidden md:flex items-center gap-2 pl-3 border-l">
+          <div className="hidden sm:flex items-center gap-2 pl-3 border-l">
             <div className="h-8 w-8 rounded-lg bg-foreground text-background flex items-center justify-center">
               <CheckCircle2 className="h-4 w-4" />
             </div>
-            <div>
-              <h1 className="font-display text-lg leading-none">To-Do</h1>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Tareas · duración · integración total
-              </p>
-            </div>
+            <h1 className="font-display text-lg leading-none">To-Do</h1>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
-            <div className="relative">
+          <div className="ml-auto flex items-center gap-1.5 min-w-0">
+            <div className="relative flex-1 min-w-0">
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar…"
-                className="h-9 pl-8 w-40 md:w-64 text-sm"
+                className="h-9 pl-8 w-full sm:w-64 text-sm"
               />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
-            <Button size="sm" onClick={() => openNew()} className="gap-1.5">
+            <Button size="sm" onClick={() => openNew()} className="hidden sm:inline-flex gap-1.5">
               <Plus className="h-4 w-4" /> Nueva
             </Button>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Cambiar tema">
@@ -322,190 +409,327 @@ function TodoPage() {
             </Button>
           </div>
         </div>
+
+        {/* Mobile view chips */}
+        <div className="lg:hidden overflow-x-auto no-scrollbar border-t border-border/60">
+          <div className="flex gap-1.5 px-3 py-2 w-max">
+            {VIEW_META.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition ${
+                  view === v.id
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {v.icon}
+                {v.label}
+                {counts[v.id] > 0 && (
+                  <span
+                    className={`tabular-nums ${
+                      view === v.id
+                        ? "opacity-80"
+                        : v.accent
+                          ? "text-destructive font-medium"
+                          : ""
+                    }`}
+                  >
+                    {counts[v.id]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
 
-      <main className="mx-auto max-w-[1400px] px-4 md:px-6 py-6 grid gap-6 lg:grid-cols-[240px_1fr]">
-        {/* Sidebar */}
-        <aside className="space-y-1 lg:sticky lg:top-20 lg:self-start">
-          <SidebarBtn active={view === "today"} onClick={() => setView("today")} icon={<CalendarIcon className="h-3.5 w-3.5" />} label="Hoy" count={counts.today} />
-          <SidebarBtn active={view === "upcoming"} onClick={() => setView("upcoming")} icon={<Clock className="h-3.5 w-3.5" />} label="Próximas" count={counts.upcoming} />
-          <SidebarBtn active={view === "overdue"} onClick={() => setView("overdue")} icon={<Flag className="h-3.5 w-3.5" />} label="Atrasadas" count={counts.overdue} accent="destructive" />
-          <SidebarBtn active={view === "all"} onClick={() => setView("all")} icon={<ListTodo className="h-3.5 w-3.5" />} label="Todas" count={counts.all} />
-          <SidebarBtn active={view === "unassigned"} onClick={() => setView("unassigned")} icon={<Inbox className="h-3.5 w-3.5" />} label="Sin actividad" count={counts.unassigned} />
-          <SidebarBtn active={view === "completed"} onClick={() => setView("completed")} icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Completadas" count={counts.completed} />
-
-          <div className="pt-3 pb-1 px-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-            Agrupaciones
-          </div>
-          <SidebarBtn active={view === "by_priority"} onClick={() => setView("by_priority")} icon={<Flag className="h-3.5 w-3.5" />} label="Por prioridad" />
-          <SidebarBtn active={view === "by_goal"} onClick={() => setView("by_goal")} icon={<Target className="h-3.5 w-3.5" />} label="Por objetivo" />
-
-          <div className="pt-3 pb-1 px-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-            Sistema
-          </div>
-          <SidebarBtn active={view === "archived"} onClick={() => setView("archived")} icon={<Archive className="h-3.5 w-3.5" />} label="Archivadas" count={counts.archived} />
-          <SidebarBtn active={view === "trash"} onClick={() => setView("trash")} icon={<Trash2 className="h-3.5 w-3.5" />} label="Papelera" count={counts.trash} />
+      <main className="mx-auto max-w-[1400px] px-3 sm:px-6 py-4 sm:py-6 grid gap-5 lg:grid-cols-[230px_1fr]">
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:block space-y-1 lg:sticky lg:top-20 lg:self-start">
+          {VIEW_META.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+                view === v.id ? "bg-foreground text-background" : "hover:bg-accent"
+              }`}
+            >
+              <span
+                className={
+                  view === v.id
+                    ? "text-background/80"
+                    : v.accent && counts[v.id] > 0
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                }
+              >
+                {v.icon}
+              </span>
+              <span className="flex-1 text-left truncate">{v.label}</span>
+              {counts[v.id] > 0 && (
+                <span
+                  className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
+                    view === v.id
+                      ? "bg-background/20"
+                      : v.accent
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {counts[v.id]}
+                </span>
+              )}
+            </button>
+          ))}
         </aside>
 
-        {/* Main */}
-        <section className="space-y-6 min-w-0">
-          {/* Stats panel */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Stat label="Total" value={String(gStats.total)} sub={`${gStats.pending} pendientes`} />
-            <Stat label="Completadas" value={`${gStats.pct.toFixed(0)}%`} sub={`${gStats.done} de ${gStats.total}`} />
-            <Stat label="Horas plan." value={fmtMin(gStats.plannedMin)} sub={`${fmtMin(gStats.doneMin)} hechas`} />
-            <Stat label="Productividad hoy" value={`${todayProd.score.toFixed(0)}%`} sub={`${fmtMin(todayProd.doneMin)} / ${fmtMin(todayProd.plannedMin)}`} />
-            <Stat label="Racha diaria" value={`${gStats.streakDay}d`} sub="con al menos 1 tarea" />
-            <Stat label="Racha semanal" value={`${gStats.streakWeek}w`} sub="semanas activas" />
-            <Stat label="En progreso" value={String(gStats.inProg)} sub="activas ahora" />
-            <Stat label="Pendientes" value={String(gStats.pending)} sub="por hacer" />
+        <section className="space-y-4 min-w-0">
+          {/* Stats — horizontal scroll on mobile */}
+          <div className="-mx-3 sm:mx-0 overflow-x-auto no-scrollbar">
+            <div className="flex sm:grid sm:grid-cols-4 gap-2.5 px-3 sm:px-0 w-max sm:w-auto">
+              <Stat
+                label="Pendientes"
+                value={String(gStats.pending + gStats.inProg)}
+                sub={`${gStats.overdue} atrasadas`}
+              />
+              <Stat
+                label="Completado"
+                value={`${gStats.pct.toFixed(0)}%`}
+                sub={`${gStats.done} de ${gStats.total}`}
+                progress={gStats.pct}
+              />
+              <Stat
+                label="Hoy"
+                value={`${gStats.todayScore.toFixed(0)}%`}
+                sub={`${fmtMinutes(gStats.todayDone)} / ${fmtMinutes(gStats.todayPlanned)}`}
+                progress={gStats.todayScore}
+              />
+              <Stat
+                label="Racha"
+                value={`${gStats.streakDay}d`}
+                sub={`${gStats.streakWeek} semanas seguidas`}
+              />
+            </div>
           </div>
 
           {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-display text-xl capitalize">{viewLabel(view)}</h2>
-            <span className="text-xs text-muted-foreground">· {list.length} tareas</span>
-            <div className="ml-auto flex items-center gap-2">
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-                <SelectTrigger className="h-8 w-[140px] text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-display text-xl">
+              {VIEW_META.find((v) => v.id === view)?.label}
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {list.length} · {fmtMinutes(listStats.plannedMin)}
+            </span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
+                <SelectTrigger className="h-8 w-[120px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="date">Ordenar: fecha</SelectItem>
-                  <SelectItem value="priority">Ordenar: prioridad</SelectItem>
-                  <SelectItem value="duration">Ordenar: duración</SelectItem>
-                  <SelectItem value="name">Ordenar: nombre</SelectItem>
-                  <SelectItem value="created">Ordenar: creación</SelectItem>
+                  <SelectItem value="none">Sin agrupar</SelectItem>
+                  <SelectItem value="activity">Por actividad</SelectItem>
+                  <SelectItem value="priority">Por prioridad</SelectItem>
+                  <SelectItem value="goal">Por objetivo</SelectItem>
+                  <SelectItem value="date">Por fecha</SelectItem>
                 </SelectContent>
               </Select>
-              {view === "trash" && counts.trash > 0 && (
-                <Button size="sm" variant="outline" onClick={() => setConfirmPurge(true)} className="gap-1.5">
-                  <Trash2 className="h-3.5 w-3.5" /> Vaciar
-                </Button>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+                <SelectTrigger className="h-8 w-[118px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="priority">Prioridad</SelectItem>
+                  <SelectItem value="date">Fecha</SelectItem>
+                  <SelectItem value="duration">Duración</SelectItem>
+                  <SelectItem value="name">Nombre</SelectItem>
+                  <SelectItem value="created">Creación</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant={selectMode ? "default" : "outline"}
+                onClick={() => (selectMode ? clearSelection() : setSelectMode(true))}
+                className="h-8 text-xs"
+              >
+                {selectMode ? "Salir" : "Seleccionar"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Filter chips */}
+          <div className="-mx-3 sm:mx-0 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 px-3 sm:px-0 w-max">
+              {(["urgent", "high", "medium", "low"] as TaskPriority[]).map((p) => {
+                const on = priorityFilter.has(p);
+                const meta = TASK_PRIORITY_META[p];
+                return (
+                  <button
+                    key={p}
+                    onClick={() =>
+                      setPriorityFilter((prev) => {
+                        const n = new Set(prev);
+                        if (n.has(p)) n.delete(p);
+                        else n.add(p);
+                        return n;
+                      })
+                    }
+                    className="text-[11px] px-2.5 py-1 rounded-full border transition whitespace-nowrap"
+                    style={
+                      on
+                        ? { background: meta.color, borderColor: meta.color, color: "var(--background)" }
+                        : { borderColor: `color-mix(in oklab, ${meta.color} 35%, transparent)` }
+                    }
+                  >
+                    {meta.label}
+                  </button>
+                );
+              })}
+              <Select value={activityFilter} onValueChange={setActivityFilter}>
+                <SelectTrigger className="h-7 w-[132px] text-[11px]">
+                  <SelectValue placeholder="Actividad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toda actividad</SelectItem>
+                  <SelectItem value="__none__">Sin actividad</SelectItem>
+                  {store.activities.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {tags.length > 0 && (
+                <Select value={tagFilter} onValueChange={setTagFilter}>
+                  <SelectTrigger className="h-7 w-[118px] text-[11px]">
+                    <SelectValue placeholder="Etiqueta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toda etiqueta</SelectItem>
+                    {tags.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        #{t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <button
+                onClick={() => setHideDone((v) => !v)}
+                className={`text-[11px] px-2.5 py-1 rounded-full border transition whitespace-nowrap ${
+                  hideDone ? "bg-muted" : ""
+                }`}
+              >
+                {hideDone ? "Ocultando completadas" : "Mostrando completadas"}
+              </button>
+              {(priorityFilter.size > 0 || activityFilter !== "all" || tagFilter !== "all") && (
+                <button
+                  onClick={() => {
+                    setPriorityFilter(new Set());
+                    setActivityFilter("all");
+                    setTagFilter("all");
+                  }}
+                  className="text-[11px] px-2.5 py-1 rounded-full border border-dashed text-muted-foreground whitespace-nowrap"
+                >
+                  Limpiar filtros
+                </button>
               )}
             </div>
           </div>
 
-          {/* Quick composer */}
-          {view !== "trash" && view !== "completed" && view !== "archived" && (
-            <QuickComposer
-              onCreate={(name) => {
-                const preset: Partial<Task> = {
-                  name,
-                  estimatedMinutes: 30,
-                  priority: "medium",
-                  status: "pending",
-                };
-                if (view === "today") preset.dueDate = todayISO();
-                setStore(createTask(store, preset));
-              }}
+          {/* Quick add */}
+          {view !== "trash" && view !== "archived" && (
+            <QuickAdd
+              store={store}
+              defaults={viewDefaults()}
+              onCreate={quickCreate}
+              onOpenFull={(p) => openNew(p as Partial<Task>)}
             />
           )}
 
           {/* List */}
-          <div className="rounded-3xl border bg-card shadow-[var(--shadow-soft)]">
-            <ScrollArea className="max-h-[70vh]">
-              {list.length === 0 ? (
-                <EmptyState view={view} onCreate={() => openNew()} />
-              ) : view === "by_priority" ? (
-                <div className="divide-y">
-                  {(Object.entries(groupByPriority(list)) as [TaskPriority, Task[]][])
-                    .filter(([, arr]) => arr.length > 0)
-                    .sort(
-                      ([a], [b]) =>
-                        TASK_PRIORITY_META[b].weight - TASK_PRIORITY_META[a].weight,
-                    )
-                    .map(([pri, arr]) => (
-                      <GroupSection
-                        key={pri}
-                        color={TASK_PRIORITY_META[pri].color}
-                        title={TASK_PRIORITY_META[pri].label}
-                        count={arr.length}
-                      >
-                        {arr.map((t) => (
-                          <TaskRow
-                            key={t.id}
-                            task={t}
-                            store={store}
-                            onToggle={() => quickToggleStatus(t)}
-                            onEdit={() => openEdit(t)}
-                            onDelete={() => remove(t)}
-                            onRestore={() => restore(t)}
-                            onPurge={() => purge(t)}
-                            onDuplicate={() => dup(t)}
-                            onArchive={() => toggleArchive(t)}
-                            onPriority={(p) => quickPriority(t, p)}
-                            isTrash={false}
-                          />
-                        ))}
-                      </GroupSection>
-                    ))}
-                </div>
-              ) : view === "by_goal" ? (
-                <div className="divide-y">
-                  {groupByGoal(list, store.goals).map(({ goal, tasks }) => (
-                    <GroupSection
-                      key={goal?.id ?? "none"}
-                      color={goal?.color ?? "var(--muted-foreground)"}
-                      title={goal ? `${goal.icon ?? "🎯"} ${goal.name}` : "Sin objetivo"}
-                      count={tasks.length}
-                    >
-                      {tasks.map((t) => (
-                        <TaskRow
-                          key={t.id}
-                          task={t}
-                          store={store}
-                          onToggle={() => quickToggleStatus(t)}
-                          onEdit={() => openEdit(t)}
-                          onDelete={() => remove(t)}
-                          onRestore={() => restore(t)}
-                          onPurge={() => purge(t)}
-                          onDuplicate={() => dup(t)}
-                          onArchive={() => toggleArchive(t)}
-                          onPriority={(p) => quickPriority(t, p)}
-                          isTrash={false}
-                        />
-                      ))}
-                    </GroupSection>
-                  ))}
-                </div>
-              ) : (
-                <ul className="divide-y">
-                  {list.map((t) => (
-                    <li key={t.id}>
-                      <TaskRow
-                        task={t}
-                        store={store}
-                        onToggle={() => quickToggleStatus(t)}
-                        onEdit={() => openEdit(t)}
-                        onDelete={() => remove(t)}
-                        onRestore={() => restore(t)}
-                        onPurge={() => purge(t)}
-                        onDuplicate={() => dup(t)}
-                        onArchive={() => toggleArchive(t)}
-                        onPriority={(p) => quickPriority(t, p)}
-                        isTrash={view === "trash"}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </ScrollArea>
+          <div className="rounded-3xl border bg-card shadow-[var(--shadow-soft)] overflow-hidden">
+            {list.length === 0 ? (
+              <EmptyState view={view} onCreate={() => openNew()} />
+            ) : grouped ? (
+              <div className="divide-y">
+                {grouped.map((g) => (
+                  <GroupSection key={g.key} title={g.title} color={g.color} count={g.tasks.length}>
+                    {g.tasks.map(renderRow)}
+                  </GroupSection>
+                ))}
+              </div>
+            ) : (
+              <ul className="divide-y">{list.map(renderRow)}</ul>
+            )}
           </div>
 
-          {/* Week strip: drag tasks between days */}
+          {view === "trash" && counts.trash > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setConfirmPurge(true)}>
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Vaciar papelera
+            </Button>
+          )}
+
           <WeekStrip
             store={store}
-            onDrop={(taskId, dueDate) =>
-              setStore(updateTask(store, taskId, { dueDate }))
-            }
-            onOpen={(t) => openEdit(t)}
+            onDrop={(taskId, dueDate) => setStore(updateTask(store, taskId, { dueDate }))}
+            onOpen={openEdit}
           />
         </section>
       </main>
 
-      {/* Editor */}
-      <TaskEditor
+      {/* Mobile FAB */}
+      <button
+        onClick={() => openNew()}
+        aria-label="Nueva tarea"
+        className="sm:hidden fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full bg-foreground text-background shadow-lg flex items-center justify-center active:scale-95 transition"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      {/* Bulk bar */}
+      {selectMode && selected.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur px-3 py-2.5 animate-fade-in">
+          <div className="mx-auto max-w-[1400px] flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium">{selected.size} seleccionadas</span>
+            <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  bulk((ids) => updateManyTasks(store, ids, { status: "completed" }), "Completadas")
+                }
+              >
+                <Check className="h-3.5 w-3.5 mr-1" /> Completar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  bulk(
+                    (ids) => updateManyTasks(store, ids, { dueDate: todayISO() }),
+                    "Movidas a hoy",
+                  )
+                }
+              >
+                Hoy
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bulk((ids) => trashManyTasks(store, ids), "Enviadas a papelera")}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
+              </Button>
+              <Button size="sm" variant="ghost" onClick={clearSelection}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <TaskEditorSheet
         open={openEditor}
         task={editing}
         store={store}
@@ -514,6 +738,11 @@ function TodoPage() {
           setEditing(null);
         }}
         onSave={saveTask}
+        onDelete={(t) => {
+          remove(t);
+          setOpenEditor(false);
+          setEditing(null);
+        }}
       />
 
       <AlertDialog open={confirmPurge} onOpenChange={setConfirmPurge}>
@@ -543,96 +772,30 @@ function TodoPage() {
   );
 }
 
-/* ---------- Subcomponents ---------- */
-
-function SidebarBtn({
-  active,
-  onClick,
-  icon,
+function Stat({
   label,
-  count,
-  accent,
+  value,
+  sub,
+  progress,
 }: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
   label: string;
-  count?: number;
-  accent?: "destructive";
+  value: string;
+  sub?: string;
+  progress?: number;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
-        active
-          ? "bg-foreground text-background"
-          : "hover:bg-accent text-foreground"
-      }`}
-    >
-      <span
-        className={
-          active
-            ? "text-background/80"
-            : accent === "destructive" && count && count > 0
-              ? "text-destructive"
-              : "text-muted-foreground"
-        }
-      >
-        {icon}
-      </span>
-      <span className="flex-1 text-left truncate">{label}</span>
-      {count !== undefined && count > 0 && (
-        <span
-          className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
-            active
-              ? "bg-background/20 text-background"
-              : accent === "destructive"
-                ? "bg-destructive/10 text-destructive"
-                : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-2xl border bg-card p-4 shadow-[var(--shadow-soft)]">
+    <div className="rounded-2xl border bg-card p-3.5 shadow-[var(--shadow-soft)] min-w-[140px]">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="font-display text-xl mt-1 leading-none truncate">{value}</div>
-      {sub && <div className="text-xs text-muted-foreground mt-1 truncate">{sub}</div>}
-    </div>
-  );
-}
-
-function QuickComposer({ onCreate }: { onCreate: (name: string) => void }) {
-  const [v, setV] = useState("");
-  const submit = () => {
-    const n = v.trim();
-    if (!n) return;
-    onCreate(n);
-    setV("");
-  };
-  return (
-    <div className="flex gap-2">
-      <Input
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            submit();
-          }
-        }}
-        placeholder="Añadir tarea rápida… (Enter para crear)"
-        className="h-10 text-sm"
-      />
-      <Button onClick={submit} disabled={!v.trim()} className="gap-1.5">
-        <Plus className="h-4 w-4" /> Añadir
-      </Button>
+      {sub && <div className="text-[11px] text-muted-foreground mt-1 truncate">{sub}</div>}
+      {progress !== undefined && (
+        <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full bg-foreground transition-all duration-500"
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -656,241 +819,16 @@ function GroupSection({
         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-muted/30 hover:bg-muted/50 transition"
       >
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-        <span>{title}</span>
-        <span className="text-[10px] text-muted-foreground tabular-nums ml-1">{count}</span>
-        <ChevronDown className={`h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform ${open ? "" : "-rotate-90"}`} />
+        <span className="truncate">{title}</span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">{count}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform ${
+            open ? "" : "-rotate-90"
+          }`}
+        />
       </button>
       {open && <ul className="divide-y">{children}</ul>}
     </div>
-  );
-}
-
-function TaskRow({
-  task,
-  store,
-  onToggle,
-  onEdit,
-  onDelete,
-  onRestore,
-  onPurge,
-  onDuplicate,
-  onArchive,
-  onPriority,
-  isTrash,
-}: {
-  task: Task;
-  store: ReturnType<typeof useTimeStore>["store"];
-  onToggle: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onRestore: () => void;
-  onPurge: () => void;
-  onDuplicate: () => void;
-  onArchive: () => void;
-  onPriority: (p: TaskPriority) => void;
-  isTrash: boolean;
-}) {
-  const done = task.status === "completed";
-  const pri = TASK_PRIORITY_META[task.priority];
-  const activity = task.activityId
-    ? store.activities.find((a) => a.id === task.activityId)
-    : null;
-  const goals = (task.goalIds ?? [])
-    .map((gid) => store.goals.find((g) => g.id === gid))
-    .filter(Boolean);
-  const overdue =
-    !!task.dueDate && task.status !== "completed" && task.dueDate < todayISO();
-
-  return (
-    <li
-      draggable={!isTrash}
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", task.id);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      className="group flex items-start gap-2 p-3 hover:bg-accent/30 transition"
-    >
-      {isTrash ? (
-        <div className="h-5 w-5 rounded-md border border-dashed shrink-0" />
-      ) : (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={done ? "Desmarcar" : "Completar"}
-          className={`h-5 w-5 shrink-0 rounded-md border flex items-center justify-center transition mt-0.5 ${
-            done ? "bg-foreground border-foreground" : "border-muted-foreground/40 hover:border-foreground"
-          }`}
-        >
-          {done && <Check className="h-3 w-3 text-background" />}
-        </button>
-      )}
-
-      <button onClick={onEdit} className="flex-1 min-w-0 text-left">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className="inline-block h-2 w-2 rounded-full shrink-0"
-            style={{ background: taskColor(task, store) }}
-          />
-          <span className={`text-sm truncate ${done ? "line-through text-muted-foreground" : "font-medium"}`}>
-            {task.name}
-          </span>
-          {overdue && (
-            <span className="text-[10px] font-medium text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
-              atrasada
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 flex-wrap">
-          <span className="inline-flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: pri.color }} />
-            {pri.label}
-          </span>
-          <span>·</span>
-          <span className="inline-flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5" /> {fmtMin(taskMinutes(task))}
-          </span>
-          {task.dueDate && (
-            <>
-              <span>·</span>
-              <span>
-                {task.dueDate}
-                {task.dueTime ? ` ${task.dueTime}` : ""}
-              </span>
-            </>
-          )}
-          {activity && (
-            <>
-              <span>·</span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: activity.color }} />
-                {activity.name}
-              </span>
-            </>
-          )}
-          {goals.map((g) => (
-            <span
-              key={g!.id}
-              className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5"
-              style={{
-                background: `color-mix(in oklab, ${g!.color} 15%, transparent)`,
-                borderColor: `color-mix(in oklab, ${g!.color} 40%, transparent)`,
-              }}
-            >
-              {g!.icon ?? "🎯"} {g!.name}
-            </span>
-          ))}
-          {task.status !== "pending" && task.status !== "completed" && (
-            <>
-              <span>·</span>
-              <span>{TASK_STATUS_META[task.status].label}</span>
-            </>
-          )}
-        </div>
-      </button>
-
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
-        {!isTrash && (
-          <>
-            <PrioMenu current={task.priority} onPick={onPriority} />
-            <IconBtn onClick={onDuplicate} label="Duplicar">
-              <Copy className="h-3.5 w-3.5" />
-            </IconBtn>
-            <IconBtn onClick={onArchive} label={task.archived ? "Desarchivar" : "Archivar"}>
-              {task.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-            </IconBtn>
-            <IconBtn onClick={onEdit} label="Editar">
-              <Pencil className="h-3.5 w-3.5" />
-            </IconBtn>
-            <IconBtn onClick={onDelete} label="Eliminar" danger>
-              <Trash2 className="h-3.5 w-3.5" />
-            </IconBtn>
-          </>
-        )}
-        {isTrash && (
-          <>
-            <IconBtn onClick={onRestore} label="Restaurar">
-              <ArchiveRestore className="h-3.5 w-3.5" />
-            </IconBtn>
-            <IconBtn onClick={onPurge} label="Eliminar definitivamente" danger>
-              <Trash2 className="h-3.5 w-3.5" />
-            </IconBtn>
-          </>
-        )}
-      </div>
-    </li>
-  );
-}
-
-function PrioMenu({
-  current,
-  onPick,
-}: {
-  current: TaskPriority;
-  onPick: (p: TaskPriority) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Cambiar prioridad"
-        title="Prioridad"
-        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-      >
-        <Flag className="h-3.5 w-3.5" style={{ color: TASK_PRIORITY_META[current].color }} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-20 rounded-lg border bg-popover shadow-md py-1 min-w-[130px]">
-            {(["urgent", "high", "medium", "low"] as TaskPriority[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => {
-                  onPick(p);
-                  setOpen(false);
-                }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent"
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: TASK_PRIORITY_META[p].color }}
-                />
-                {TASK_PRIORITY_META[p].label}
-                {current === p && <Check className="h-3 w-3 ml-auto" />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function IconBtn({
-  children,
-  onClick,
-  label,
-  danger,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  label: string;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={`h-8 w-8 inline-flex items-center justify-center rounded-md transition ${
-        danger
-          ? "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -899,12 +837,11 @@ function EmptyState({ view, onCreate }: { view: View; onCreate: () => void }) {
     today: "No tenés tareas para hoy. ¡Buen momento para planificar!",
     upcoming: "No hay tareas próximas.",
     overdue: "No hay tareas atrasadas. ¡Al día!",
+    nodate: "Todas tus tareas tienen fecha.",
     completed: "Aún no completaste ninguna tarea.",
     unassigned: "Todas tus tareas tienen actividad asignada.",
     archived: "No hay tareas archivadas.",
     trash: "La papelera está vacía.",
-    by_priority: "No hay tareas.",
-    by_goal: "No hay tareas.",
     all: "No hay tareas todavía.",
   };
   return (
@@ -917,444 +854,4 @@ function EmptyState({ view, onCreate }: { view: View; onCreate: () => void }) {
       )}
     </div>
   );
-}
-
-/* --- Week strip: drag & drop tasks between days --- */
-function WeekStrip({
-  store,
-  onDrop,
-  onOpen,
-}: {
-  store: ReturnType<typeof useTimeStore>["store"];
-  onDrop: (taskId: string, dueDate: string) => void;
-  onOpen: (t: Task) => void;
-}) {
-  const [over, setOver] = useState<string | null>(null);
-  const today = new Date();
-  const monday = new Date(today);
-  const dow = (today.getDay() + 6) % 7;
-  monday.setDate(today.getDate() - dow);
-  const days = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
-  const all = allTasks(store);
-
-  return (
-    <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display text-lg">Esta semana</h3>
-        <span className="text-xs text-muted-foreground">Arrastrá tareas entre días</span>
-      </div>
-      <div className="grid grid-cols-7 gap-2">
-        {days.map((d) => {
-          const iso = todayISO(d);
-          const dayTasks = all.filter((t) => t.dueDate === iso);
-          const isToday = iso === todayISO();
-          const isOver = over === iso;
-          const totalMin = dayTasks.reduce((s, t) => s + taskMinutes(t), 0);
-          return (
-            <div
-              key={iso}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setOver(iso);
-              }}
-              onDragLeave={() => setOver(null)}
-              onDrop={(e) => {
-                e.preventDefault();
-                const id = e.dataTransfer.getData("text/plain");
-                setOver(null);
-                if (id) onDrop(id, iso);
-              }}
-              className={`rounded-xl border p-2 min-h-[110px] transition ${
-                isOver
-                  ? "border-foreground ring-2 ring-foreground/20 bg-accent/30"
-                  : isToday
-                    ? "border-foreground/40"
-                    : "border-border"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="text-[10px] font-medium">
-                  {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][(d.getDay() + 6) % 7]}
-                </div>
-                <div className="text-[10px] text-muted-foreground tabular-nums">
-                  {d.getDate()}
-                </div>
-              </div>
-              <div className="space-y-1">
-                {dayTasks.slice(0, 4).map((t) => (
-                  <button
-                    key={t.id}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData("text/plain", t.id);
-                    }}
-                    onClick={() => onOpen(t)}
-                    className={`w-full text-left text-[10px] px-1.5 py-1 rounded-md truncate cursor-grab active:cursor-grabbing ${
-                      t.status === "completed" ? "line-through opacity-60" : ""
-                    }`}
-                    style={{
-                      background: `color-mix(in oklab, ${taskColor(t, store)} 25%, transparent)`,
-                    }}
-                  >
-                    {t.name}
-                  </button>
-                ))}
-                {dayTasks.length > 4 && (
-                  <div className="text-[10px] text-muted-foreground pl-1">
-                    +{dayTasks.length - 4} más
-                  </div>
-                )}
-                {dayTasks.length === 0 && (
-                  <div className="text-[10px] text-muted-foreground/60 italic px-1">
-                    —
-                  </div>
-                )}
-              </div>
-              {totalMin > 0 && (
-                <div className="mt-1.5 text-[9px] text-muted-foreground tabular-nums text-right">
-                  {fmtMin(totalMin)}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* --- Full editor Sheet --- */
-function TaskEditor({
-  open,
-  task,
-  store,
-  onClose,
-  onSave,
-}: {
-  open: boolean;
-  task: Task | null;
-  store: ReturnType<typeof useTimeStore>["store"];
-  onClose: () => void;
-  onSave: (t: Task) => void;
-}) {
-  const [draft, setDraft] = useState<Task | null>(task);
-  // Sync when task changes
-  if (task && (!draft || draft.id !== task.id || (!task.id && !draft))) {
-    // pattern only runs once per new prop; safe here since parent re-mounts by key changes
-  }
-  // Use uncontrolled sync via key on Sheet content
-  return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="sm:max-w-md w-full flex flex-col p-0">
-        <SheetHeader className="p-5 border-b">
-          <SheetTitle className="font-display text-xl">
-            {task?.id ? "Editar tarea" : "Nueva tarea"}
-          </SheetTitle>
-        </SheetHeader>
-        {task && (
-          <EditorForm
-            key={task.id || "new"}
-            initial={task}
-            store={store}
-            onCancel={onClose}
-            onSubmit={onSave}
-          />
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function EditorForm({
-  initial,
-  store,
-  onCancel,
-  onSubmit,
-}: {
-  initial: Task;
-  store: ReturnType<typeof useTimeStore>["store"];
-  onCancel: () => void;
-  onSubmit: (t: Task) => void;
-}) {
-  const [t, setT] = useState<Task>(initial);
-  const set = <K extends keyof Task>(k: K, v: Task[K]) => setT((p) => ({ ...p, [k]: v }));
-
-  const activityLinked = t.activityId
-    ? store.activities.find((a) => a.id === t.activityId)
-    : null;
-
-  return (
-    <>
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        <div>
-          <label className="text-xs text-muted-foreground">Nombre</label>
-          <Input
-            autoFocus
-            value={t.name}
-            onChange={(e) => set("name", e.target.value)}
-            placeholder="Estudiar Biología…"
-            className="mt-1"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Descripción</label>
-          <Textarea
-            value={t.description ?? ""}
-            onChange={(e) => set("description", e.target.value || undefined)}
-            rows={2}
-            className="mt-1 text-sm"
-            placeholder="Detalles…"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Actividad</label>
-            <Select
-              value={t.activityId ?? "__none__"}
-              onValueChange={(v) => set("activityId", v === "__none__" ? undefined : v)}
-            >
-              <SelectTrigger className="h-9 mt-1 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Sin actividad</SelectItem>
-                {store.activities.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Categoría</label>
-            <Select
-              value={t.category ?? activityLinked?.category ?? "otro"}
-              onValueChange={(v) => set("category", v as Task["category"])}
-            >
-              <SelectTrigger className="h-9 mt-1 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs text-muted-foreground">Objetivos</label>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {store.goals.length === 0 && (
-              <span className="text-xs text-muted-foreground">No hay objetivos definidos.</span>
-            )}
-            {store.goals.map((g) => {
-              const selected = (t.goalIds ?? []).includes(g.id);
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() =>
-                    set(
-                      "goalIds",
-                      selected
-                        ? (t.goalIds ?? []).filter((x) => x !== g.id)
-                        : [...(t.goalIds ?? []), g.id],
-                    )
-                  }
-                  className={`text-xs px-2 py-1 rounded-full border transition ${
-                    selected ? "text-background" : "hover:bg-accent"
-                  }`}
-                  style={
-                    selected
-                      ? { background: g.color, borderColor: g.color }
-                      : {
-                          background: `color-mix(in oklab, ${g.color} 10%, transparent)`,
-                          borderColor: `color-mix(in oklab, ${g.color} 40%, transparent)`,
-                        }
-                  }
-                >
-                  {g.icon ?? "🎯"} {g.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Prioridad</label>
-            <Select value={t.priority} onValueChange={(v) => set("priority", v as TaskPriority)}>
-              <SelectTrigger className="h-9 mt-1 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="urgent">🚨 Urgente</SelectItem>
-                <SelectItem value="high">🔥 Alta</SelectItem>
-                <SelectItem value="medium">◐ Media</SelectItem>
-                <SelectItem value="low">◯ Baja</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Estado</label>
-            <Select value={t.status} onValueChange={(v) => set("status", v as TaskStatus)}>
-              <SelectTrigger className="h-9 mt-1 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pendiente</SelectItem>
-                <SelectItem value="in_progress">En progreso</SelectItem>
-                <SelectItem value="completed">Completada</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Fecha</label>
-            <Input
-              type="date"
-              value={t.dueDate ?? ""}
-              onChange={(e) => set("dueDate", e.target.value || undefined)}
-              className="h-9 mt-1 text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Inicio</label>
-            <Input
-              type="time"
-              value={t.startTime ?? ""}
-              onChange={(e) => set("startTime", e.target.value || undefined)}
-              className="h-9 mt-1 text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Límite</label>
-            <Input
-              type="time"
-              value={t.dueTime ?? ""}
-              onChange={(e) => set("dueTime", e.target.value || undefined)}
-              className="h-9 mt-1 text-sm"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs text-muted-foreground">
-            Duración estimada <span className="text-destructive">*</span>
-          </label>
-          <div className="flex items-center gap-2 mt-1">
-            <Input
-              type="number"
-              min={1}
-              step={5}
-              value={t.estimatedMinutes ?? 30}
-              onChange={(e) =>
-                set("estimatedMinutes", Math.max(1, Number(e.target.value) || 1))
-              }
-              className="h-9 text-sm w-28"
-            />
-            <span className="text-xs text-muted-foreground">min</span>
-            <div className="ml-auto flex gap-1">
-              {[15, 30, 45, 60, 90, 120].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => set("estimatedMinutes", m)}
-                  className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-accent"
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            La duración afecta directamente los círculos en modo Tareas y Combinado.
-          </p>
-        </div>
-
-        <div>
-          <label className="text-xs text-muted-foreground">Etiquetas</label>
-          <Input
-            value={(t.tags ?? []).join(", ")}
-            onChange={(e) =>
-              set(
-                "tags",
-                e.target.value
-                  .split(",")
-                  .map((x) => x.trim())
-                  .filter(Boolean),
-              )
-            }
-            placeholder="importante, urgente, casa"
-            className="mt-1 text-sm h-9"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs text-muted-foreground">Notas</label>
-          <Textarea
-            value={t.notes ?? ""}
-            onChange={(e) => set("notes", e.target.value || undefined)}
-            rows={2}
-            className="mt-1 text-sm"
-          />
-        </div>
-      </div>
-
-      <div className="border-t p-4 flex items-center justify-end gap-2 bg-background/95 backdrop-blur">
-        <Button variant="ghost" onClick={onCancel}>
-          <X className="h-4 w-4 mr-1" /> Cancelar
-        </Button>
-        <Button onClick={() => onSubmit(t)}>
-          <Check className="h-4 w-4 mr-1" /> Guardar
-        </Button>
-      </div>
-    </>
-  );
-}
-
-/* ---------- utils ---------- */
-
-function fmtMin(m: number) {
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  return r === 0 ? `${h}h` : `${h}h ${r}m`;
-}
-
-function viewLabel(v: View) {
-  switch (v) {
-    case "today":
-      return "Hoy";
-    case "upcoming":
-      return "Próximas";
-    case "overdue":
-      return "Atrasadas";
-    case "completed":
-      return "Completadas";
-    case "unassigned":
-      return "Sin actividad";
-    case "by_priority":
-      return "Por prioridad";
-    case "by_goal":
-      return "Por objetivo";
-    case "archived":
-      return "Archivadas";
-    case "trash":
-      return "Papelera";
-    case "all":
-      return "Todas";
-  }
 }
