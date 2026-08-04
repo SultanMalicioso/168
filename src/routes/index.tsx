@@ -71,7 +71,7 @@ import {
   type Goal,
   type Task,
 } from "@/lib/time-store";
-import { allTasks, taskColor, taskMinutes } from "@/lib/task-utils";
+import { allTasks, taskColor, taskMinutes, tasksInWeek } from "@/lib/task-utils";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
@@ -124,8 +124,7 @@ function Index() {
     if (chartView === "activities" || chartView === "combined") return filtered;
     if (chartView === "tasks") {
       // Each task → pseudo-activity with weeklyHours = estimatedMinutes/60
-      return allT
-        .filter((t) => !t.archived)
+      return tasksInWeek(store)
         .map((t) => ({
           id: `task-${t.id}`,
           name: t.name,
@@ -171,7 +170,7 @@ function Index() {
     if (chartView !== "combined") return {};
     const map: Record<string, { id: string; name: string; hours: number; color: string }[]> = {};
     for (const a of filtered) {
-      const linked = allT.filter((t) => t.activityId === a.id && !t.archived);
+      const linked = tasksInWeek(store).filter((t) => t.activityId === a.id);
       if (linked.length === 0) continue;
       map[a.id] = linked.map((t) => ({
         id: t.id,
