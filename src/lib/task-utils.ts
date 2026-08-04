@@ -372,3 +372,90 @@ export function groupByActivity(tasks: Task[], activities: Activity[]) {
   }
   return Array.from(buckets.values()).filter((b) => b.tasks.length > 0);
 }
+
+// ---------- Week helpers / extra views ----------
+
+export function mondayOf(ref = new Date()): Date {
+  const d = new Date(ref);
+  const dow = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dow);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function weekDays(ref = new Date()): string[] {
+  const m = mondayOf(ref);
+  return Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(m);
+    d.setDate(m.getDate() + i);
+    return todayISO(d);
+  });
+}
+
+/** Tasks scheduled inside the current week (optionally including undated ones). */
+export function tasksInWeek(store: Store, includeUndated = true, ref = new Date()): Task[] {
+  const days = new Set(weekDays(ref));
+  return allTasks(store).filter(
+    (t) => !t.archived && (t.dueDate ? days.has(t.dueDate) : includeUndated),
+  );
+}
+
+/** Tasks for a specific ISO day. */
+export function tasksOnDate(store: Store, iso: string): Task[] {
+  return allTasks(store).filter((t) => !t.archived && t.dueDate === iso);
+}
+
+export function tasksNoDate(store: Store): Task[] {
+  return allTasks(store).filter((t) => !t.dueDate && !t.archived && t.status !== "completed");
+}
+
+export function allTags(store: Store): string[] {
+  const s = new Set<string>();
+  for (const t of allTasks(store)) for (const tag of t.tags ?? []) s.add(tag);
+  return Array.from(s).sort((a, b) => a.localeCompare(b));
+}
+
+/** Apply a patch to many tasks at once. */
+export function updateManyTasks(store: Store, ids: string[], patch: Partial<Task>): Store {
+  return ids.reduce((acc, id) => updateTask(acc, id, patch), store);
+}
+
+export function trashManyTasks(store: Store, ids: string[]): Store {
+  return ids.reduce((acc, id) => trashTask(acc, id), store);
+}
+
+export function shiftISO(iso: string | undefined, days: number): string {
+  const base = iso ? new Date(`${iso}T00:00:00`) : new Date();
+  base.setDate(base.getDate() + days);
+  return todayISO(base);
+}
+
+export function groupByDate(tasks: Task[]) {
+  const map = new Map<string, Task[]>();
+  for (const t of tasks) {
+    const k = t.dueDate ?? "__none__";
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(t);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => (a === "__none__" ? 1 : b === "__none__" ? -1 : a.localeCompare(b)))
+    .map(([date, arr]) => ({ date, tasks: arr }));
+}
+
+/** Friendly relative date label. */
+export function dateLabel(iso?: string): string {
+  if (!iso) return "Sin fecha";
+  const today = todayISO();
+  if (iso === today) return "Hoy";
+  if (iso === shiftISO(today, 1)) return "Mañana";
+  if (iso === shiftISO(today, -1)) return "Ayer";
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" });
+}
+
+export function fmtMinutes(m: number): string {
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r === 0 ? `${h}h` : `${h}h ${r}m`;
+}
