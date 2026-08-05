@@ -20,6 +20,8 @@ interface Props {
    * If a special activity id `__free__` is provided it is ignored.
    */
   subSegments?: Record<string, SubSegment[]>;
+  /** Activity currently being tracked — highlighted with a glowing outline. */
+  activeId?: string | null;
 }
 
 export function DonutChart({
@@ -29,6 +31,7 @@ export function DonutChart({
   unitLabel,
   freeLabel = "de la semana",
   subSegments,
+  activeId,
 }: Props) {
   const [hover, setHover] = useState<string | null>(null);
   const cx = size / 2;
@@ -114,11 +117,15 @@ export function DonutChart({
         {segments.map((s) => {
           const isFree = s.id === "__free__";
           const active = hover === s.id;
+          const tracking = !!activeId && s.id === activeId;
           return (
             <path
               key={s.id}
               d={arc(s.a0, s.a1, outerR, outerInner)}
               fill={s.color}
+              stroke={tracking ? "var(--foreground)" : undefined}
+              strokeWidth={tracking ? 2.5 : 0}
+              className={tracking ? "animate-pulse" : undefined}
               opacity={hover && !active ? 0.35 : 1}
               style={{
                 transition: "opacity 200ms ease, transform 200ms ease",

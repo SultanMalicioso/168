@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
+import { TimerBar } from "@/components/time/TimerBar";
 import {
   TASK_PRIORITY_META,
   useTimeStore,
@@ -366,6 +367,30 @@ function TodoPage() {
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 lg:pb-0">
       <Toaster position="top-center" />
+      <TimerBar
+        activities={store.activities}
+        onCompleteTasks={(activityId, taskIds) => {
+          const ids = new Set(taskIds);
+          setStore({
+            ...store,
+            activities: store.activities.map((a) =>
+              a.id === activityId
+                ? {
+                    ...a,
+                    tasks: (a.tasks ?? []).map((t) =>
+                      ids.has(t.id)
+                        ? { ...t, status: "completed" as const, completedAt: Date.now() }
+                        : t,
+                    ),
+                  }
+                : a,
+            ),
+            tasks: (store.tasks ?? []).map((t) =>
+              ids.has(t.id) ? { ...t, status: "completed" as const, completedAt: Date.now() } : t,
+            ),
+          });
+        }}
+      />
 
       <header className="border-b border-border/60 backdrop-blur-xl bg-background/85 sticky top-0 z-30">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-2.5 flex items-center gap-2">
