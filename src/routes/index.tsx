@@ -19,6 +19,7 @@ import {
   Layers,
   Table2,
   Target,
+  Timer,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,14 @@ import {
   type Task,
 } from "@/lib/time-store";
 import { allTasks, taskColor, taskMinutes, tasksInWeek } from "@/lib/task-utils";
+import { TimerBar } from "@/components/time/TimerBar";
+import { ActivityTimer } from "@/components/time/ActivityTimer";
+import {
+  dateKeyOf,
+  doneHoursForWeek,
+  isCompletedToday,
+  useTimerStore,
+} from "@/lib/timer-store";
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
@@ -108,6 +117,9 @@ function Index() {
 
 
 
+  const timers = useTimerStore();
+  const realMode = timers.progressMode === "real";
+
   const chartView: ChartView = store.chartView ?? "activities";
   const setChartView = (v: ChartView) => setStore({ ...store, chartView: v });
 
@@ -116,12 +128,25 @@ function Index() {
     [store.activities, filter],
   );
 
+  /** In "real" mode every activity is measured by tracked timer hours. */
+  const chartBase = useMemo<Activity[]>(
+    () =>
+      realMode
+        ? filtered.map((a) => ({
+            ...a,
+            hoursPerDay: doneHoursForWeek(timers.data, a.id, timers.now),
+            daysPerWeek: 1,
+          }))
+        : filtered,
+    [realMode, filtered, timers.data, timers.now],
+  );
+
   // Aggregate top-level + activity-inline tasks
   const allT = useMemo(() => allTasks(store), [store]);
 
   // For "goals" view, synthesize pseudo-activities grouped by goal so the donut renders groups.
   const chartActivities = useMemo<Activity[]>(() => {
-    if (chartView === "activities" || chartView === "combined") return filtered;
+    if (chartView === "activities" || chartView === "combined") return chartBase;
     if (chartView === "tasks") {
       // Each task → pseudo-activity with weeklyHours = estimatedMinutes/60
       return tasksInWeek(store)
@@ -138,7 +163,7 @@ function Index() {
     const items: Activity[] = [];
     for (const g of store.goals) {
       if (!g.active) continue;
-      const linked = filtered.filter((a) => a.goalIds?.includes(g.id));
+      const linked = chartBase.filter((a) => a.goalIds?.includes(g.id));
       const hours = linked.reduce((s, a) => s + weeklyHours(a), 0);
       if (hours <= 0) continue;
       items.push({
@@ -150,7 +175,7 @@ function Index() {
         category: "otro",
       });
     }
-    const unlinked = filtered.filter((a) => !a.goalIds || a.goalIds.length === 0);
+    const unlinked = chartBase.filter((a) => !a.goalIds || a.goalIds.length === 0);
     const unlinkedHours = unlinked.reduce((s, a) => s + weeklyHours(a), 0);
     if (unlinkedHours > 0) {
       items.push({
@@ -163,7 +188,7 @@ function Index() {
       });
     }
     return items;
-  }, [chartView, filtered, store, allT]);
+  }, [chartView, chartBase, store, allT]);
 
   // For combined mode: subdivide each activity outer arc by its tasks
   const subSegments = useMemo<Record<string, { id: string; name: string; hours: number; color: string }[]>>(() => {
@@ -182,7 +207,12 @@ function Index() {
     return map;
   }, [chartView, filtered, allT, store]);
 
-  const totalUsed = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
+  const plannedTotal = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
+  const realTotal = store.activities.reduce(
+    (s, a) => s + doneHoursForWeek(timers.data, a.id, timers.now),
+    0,
+  );
+  const totalUsed = realMode ? realTotal : plannedTotal;
   const free = Math.max(0, TOTAL - totalUsed);
   const overflow = totalUsed > TOTAL;
   const topActivity = [...store.activities].sort((a, b) => weeklyHours(b) - weeklyHours(a))[0];
@@ -210,6 +240,44 @@ function Index() {
     const pct = total > 0 ? (done / total) * 100 : 0;
     return { total, done, inProg, pending, pct, topByCount, topByCompletion };
   }, [store.activities]);
+
+  const timerStats = useMemo(() => {
+    const sessions = timers.data.sessions.length;
+    const done = realTotal;
+    const planned = plannedTotal;
+    const todayKey = dateKeyOf(new Date(timers.now));
+    const completedToday = store.activities.filter((a) =>
+      isCompletedToday(timers.data, a.id, todayKey),
+    ).length;
+    return {
+      sessions,
+      done,
+      planned,
+      diff: done - planned,
+      compliance: planned > 0 ? (done / planned) * 100 : 0,
+      completedToday,
+    };
+  }, [timers.data, timers.now, realTotal, plannedTotal, store.activities]);
+
+  const completeTasks = (activityId: string, taskIds: string[]) => {
+    const ids = new Set(taskIds);
+    setStore({
+      ...store,
+      activities: store.activities.map((a) =>
+        a.id === activityId
+          ? {
+              ...a,
+              tasks: (a.tasks ?? []).map((t) =>
+                ids.has(t.id) ? { ...t, status: "completed" as const, completedAt: Date.now() } : t,
+              ),
+            }
+          : a,
+      ),
+      tasks: (store.tasks ?? []).map((t) =>
+        ids.has(t.id) ? { ...t, status: "completed" as const, completedAt: Date.now() } : t,
+      ),
+    });
+  };
 
   const updateTasks = (activityId: string, updater: (tasks: Task[]) => Task[]) => {
     setStore({
@@ -295,6 +363,7 @@ function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Toaster position="top-center" />
+      <TimerBar activities={store.activities} onCompleteTasks={completeTasks} />
 
       {/* Header */}
       <header className="border-b border-border/60 backdrop-blur-xl bg-background/80 sticky top-0 z-30">
@@ -399,6 +468,29 @@ function Index() {
       <main className="mx-auto max-w-[1400px] px-6 py-8 grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* LEFT: chart + stats + week */}
         <div className="space-y-6 min-w-0">
+          {/* Planned vs real progress */}
+          <div className="flex justify-center">
+            <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
+              {([
+                ["planned", "Planificado"],
+                ["real", "Progreso real"],
+              ] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => timers.setProgressMode(v)}
+                  className={`px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                    timers.progressMode === v
+                      ? "bg-background shadow-sm font-medium"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {v === "real" ? <Timer className="h-3 w-3" /> : <LayoutGrid className="h-3 w-3" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Scope tabs: Semana / Día */}
           <div className="flex justify-center">
             <div className="inline-flex rounded-full border bg-muted/40 p-1 text-sm">
@@ -483,6 +575,7 @@ function Index() {
               <DonutChart
                 activities={chartActivities}
                 subSegments={chartView === "combined" ? subSegments : undefined}
+                activeId={timers.active?.activityId ?? null}
               />
             </div>
 
@@ -534,6 +627,30 @@ function Index() {
               value={`${(store.activities.find((a) => /dormir|sue/i.test(a.name)) ? weeklyHours(store.activities.find((a) => /dormir|sue/i.test(a.name))!) : 0).toFixed(0)}h`}
               sub="por semana"
             />
+          </div>
+
+          {/* Timer stats */}
+          <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-display text-lg">Seguimiento real</h2>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {timerStats.sessions} sesiones registradas
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard label="Planificado" value={`${timerStats.planned.toFixed(1)}h`} sub="esta semana" />
+              <StatCard label="Realizado" value={`${timerStats.done.toFixed(1)}h`} sub="con temporizador" />
+              <StatCard
+                label="Diferencia"
+                value={`${timerStats.diff >= 0 ? "+" : ""}${timerStats.diff.toFixed(1)}h`}
+                sub="real vs planificado"
+              />
+              <StatCard
+                label="Cumplimiento"
+                value={`${timerStats.compliance.toFixed(0)}%`}
+                sub={`${timerStats.completedToday} completadas hoy`}
+              />
+            </div>
           </div>
 
           {/* Task stats */}
@@ -612,6 +729,7 @@ function Index() {
             <DayView
               activities={filtered}
               goals={store.goals}
+              realMode={realMode}
               onEdit={(a) => {
                 setEditing(a);
                 setOpen(true);
@@ -715,6 +833,7 @@ function Index() {
                             {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
+                          <ActivityTimer activity={a} compact />
                           <InlineTasks
                             activity={a}
                             onChange={(tasks) => updateTasks(a.id, () => tasks)}

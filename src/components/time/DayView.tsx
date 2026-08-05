@@ -11,6 +11,8 @@ import {
   type Activity,
   type Goal,
 } from "@/lib/time-store";
+import { ActivityTimer } from "@/components/time/ActivityTimer";
+import { dateKeyOf, doneHoursForDay, useTimerStore } from "@/lib/timer-store";
 
 interface Props {
   activities: Activity[];
@@ -18,13 +20,24 @@ interface Props {
   onEdit: (a: Activity) => void;
   onDuplicate: (a: Activity) => void;
   onDelete: (a: Activity) => void;
+  realMode?: boolean;
 }
 
 const DAY_TOTAL = 24;
 
-export function DayView({ activities, goals, onEdit, onDuplicate, onDelete }: Props) {
+export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, realMode }: Props) {
   const today = ((new Date().getDay() + 6) % 7) as number;
   const [day, setDay] = useState<number>(today);
+  const timers = useTimerStore();
+
+  // Selected day → yyyy-mm-dd of the current week, used to scope timer data.
+  const dayKey = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + (day - today));
+    return dateKeyOf(d);
+  }, [day, today]);
+
+  const realHours = (a: Activity) => doneHoursForDay(timers.data, a.id, dayKey, timers.now);
 
   // Per-day activity counts for selector badges
   const countsPerDay = useMemo(() => {
@@ -54,13 +67,18 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete }: Pr
     () =>
       sorted.map((a) => ({
         ...a,
+        hoursPerDay: realMode ? realHours(a) : a.hoursPerDay,
         // DonutChart uses weeklyHours = hoursPerDay * daysPerWeek — force = hoursPerDay.
         daysPerWeek: 1,
       })),
-    [sorted],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sorted, realMode, timers.data, timers.now, dayKey],
   );
 
-  const occupied = dayActivities.reduce((s, a) => s + a.hoursPerDay, 0);
+  const occupied = dayActivities.reduce(
+    (s, a) => s + (realMode ? realHours(a) : a.hoursPerDay),
+    0,
+  );
   const free = Math.max(0, DAY_TOTAL - occupied);
   const overflow = occupied > DAY_TOTAL;
   const top = sorted[0];
@@ -138,6 +156,7 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete }: Pr
         <DonutChart
           activities={donutActivities}
           total={DAY_TOTAL}
+          activeId={timers.active?.activityId ?? null}
           unitLabel="DE 24 HORAS"
           freeLabel="del día"
         />
@@ -211,6 +230,7 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete }: Pr
                         </span>
                       )}
                     </div>
+                    <ActivityTimer activity={a} plannedHours={a.hoursPerDay} dateKey={dayKey} />
                     {(a.goalIds ?? []).length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {(a.goalIds ?? []).map((gid) => {
