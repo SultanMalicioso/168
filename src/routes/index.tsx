@@ -61,9 +61,11 @@ import { Calendar, CalendarDays } from "lucide-react";
 
 import {
   CATEGORIES,
+  completionIcon,
   nextColor,
   taskProgress,
   uid,
+  usesTimer,
   useTimeStore,
   weeklyHours,
   type Activity,
@@ -77,10 +79,11 @@ import { TimerBar } from "@/components/time/TimerBar";
 import { ActivityTimer } from "@/components/time/ActivityTimer";
 import {
   dateKeyOf,
-  doneHoursForWeek,
   isCompletedToday,
+  realHoursForWeek,
   useTimerStore,
 } from "@/lib/timer-store";
+
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
