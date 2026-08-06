@@ -158,7 +158,17 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
               / 24h
             </p>
           </div>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              dayDone.complete
+                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {dayDone.complete ? "✅ Día completado" : `${dayDone.done}/${dayDone.total} finalizadas`}
+          </span>
         </div>
+
         <DonutChart
           activities={donutActivities}
           total={DAY_TOTAL}
