@@ -206,6 +206,37 @@ export function ActivityForm({
           </Select>
         </div>
 
+        {/* COMPLETION MODE */}
+        <div className="space-y-1.5">
+          <Label>Modo de finalización</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { id: "timer", icon: "⏱", title: "Con temporizador", sub: "Registrá el tiempo real" },
+              { id: "manual", icon: "✅", title: "Manual", sub: "Solo marcar como hecha" },
+            ] as const).map((o) => {
+              const on = completion === o.id;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setCompletion(o.id as CompletionMode)}
+                  aria-pressed={on}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    on ? "border-foreground bg-accent" : "hover:border-foreground/30"
+                  }`}
+                >
+                  <div className="text-sm font-medium">
+                    {o.icon} {o.title}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{o.sub}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+
+
         {/* GOALS SECTION */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
