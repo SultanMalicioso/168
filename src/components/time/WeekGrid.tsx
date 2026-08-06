@@ -1,4 +1,4 @@
-import { activityDays, DAY_SHORT, type Activity } from "@/lib/time-store";
+import { activityDays, completionIcon, DAY_SHORT, type Activity } from "@/lib/time-store";
 
 const DAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
