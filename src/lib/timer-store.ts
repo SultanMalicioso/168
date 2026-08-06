@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Activity } from "@/lib/time-store";
+import { activityDays, completionMode, type Activity } from "@/lib/time-store";
 
 /* ------------------------------------------------------------------ *
  * Timer store
