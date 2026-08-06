@@ -239,7 +239,13 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium truncate">{a.name}</span>
+                      <span className="text-sm font-medium truncate">
+                        <span title={usesTimer(a) ? "Con temporizador" : "Completación manual"}>
+                          {completionIcon(a)}
+                        </span>{" "}
+                        {a.name}
+                      </span>
+
                       <Badge variant="secondary" className="text-[10px] font-normal">
                         {CATEGORIES.find((c) => c.id === a.category)?.label ?? a.category}
                       </Badge>
