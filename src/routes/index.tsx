@@ -642,7 +642,7 @@ function Index() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard label="Planificado" value={`${timerStats.planned.toFixed(1)}h`} sub="esta semana" />
-              <StatCard label="Realizado" value={`${timerStats.done.toFixed(1)}h`} sub="con temporizador" />
+              <StatCard label="Realizado" value={`${timerStats.done.toFixed(1)}h`} sub="temporizador + manual" />
               <StatCard
                 label="Diferencia"
                 value={`${timerStats.diff >= 0 ? "+" : ""}${timerStats.diff.toFixed(1)}h`}
