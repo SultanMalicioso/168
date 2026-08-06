@@ -141,10 +141,16 @@ export function ActivityTimer({ activity, plannedHours, dateKey, compact }: Prop
         )}
 
         {completed && !mine && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-medium">
-            <Check className="h-3 w-3" /> Completada hoy
-          </span>
+          <>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-medium">
+              <Check className="h-3 w-3" /> Completada hoy
+            </span>
+            <TinyBtn label="Desmarcar" onClick={() => toggleCompletion(activity.id, key)}>
+              <Undo2 className="h-3.5 w-3.5" />
+            </TinyBtn>
+          </>
         )}
+
       </div>
 
       {(mine || doneToday > 0) && (
