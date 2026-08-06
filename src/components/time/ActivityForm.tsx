@@ -61,7 +61,11 @@ export function ActivityForm({
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [goalIds, setGoalIds] = useState<string[]>(initial?.goalIds ?? []);
   const [tasks, setTasks] = useState<Task[]>(initial?.tasks ?? []);
+  const [completion, setCompletion] = useState<CompletionMode>(
+    initial ? completionMode(initial) : "timer",
+  );
   const [showGoalForm, setShowGoalForm] = useState(false);
+
 
   const daysPerWeek = dayIndices.length;
   const toggleDay = (d: number) =>
@@ -93,9 +97,11 @@ export function ActivityForm({
             permanent,
             notes: notes.trim() || undefined,
             goalIds: goalIds.length > 0 ? goalIds : undefined,
+            completion,
             tasks,
           });
         }}
+
         className="space-y-4"
       >
         <div className="space-y-1.5">
