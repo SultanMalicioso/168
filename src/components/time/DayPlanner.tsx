@@ -3,12 +3,15 @@ import { CalendarX, Copy, Pencil, Pin, Target, Trash2 } from "lucide-react";
 import {
   activityDays,
   CATEGORIES,
+  completionIcon,
   DAY_NAMES,
   DAY_SHORT,
   taskProgress,
+  usesTimer,
   type Activity,
   type Goal,
 } from "@/lib/time-store";
+
 
 interface Props {
   activities: Activity[];
