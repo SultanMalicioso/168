@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { activityDays, CATEGORIES, DAY_SHORT, type Activity, type Category, type Goal, type Task } from "@/lib/time-store";
+import { activityDays, CATEGORIES, completionMode, DAY_SHORT, type Activity, type Category, type CompletionMode, type Goal, type Task } from "@/lib/time-store";
 import { GoalForm } from "./GoalForm";
 import { TaskList } from "./TaskList";
 
