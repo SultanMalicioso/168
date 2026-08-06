@@ -137,7 +137,7 @@ function Index() {
       realMode
         ? filtered.map((a) => ({
             ...a,
-            hoursPerDay: doneHoursForWeek(timers.data, a.id, timers.now),
+            hoursPerDay: realHoursForWeek(timers.data, a, timers.now),
             daysPerWeek: 1,
           }))
         : filtered,
@@ -212,7 +212,7 @@ function Index() {
 
   const plannedTotal = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
   const realTotal = store.activities.reduce(
-    (s, a) => s + doneHoursForWeek(timers.data, a.id, timers.now),
+    (s, a) => s + realHoursForWeek(timers.data, a, timers.now),
     0,
   );
   const totalUsed = realMode ? realTotal : plannedTotal;
