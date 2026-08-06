@@ -5,14 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import {
   activityDays,
   CATEGORIES,
+  completionIcon,
   DAY_NAMES,
   DAY_SHORT,
   taskProgress,
+  usesTimer,
   type Activity,
   type Goal,
 } from "@/lib/time-store";
 import { ActivityTimer } from "@/components/time/ActivityTimer";
-import { dateKeyOf, doneHoursForDay, useTimerStore } from "@/lib/timer-store";
+import { dateKeyOf, dayCompletion, realHoursForDay, useTimerStore } from "@/lib/timer-store";
+
 
 interface Props {
   activities: Activity[];
