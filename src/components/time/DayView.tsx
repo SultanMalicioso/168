@@ -40,7 +40,10 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
     return dateKeyOf(d);
   }, [day, today]);
 
-  const realHours = (a: Activity) => doneHoursForDay(timers.data, a.id, dayKey, timers.now);
+  const realHours = (a: Activity) =>
+    realHoursForDay(timers.data, a, dayKey, a.hoursPerDay, timers.now);
+  const dayDone = dayCompletion(timers.data, activities, day, dayKey);
+
 
   // Per-day activity counts for selector badges
   const countsPerDay = useMemo(() => {
