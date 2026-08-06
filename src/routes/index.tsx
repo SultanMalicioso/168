@@ -61,9 +61,11 @@ import { Calendar, CalendarDays } from "lucide-react";
 
 import {
   CATEGORIES,
+  completionIcon,
   nextColor,
   taskProgress,
   uid,
+  usesTimer,
   useTimeStore,
   weeklyHours,
   type Activity,
@@ -77,10 +79,11 @@ import { TimerBar } from "@/components/time/TimerBar";
 import { ActivityTimer } from "@/components/time/ActivityTimer";
 import {
   dateKeyOf,
-  doneHoursForWeek,
   isCompletedToday,
+  realHoursForWeek,
   useTimerStore,
 } from "@/lib/timer-store";
+
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
@@ -134,7 +137,7 @@ function Index() {
       realMode
         ? filtered.map((a) => ({
             ...a,
-            hoursPerDay: doneHoursForWeek(timers.data, a.id, timers.now),
+            hoursPerDay: realHoursForWeek(timers.data, a, timers.now),
             daysPerWeek: 1,
           }))
         : filtered,
@@ -209,7 +212,7 @@ function Index() {
 
   const plannedTotal = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
   const realTotal = store.activities.reduce(
-    (s, a) => s + doneHoursForWeek(timers.data, a.id, timers.now),
+    (s, a) => s + realHoursForWeek(timers.data, a, timers.now),
     0,
   );
   const totalUsed = realMode ? realTotal : plannedTotal;
@@ -639,7 +642,7 @@ function Index() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard label="Planificado" value={`${timerStats.planned.toFixed(1)}h`} sub="esta semana" />
-              <StatCard label="Realizado" value={`${timerStats.done.toFixed(1)}h`} sub="con temporizador" />
+              <StatCard label="Realizado" value={`${timerStats.done.toFixed(1)}h`} sub="temporizador + manual" />
               <StatCard
                 label="Diferencia"
                 value={`${timerStats.diff >= 0 ? "+" : ""}${timerStats.diff.toFixed(1)}h`}
@@ -803,7 +806,13 @@ function Index() {
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium truncate">{a.name}</span>
+                            <span className="text-sm font-medium truncate">
+                              <span title={usesTimer(a) ? "Con temporizador" : "Completación manual"}>
+                                {completionIcon(a)}
+                              </span>{" "}
+                              {a.name}
+                            </span>
+
                             <Badge variant="secondary" className="text-[10px] font-normal">
                               {CATEGORIES.find((c) => c.id === a.category)?.label ?? a.category}
                             </Badge>

@@ -3,12 +3,15 @@ import { CalendarX, Copy, Pencil, Pin, Target, Trash2 } from "lucide-react";
 import {
   activityDays,
   CATEGORIES,
+  completionIcon,
   DAY_NAMES,
   DAY_SHORT,
   taskProgress,
+  usesTimer,
   type Activity,
   type Goal,
 } from "@/lib/time-store";
+
 
 interface Props {
   activities: Activity[];
@@ -252,7 +255,13 @@ function DayCard({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold truncate">{a.name}</span>
+            <span className="text-sm font-semibold truncate">
+              <span title={usesTimer(a) ? "Con temporizador" : "Completación manual"}>
+                {completionIcon(a)}
+              </span>{" "}
+              {a.name}
+            </span>
+
             {a.permanent && (
               <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Pin className="h-2.5 w-2.5" />

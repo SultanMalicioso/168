@@ -5,14 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import {
   activityDays,
   CATEGORIES,
+  completionIcon,
   DAY_NAMES,
   DAY_SHORT,
   taskProgress,
+  usesTimer,
   type Activity,
   type Goal,
 } from "@/lib/time-store";
 import { ActivityTimer } from "@/components/time/ActivityTimer";
-import { dateKeyOf, doneHoursForDay, useTimerStore } from "@/lib/timer-store";
+import { dateKeyOf, dayCompletion, realHoursForDay, useTimerStore } from "@/lib/timer-store";
+
 
 interface Props {
   activities: Activity[];
@@ -37,7 +40,10 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
     return dateKeyOf(d);
   }, [day, today]);
 
-  const realHours = (a: Activity) => doneHoursForDay(timers.data, a.id, dayKey, timers.now);
+  const realHours = (a: Activity) =>
+    realHoursForDay(timers.data, a, dayKey, a.hoursPerDay, timers.now);
+  const dayDone = dayCompletion(timers.data, activities, day, dayKey);
+
 
   // Per-day activity counts for selector badges
   const countsPerDay = useMemo(() => {
@@ -152,7 +158,17 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
               / 24h
             </p>
           </div>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              dayDone.complete
+                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {dayDone.complete ? "✅ Día completado" : `${dayDone.done}/${dayDone.total} finalizadas`}
+          </span>
         </div>
+
         <DonutChart
           activities={donutActivities}
           total={DAY_TOTAL}
@@ -191,6 +207,12 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
         <Stat label="Tareas pendientes" value={String(taskToday.pending)} sub={`${taskToday.done}/${taskToday.total} completadas`} />
         <Stat label="Categorías" value={String(new Set(dayActivities.map((a) => a.category)).size)} sub={`de ${CATEGORIES.length}`} />
         <Stat label="Restante ahora" value={`${free.toFixed(1)}h`} sub="hasta llenar el día" />
+        <Stat
+          label="Progreso del día"
+          value={`${dayDone.done}/${dayDone.total}`}
+          sub={dayDone.complete ? "Día completado" : "actividades finalizadas"}
+        />
+
       </div>
 
       {/* Activities of the day */}
@@ -217,7 +239,13 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium truncate">{a.name}</span>
+                      <span className="text-sm font-medium truncate">
+                        <span title={usesTimer(a) ? "Con temporizador" : "Completación manual"}>
+                          {completionIcon(a)}
+                        </span>{" "}
+                        {a.name}
+                      </span>
+
                       <Badge variant="secondary" className="text-[10px] font-normal">
                         {CATEGORIES.find((c) => c.id === a.category)?.label ?? a.category}
                       </Badge>

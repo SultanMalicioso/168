@@ -1,4 +1,4 @@
-import { activityDays, DAY_SHORT, type Activity } from "@/lib/time-store";
+import { activityDays, completionIcon, DAY_SHORT, type Activity } from "@/lib/time-store";
 
 const DAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -77,7 +77,7 @@ export function WeekGrid({ activities }: Props) {
                       background: a.color,
                       minHeight: 2,
                     }}
-                    title={`${a.name} — ${a.hoursPerDay}h`}
+                    title={`${completionIcon(a)} ${a.name} — ${a.hoursPerDay}h`}
                   >
                     <span className="truncate mix-blend-luminosity">
                       {pct > 6 ? a.name : ""}

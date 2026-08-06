@@ -68,6 +68,9 @@ export const TASK_STATUS_META: Record<TaskStatus, { label: string; color: string
   completed: { label: "Completada", color: "oklch(0.7 0.16 155)" },
 };
 
+/** How an activity gets marked as done. Legacy activities default to "timer". */
+export type CompletionMode = "timer" | "manual";
+
 export interface Activity {
   id: string;
   name: string;
@@ -79,9 +82,18 @@ export interface Activity {
   permanent?: boolean;
   notes?: string;
   goalIds?: string[];
+  /** "timer" (default, back-compat) or "manual" completion. */
+  completion?: CompletionMode;
   /** Legacy inline tasks — still supported for backward compatibility. */
   tasks?: Task[];
 }
+
+/** Migration-safe accessor: activities without the field keep the timer. */
+export const completionMode = (a: Activity): CompletionMode =>
+  a.completion === "manual" ? "manual" : "timer";
+export const usesTimer = (a: Activity) => completionMode(a) === "timer";
+export const completionIcon = (a: Activity) => (usesTimer(a) ? "⏱" : "✅");
+
 
 export interface Goal {
   id: string;

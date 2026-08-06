@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { activityDays, CATEGORIES, DAY_SHORT, type Activity, type Category, type Goal, type Task } from "@/lib/time-store";
+import { activityDays, CATEGORIES, completionMode, DAY_SHORT, type Activity, type Category, type CompletionMode, type Goal, type Task } from "@/lib/time-store";
 import { GoalForm } from "./GoalForm";
 import { TaskList } from "./TaskList";
 
@@ -61,7 +61,11 @@ export function ActivityForm({
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [goalIds, setGoalIds] = useState<string[]>(initial?.goalIds ?? []);
   const [tasks, setTasks] = useState<Task[]>(initial?.tasks ?? []);
+  const [completion, setCompletion] = useState<CompletionMode>(
+    initial ? completionMode(initial) : "timer",
+  );
   const [showGoalForm, setShowGoalForm] = useState(false);
+
 
   const daysPerWeek = dayIndices.length;
   const toggleDay = (d: number) =>
@@ -93,9 +97,11 @@ export function ActivityForm({
             permanent,
             notes: notes.trim() || undefined,
             goalIds: goalIds.length > 0 ? goalIds : undefined,
+            completion,
             tasks,
           });
         }}
+
         className="space-y-4"
       >
         <div className="space-y-1.5">
@@ -199,6 +205,37 @@ export function ActivityForm({
             </SelectContent>
           </Select>
         </div>
+
+        {/* COMPLETION MODE */}
+        <div className="space-y-1.5">
+          <Label>Modo de finalización</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { id: "timer", icon: "⏱", title: "Con temporizador", sub: "Registrá el tiempo real" },
+              { id: "manual", icon: "✅", title: "Manual", sub: "Solo marcar como hecha" },
+            ] as const).map((o) => {
+              const on = completion === o.id;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setCompletion(o.id as CompletionMode)}
+                  aria-pressed={on}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    on ? "border-foreground bg-accent" : "hover:border-foreground/30"
+                  }`}
+                >
+                  <div className="text-sm font-medium">
+                    {o.icon} {o.title}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{o.sub}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+
 
         {/* GOALS SECTION */}
         <div className="space-y-1.5">

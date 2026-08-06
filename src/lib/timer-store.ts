@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Activity } from "@/lib/time-store";
+import { activityDays, completionMode, type Activity } from "@/lib/time-store";
 
 /* ------------------------------------------------------------------ *
  * Timer store
@@ -236,6 +236,54 @@ export function activityStats(
 export function isCompletedToday(data: TimerData, activityId: string, dateKey = dateKeyOf()): boolean {
   return (data.completions[dateKey] ?? []).includes(activityId);
 }
+
+/* ---------- unified completion (timer + manual) ---------- */
+
+/**
+ * Effective "real" hours of an activity on a day, regardless of how it is
+ * completed: manual activities count their planned hours once marked done,
+ * timer activities count tracked session time.
+ */
+export function realHoursForDay(
+  data: TimerData,
+  activity: Activity,
+  dateKey: string,
+  plannedHours?: number,
+  now = Date.now(),
+): number {
+  if (completionMode(activity) === "manual") {
+    return isCompletedToday(data, activity.id, dateKey) ? (plannedHours ?? activity.hoursPerDay) : 0;
+  }
+  return doneHoursForDay(data, activity.id, dateKey, now);
+}
+
+/** Same idea across the current week. */
+export function realHoursForWeek(data: TimerData, activity: Activity, now = Date.now()): number {
+  if (completionMode(activity) === "manual") {
+    const start = weekStart(new Date(now));
+    let hours = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      if (isCompletedToday(data, activity.id, dateKeyOf(d))) hours += activity.hoursPerDay;
+    }
+    return hours;
+  }
+  return doneHoursForWeek(data, activity.id, now);
+}
+
+/** A day is complete when every activity scheduled that day is finished. */
+export function dayCompletion(
+  data: TimerData,
+  activities: Activity[],
+  dayIndex: number,
+  dateKey: string,
+): { total: number; done: number; complete: boolean } {
+  const scheduled = activities.filter((a) => activityDays(a).has(dayIndex));
+  const done = scheduled.filter((a) => isCompletedToday(data, a.id, dateKey)).length;
+  return { total: scheduled.length, done, complete: scheduled.length > 0 && done === scheduled.length };
+}
+
 
 /* ---------------- hook ---------------- */
 
