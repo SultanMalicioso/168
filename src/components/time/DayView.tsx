@@ -207,6 +207,12 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
         <Stat label="Tareas pendientes" value={String(taskToday.pending)} sub={`${taskToday.done}/${taskToday.total} completadas`} />
         <Stat label="Categorías" value={String(new Set(dayActivities.map((a) => a.category)).size)} sub={`de ${CATEGORIES.length}`} />
         <Stat label="Restante ahora" value={`${free.toFixed(1)}h`} sub="hasta llenar el día" />
+        <Stat
+          label="Progreso del día"
+          value={`${dayDone.done}/${dayDone.total}`}
+          sub={dayDone.complete ? "Día completado" : "actividades finalizadas"}
+        />
+
       </div>
 
       {/* Activities of the day */}
