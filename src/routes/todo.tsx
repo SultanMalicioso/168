@@ -400,6 +400,12 @@ function TodoPage() {
           >
             <ArrowLeft className="h-4 w-4" /> 168
           </Link>
+          <Link
+            to="/calendar"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm border hover:bg-accent transition"
+          >
+            Calendario
+          </Link>
           <div className="hidden sm:flex items-center gap-2 pl-3 border-l">
             <div className="h-8 w-8 rounded-lg bg-foreground text-background flex items-center justify-center">
               <CheckCircle2 className="h-4 w-4" />
