@@ -365,6 +365,10 @@ function TodoPage() {
     }));
   }, [groupBy, list, store.goals, store.activities]);
 
+  if (!hydrated) return <div className="min-h-screen bg-background" />;
+
+
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 lg:pb-0">
       <Toaster position="top-center" />
