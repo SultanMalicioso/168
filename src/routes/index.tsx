@@ -407,7 +407,9 @@ function Index() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button size="sm" className="gap-1.5">
-                  <RotateCcw className="h-4 w-4" /> Nueva semana
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="hidden sm:inline">Nueva semana</span>
+
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
