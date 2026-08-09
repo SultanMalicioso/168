@@ -153,7 +153,8 @@ function TodoPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  if (!hydrated) return <div className="min-h-screen bg-background" />;
+
+
 
   const toggleTheme = () =>
     setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
@@ -363,6 +364,10 @@ function TodoPage() {
       tasks,
     }));
   }, [groupBy, list, store.goals, store.activities]);
+
+  if (!hydrated) return <div className="min-h-screen bg-background" />;
+
+
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 lg:pb-0">
