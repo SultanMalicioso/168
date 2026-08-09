@@ -370,20 +370,23 @@ function Index() {
 
       {/* Header */}
       <header className="border-b border-border/60 backdrop-blur-xl bg-background/80 sticky top-0 z-30">
-        <div className="mx-auto max-w-[1400px] px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-foreground text-background flex items-center justify-center font-display text-lg">
+        <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="h-9 w-9 shrink-0 rounded-xl bg-foreground text-background flex items-center justify-center font-display text-lg">
               168
             </div>
-            <div>
-              <h1 className="font-display text-xl leading-none">Tu semana en horas</h1>
-              <p className="text-xs text-muted-foreground mt-1">
+            <div className="min-w-0">
+              <h1 className="font-display text-base sm:text-xl leading-none truncate">
+                Tu semana en horas
+              </h1>
+              <p className="hidden sm:block text-xs text-muted-foreground mt-1">
                 Distribuye, visualiza y equilibra 168 horas.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+
             <Link
               to="/calendar"
               aria-label="Calendario"
