@@ -3,6 +3,7 @@ import { ArrowLeft, CheckSquare } from "lucide-react";
 import { CalendarModule } from "@/components/calendar/CalendarModule";
 import { useTimeStore } from "@/lib/time-store";
 import { useTimerStore } from "@/lib/timer-store";
+import { SyncBadge } from "@/components/sync/SyncBadge";
 import { TimerBar } from "@/components/time/TimerBar";
 
 export const Route = createFileRoute("/calendar")({
@@ -50,6 +51,7 @@ function CalendarPage() {
           >
             <CheckSquare className="h-4 w-4" /> To-Do
           </Link>
+          <SyncBadge />
         </div>
       </header>
 
