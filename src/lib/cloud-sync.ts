@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 /* ------------------------------------------------------------------ *
  * Cloud sync
@@ -71,7 +72,7 @@ async function pushDirty() {
     .map((key) => {
       const raw = localStorage.getItem(key);
       if (raw == null) return null;
-      let value: unknown;
+      let value: Json;
       try {
         value = JSON.parse(raw);
       } catch {
@@ -84,7 +85,7 @@ async function pushDirty() {
         updated_at: new Date(meta.localAt[key] ?? Date.now()).toISOString(),
       };
     })
-    .filter(Boolean) as { user_id: string; key: string; value: unknown; updated_at: string }[];
+    .filter(Boolean) as { user_id: string; key: string; value: Json; updated_at: string }[];
   if (rows.length === 0) return;
 
   setStatus("syncing");
