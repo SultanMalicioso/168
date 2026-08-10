@@ -440,9 +440,11 @@ function TodoPage() {
             <Button size="sm" onClick={() => openNew()} className="hidden sm:inline-flex gap-1.5">
               <Plus className="h-4 w-4" /> Nueva
             </Button>
+            <SyncBadge />
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Cambiar tema">
               {store.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+
           </div>
         </div>
 
