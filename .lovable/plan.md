@@ -1,106 +1,40 @@
+# Sincronizar tus datos entre celular y computadora
 
-## Alcance
+Hoy todo (actividades, objetivos, tareas, temporizadores e historial) se guarda solo en el navegador del dispositivo que usaste. Por eso lo que cargás en el celular no aparece en la compu.
 
-Módulo To-Do de nivel profesional (inspirado en Todoist / Things 3) totalmente integrado con actividades, objetivos, calendario y donuts. Las tareas pasan a ser una entidad de primer nivel con duración estimada, y pueden pintar los círculos por sí solas.
+Para que sí se sincronice hace falta una cuenta y una base de datos en la nube: activás Lovable Cloud, iniciás sesión con el mismo email en ambos dispositivos y los datos viajan solos.
 
-## Cambios en el modelo (`src/lib/time-store.ts`)
+## Qué se va a construir
 
-Extender `Task`:
-- `activityId?: string` — vínculo opcional (una tarea puede no pertenecer a ninguna actividad).
-- `goalIds?: string[]` — objetivo(s) asociado(s).
-- `category?: Category`.
-- `startTime?: string`, `dueTime` ya existe (hora límite), añadir `estimatedMinutes: number` (obligatoria).
-- `tags?: string[]`.
-- `archived?: boolean`, `deletedAt?: number` (papelera).
-- `color?: string` heredado de la actividad si existe.
+1. **Cuenta de usuario**
+   - Pantalla de registro / inicio de sesión con email y contraseña.
+   - Botón de cerrar sesión y aviso de "modo local" cuando no hay sesión.
 
-Store:
-- Nuevo array top-level `tasks: Task[]` (fuente única). Migración: aplanar `activities[].tasks` a `store.tasks` con `activityId`, manteniendo backward-compat.
-- `chartView: "activities" | "goals" | "tasks" | "combined"`.
-- Selectores: `tasksToday`, `tasksUpcoming`, `tasksOverdue`, `tasksCompleted`, `tasksUnassigned`, `tasksByPriority`, `tasksByGoal`, `taskStreaks`.
+2. **Guardado en la nube**
+   - Tablas privadas por usuario para: actividades, objetivos, tareas, sesiones/temporizadores e historial diario.
+   - Cada persona solo ve sus propios datos.
 
-## Nuevo módulo: pestaña "To-Do"
+3. **Sincronización automática**
+   - Al iniciar sesión se descargan tus datos y reemplazan la vista local.
+   - Cada cambio (crear actividad, completar día, iniciar timer) se guarda en la nube al instante.
+   - Al abrir la app en el otro dispositivo, se cargan los datos más recientes.
 
-`src/routes/todo.tsx` (nueva ruta `/todo`) con navegación en el header (chips: Semana · Día · To-Do).
+4. **Migración de lo que ya tenés**
+   - La primera vez que inicies sesión, si el dispositivo tiene datos locales y la cuenta está vacía, se suben esos datos para no perder nada.
 
-Componentes nuevos en `src/components/todo/`:
-- `TodoSidebar.tsx` — vistas: Hoy, Próximas, Atrasadas, Completadas, Sin actividad, Por prioridad, Por objetivo, Etiquetas, Archivadas, Papelera. Contadores en vivo.
-- `TaskListView.tsx` — lista densa tipo Things: checkbox, título, chips (actividad, objetivo, prioridad, duración, fecha). Selección múltiple, arrastrar entre días, drag & drop para reordenar.
-- `TaskComposer.tsx` — creación rápida (Cmd+K/inline) con parsing ligero: `#actividad`, `@objetivo`, `!alta`, `~2h`, `mañana 15:00`.
-- `TaskEditor.tsx` — Sheet lateral con todos los campos (nombre, descripción, actividad, objetivo, categoría, prioridad, fecha, hora inicio/límite, duración, estado, etiquetas, notas).
-- `TodoStats.tsx` — panel superior: creadas, completadas, %, horas planificadas vs realizadas, pendientes, racha diaria/semanal, productividad hoy.
-- `TodoFilters.tsx` — búsqueda instantánea, orden (duración/prioridad/fecha/nombre), filtros combinables.
-- `TaskTrash.tsx` — restaurar / vaciar.
-
-## Integración con los círculos (`DonutChart` + `src/routes/index.tsx` + `DayView`)
-
-Cuatro modos en el toggle del donut:
-1. **Actividades** (actual).
-2. **Objetivos** (actual).
-3. **Tareas** — sintetiza segmentos desde `store.tasks` usando `estimatedMinutes`. Color = color de tarea → actividad → objetivo → categoría. Semana: suma minutos de tareas cuya fecha cae en la semana actual (o sin fecha si el usuario lo elige). Día: suma minutos de tareas del día seleccionado.
-4. **Combinado** — anillo exterior = actividades; anillo interior = tareas dentro de cada actividad (mismo ángulo, subdividido proporcionalmente por duración). Tareas sin actividad forman un sector externo "Independientes". Implementado con dos `<path>` concéntricos en `DonutChart`.
-
-Sincronización: todo consume `useTimeStore` → cualquier CRUD de tarea recalcula donuts, planner diario, `WeekGrid` (marcadores por día), objetivos y stats de actividad automáticamente vía `useMemo`.
-
-## Integración con actividades existentes
-
-- La sección "Tareas" dentro de `ActivityForm` sigue funcionando, pero ahora escribe/lee de `store.tasks` filtrando por `activityId`.
-- Cada tarjeta de actividad muestra `n tareas · m completadas · %` derivado de `store.tasks`.
-- Al eliminar una actividad, sus tareas quedan como "Sin actividad" (no se borran).
-- Al eliminar un objetivo, se limpia `goalIds` de las tareas.
-
-## Calendario (`WeekGrid`, `DayPlanner`, `DayView`)
-
-- Tareas con `dueDate` aparecen como puntos/bloques en su día.
-- Drag & drop entre días cambia `dueDate` (HTML5 DnD).
-- Tareas sin fecha nunca aparecen en el calendario.
-
-## Validaciones
-
-Zod schema centralizado en `src/lib/task-schema.ts`:
-- `estimatedMinutes >= 1`.
-- Fechas ISO válidas; `dueTime >= startTime` si ambas.
-- `activityId` y `goalIds` deben existir (si no, se limpian en migración).
-- Rechazar duplicados con mismo `id`.
-
-## Racha / productividad
-
-Helpers puros en `src/lib/task-stats.ts`: `dailyStreak`, `weeklyStreak`, `productivityScore(day)` = completadas/planificadas por minutos, con ventana móvil.
+5. **Sin sesión, todo sigue funcionando**
+   - Si no querés crear cuenta, la app sigue guardando en el dispositivo como hasta ahora.
 
 ## Detalles técnicos
 
-- Fuente única: `store.tasks`. Eliminar `activity.tasks` (con migración one-shot).
-- Papelera: soft-delete con `deletedAt`; auto-purga tras 30 días al hidratar.
-- Arquitectura preparada para: subtareas (`parentId`), recurrencia (`rrule?: string`), recordatorios (`remindAt?: number`), adjuntos (`attachments?: []`), comentarios (`comments?: []`). Campos opcionales presentes desde ya, sin UI.
-- Animaciones: `animate-fade-in`, `animate-scale-in`, transiciones en checkboxes y reordenamiento.
-- Mobile-first: sidebar colapsable en `< md`, sheets a pantalla completa.
+- Habilitar Lovable Cloud (base de datos + auth por email).
+- Tablas en `public` con `user_id`, RLS por `auth.uid()` y sus GRANTs correspondientes.
+- Nueva capa `src/lib/sync/` que envuelve los stores actuales (`time-store`, `timer-store`, `history-store`) manteniendo su API: escritura local inmediata + push a la nube (debounce), y pull al montar / al recuperar foco.
+- Estrategia de conflicto simple: gana el cambio más reciente (`updated_at`).
+- Ruta `/auth` pública para login/registro; el resto de la app no se bloquea sin sesión.
+- Indicador de estado de sincronización en el header (sincronizado / guardando / sin conexión).
 
-## Archivos nuevos
+## Fuera de alcance por ahora
 
-```
-src/routes/todo.tsx
-src/components/todo/TodoSidebar.tsx
-src/components/todo/TaskListView.tsx
-src/components/todo/TaskComposer.tsx
-src/components/todo/TaskEditor.tsx
-src/components/todo/TodoStats.tsx
-src/components/todo/TodoFilters.tsx
-src/components/todo/TaskTrash.tsx
-src/lib/task-schema.ts
-src/lib/task-stats.ts
-```
-
-## Archivos modificados
-
-```
-src/lib/time-store.ts        (modelo + migración + selectores)
-src/components/time/DonutChart.tsx   (modo combinado con doble anillo)
-src/routes/index.tsx         (toggle 4 modos + link a /todo)
-src/routes/__root.tsx        (nav global)
-src/components/time/ActivityForm.tsx (TaskList lee de store.tasks)
-src/components/time/TaskList.tsx     (usa store centralizado)
-src/components/time/WeekGrid.tsx     (marcadores de tareas)
-src/components/time/DayPlanner.tsx / DayView.tsx  (sincronía)
-```
-
-Confirmá y arranco. Es un módulo grande: preferís que lo entregue completo en una sola pasada o por fases (modelo+ruta → integración círculos → panels avanzados)?
+- Login con Google/Apple (se puede agregar después).
+- Edición colaborativa en tiempo real entre varios usuarios.
