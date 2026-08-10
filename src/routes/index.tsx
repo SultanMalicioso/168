@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster } from "@/components/ui/sonner";
+import { SyncBadge } from "@/components/sync/SyncBadge";
 import { toast } from "sonner";
 import { DonutChart } from "@/components/time/DonutChart";
 import { ActivityForm } from "@/components/time/ActivityForm";
