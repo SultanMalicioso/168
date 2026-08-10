@@ -403,6 +403,8 @@ function Index() {
               <CheckSquare className="h-4 w-4" />
               <span className="hidden sm:inline">To-Do</span>
             </Link>
+            <SyncBadge />
+
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
