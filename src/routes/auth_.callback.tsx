@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/auth/callback")({
+export const Route = createFileRoute("/auth_/callback")({
   ssr: false,
   head: () => ({
     meta: [
