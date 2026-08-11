@@ -78,16 +78,21 @@ function AuthPage() {
 
   const google = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/auth/callback`,
+      });
+      if (result.error) {
+        setBusy(false);
+        toast.error("No pudimos iniciar sesión con Google. Probá de nuevo o usá email y contraseña.");
+        return;
+      }
+      if (result.redirected) return;
+      navigate({ to: "/" });
+    } catch {
       setBusy(false);
-      toast.error("No pudimos iniciar sesión con Google.");
-      return;
+      toast.error("No pudimos iniciar sesión con Google. Probá de nuevo o usá email y contraseña.");
     }
-    if (result.redirected) return;
-    navigate({ to: "/" });
   };
 
   return (
