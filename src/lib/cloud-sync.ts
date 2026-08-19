@@ -255,19 +255,25 @@ function installInterceptor() {
   if (installed || typeof window === "undefined") return;
   installed = true;
   const original = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = (key: string, value: string) => {
-    original(key, value);
-    if ((SYNC_KEYS as readonly string[]).includes(key)) {
-      const meta = readMeta();
-      meta.localAt[key] = Date.now();
-      try {
-        original(META_KEY, JSON.stringify(meta));
-      } catch {
-        /* quota */
-      }
-      schedulePush(key);
+localStorage.setItem = (key: string, value: string) => {
+  original(key, value);
+
+  if (applyingRemote) return;
+
+  if ((SYNC_KEYS as readonly string[]).includes(key)) {
+    const meta = readMeta();
+
+    meta.localAt[key] = Date.now();
+
+    try {
+      original(META_KEY, JSON.stringify(meta));
+    } catch {
+      /* quota */
     }
-  };
+
+    schedulePush(key);
+  }
+};
 }
 
 let started = false;
