@@ -16,6 +16,7 @@ export const SYNC_KEYS = ["week168.v2", "week168.timers.v1", "week168.history.v1
 export type SyncKey = (typeof SYNC_KEYS)[number];
 
 const META_KEY = "week168.sync.meta";
+const CLOUD_UPDATED_EVENT = "week168:cloud-updated";
 
 export type SyncStatus = "offline" | "idle" | "syncing" | "synced" | "error";
 
@@ -48,6 +49,8 @@ let currentUser: User | null = null;
 let status: SyncStatus = "offline";
 let installed = false;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+let pullInFlight: Promise<void> | null = null;
+let applyingRemote = false;
 const dirty = new Set<string>();
 const listeners = new Set<() => void>();
 
@@ -109,17 +112,95 @@ function schedulePush(key: string) {
 }
 
 /** Download remote data; newer remote values replace the local ones. */
-async function pull() {
+async function pull(): Promise<void> {
   if (!currentUser) return;
-  setStatus("syncing");
-  const { data, error } = await supabase
-    .from("user_data")
-    .select("key,value,updated_at")
-    .eq("user_id", currentUser.id);
-  if (error) {
-    setStatus("error");
-    return;
-  }
+
+  // Don't start another pull while one is already running.
+  if (pullInFlight) return pullInFlight;
+
+  pullInFlight = (async () => {
+    setStatus("syncing");
+
+    const { data, error } = await supabase
+      .from("user_data")
+      .select("key,value,updated_at")
+      .eq("user_id", currentUser!.id);
+
+    if (error) {
+      setStatus("error");
+      return;
+    }
+
+    const meta = readMeta();
+    const remote = new Map(
+      (data ?? []).map((r) => [r.key as string, r])
+    );
+
+    let replaced = false;
+
+    // Prevent remote data from triggering another cloud upload.
+    applyingRemote = true;
+
+    try {
+      for (const key of SYNC_KEYS) {
+        const row = remote.get(key);
+        const localRaw = localStorage.getItem(key);
+        const localAt = meta.localAt[key] ?? 0;
+
+        if (!row) {
+          if (localRaw != null) {
+            meta.localAt[key] = localAt || Date.now();
+            dirty.add(key);
+          }
+          continue;
+        }
+
+        const remoteAt = Date.parse(row.updated_at as string);
+
+        if (localRaw != null && localAt > remoteAt) {
+          dirty.add(key);
+          continue;
+        }
+
+        const remoteRaw = JSON.stringify(row.value);
+
+        if (remoteRaw !== localRaw) {
+          try {
+            localStorage.setItem(key, remoteRaw);
+          } catch {
+            /* quota */
+          }
+
+          meta.localAt[key] = remoteAt;
+          replaced = true;
+        } else {
+          meta.localAt[key] = Math.max(localAt, remoteAt);
+        }
+      }
+
+      writeMeta(meta);
+    } finally {
+      applyingRemote = false;
+    }
+
+    if (dirty.size) {
+      await pushDirty();
+    } else {
+      setStatus("synced");
+    }
+
+    // IMPORTANT:
+    // Never reload the page after receiving cloud data.
+    // Reloading caused the mobile white-screen/sync loop.
+    if (replaced) {
+      window.dispatchEvent(new Event(CLOUD_UPDATED_EVENT));
+    }
+  })().finally(() => {
+    pullInFlight = null;
+  });
+
+  return pullInFlight;
+}
 
   const meta = readMeta();
   const remote = new Map((data ?? []).map((r) => [r.key as string, r]));
