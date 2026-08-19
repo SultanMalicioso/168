@@ -202,52 +202,6 @@ async function pull(): Promise<void> {
   return pullInFlight;
 }
 
-  const meta = readMeta();
-  const remote = new Map((data ?? []).map((r) => [r.key as string, r]));
-  let replaced = false;
-
-  for (const key of SYNC_KEYS) {
-    const row = remote.get(key);
-    const localRaw = localStorage.getItem(key);
-    const localAt = meta.localAt[key] ?? 0;
-
-    if (!row) {
-      // Nothing in the cloud yet: upload whatever this device has.
-      if (localRaw != null) {
-        meta.localAt[key] = localAt || Date.now();
-        dirty.add(key);
-      }
-      continue;
-    }
-
-    const remoteAt = Date.parse(row.updated_at as string);
-    if (localRaw != null && localAt > remoteAt) {
-      dirty.add(key);
-      continue;
-    }
-    const remoteRaw = JSON.stringify(row.value);
-    if (remoteRaw !== localRaw) {
-      try {
-        localStorage.setItem(key, remoteRaw);
-      } catch {
-        /* quota */
-      }
-      meta.localAt[key] = remoteAt;
-      replaced = true;
-    } else {
-      meta.localAt[key] = Math.max(localAt, remoteAt);
-    }
-  }
-
-  writeMeta(meta);
-  if (dirty.size) await pushDirty();
-  else setStatus("synced");
-
-  // The stores read localStorage on mount, so a reload is the safest way to
-  // show data that just arrived from another device.
-  if (replaced) window.location.reload();
-}
-
 /* ---------------- install ---------------- */
 
 /** Patch localStorage.setItem once so every store write triggers a push. */
