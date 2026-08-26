@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CLOUD_UPDATED_EVENT } from "@/lib/cloud-sync";
 
 export type Category =
   | "salud"
@@ -293,6 +294,36 @@ export function useTimeStore() {
     } catch {}
   }, [store, hydrated]);
 
+  /*
+   * When cloud-sync downloads a newer version from Supabase,
+   * reload the calendar from localStorage so the React state
+   * changes too.
+   */
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const handleCloudUpdate = () => {
+      try {
+        const raw = localStorage.getItem(KEY);
+
+        if (!raw) return;
+
+        setStore(normalize({ ...defaultStore, ...JSON.parse(raw) }));
+      } catch {
+        /* Ignore malformed cloud data */
+      }
+    };
+
+    window.addEventListener(CLOUD_UPDATED_EVENT, handleCloudUpdate);
+
+    return () => {
+      window.removeEventListener(
+        CLOUD_UPDATED_EVENT,
+        handleCloudUpdate
+      );
+    };
+  }, [hydrated]);
+  
   useEffect(() => {
     if (!hydrated) return;
     document.documentElement.classList.toggle("dark", store.theme === "dark");
