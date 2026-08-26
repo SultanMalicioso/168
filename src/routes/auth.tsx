@@ -130,7 +130,7 @@ function AuthPage() {
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1 gap-1.5" onClick={() => void syncNow()}>
                   <RefreshCw className="h-4 w-4" />
-                  Sincronizar ahora
+                  Actualizar
                 </Button>
                 <Button variant="ghost" className="gap-1.5" onClick={() => void signOut()}>
                   <LogOut className="h-4 w-4" />
