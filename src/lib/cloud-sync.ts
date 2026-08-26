@@ -3,19 +3,6 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 
-/* ------------------------------------------------------------------
- * Cloud sync
- *
- * Keeps the same 168 data on every device using the same account.
- *
- * Important rules:
- * - Local changes are marked dirty until successfully uploaded.
- * - A pull NEVER overwrites a dirty local key.
- * - Remote changes are applied only when there is no pending local change.
- * - Server time is used when uploading, avoiding device-clock conflicts.
- * - No page reload is ever performed after synchronization.
- * ------------------------------------------------------------------ */
-
 export const SYNC_KEYS = [
   "week168.v2",
   "week168.timers.v1",
@@ -25,7 +12,7 @@ export const SYNC_KEYS = [
 export type SyncKey = (typeof SYNC_KEYS)[number];
 
 const META_KEY = "week168.sync.meta";
-const CLOUD_UPDATED_EVENT = "week168:cloud-updated";
+export const CLOUD_UPDATED_EVENT = "week168:cloud-updated";
 
 export type SyncStatus =
   | "offline"
@@ -62,10 +49,7 @@ function writeMeta(meta: Meta) {
   }
 }
 
-/* ---------------- state ---------------- */
-
 let currentUser: User | null = null;
-
 let status: SyncStatus = "offline";
 
 let installed = false;
@@ -74,16 +58,14 @@ let started = false;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let syncInterval: ReturnType<typeof setInterval> | null = null;
 
-let pullInFlight: Promise<void> | null = null;
 let pushInFlight: Promise<void> | null = null;
+let pullInFlight: Promise<void> | null = null;
 
 let applyingRemote = false;
 
 /*
- * A key remains dirty until its uploaded value is confirmed.
- *
- * This is the most important change:
- * pull() will NEVER overwrite a dirty key.
+ * These are changes made on THIS device that have not yet
+ * been successfully uploaded.
  */
 const dirty = new Set<string>();
 
@@ -94,20 +76,17 @@ function emit() {
 }
 
 function setStatus(next: SyncStatus) {
-  if (status === next) return;
-
   status = next;
   emit();
 }
 
-/* ---------------- push ---------------- */
+/* -----------------------------------------------------------
+ * PUSH
+ * --------------------------------------------------------- */
 
 async function pushDirty(): Promise<void> {
   if (!currentUser || dirty.size === 0) return;
 
-  /*
-   * Don't start two uploads at the same time.
-   */
   if (pushInFlight) {
     return pushInFlight;
   }
@@ -121,12 +100,8 @@ async function pushDirty(): Promise<void> {
       user_id: string;
       key: string;
       value: Json;
-      updated_at: string;
     }[] = [];
 
-    /*
-     * Capture the exact values that are going to be uploaded.
-     */
     const uploadedValues = new Map<string, string>();
 
     for (const key of keys) {
@@ -135,23 +110,15 @@ async function pushDirty(): Promise<void> {
       if (raw == null) continue;
 
       try {
-        const value = JSON.parse(raw) as Json;
-
         rows.push({
           user_id: currentUser!.id,
           key,
-          value,
-
-          /*
-           * Use Supabase/server time instead of the device clock.
-           * The database trigger/default can also update this value.
-           */
-          updated_at: new Date().toISOString(),
+          value: JSON.parse(raw) as Json,
         });
 
         uploadedValues.set(key, raw);
       } catch {
-        /* Ignore malformed local data. */
+        /* Ignore malformed local data */
       }
     }
 
@@ -161,7 +128,10 @@ async function pushDirty(): Promise<void> {
     }
 
     /*
-     * Upsert the local changes.
+     * updated_at is intentionally NOT supplied.
+     *
+     * Supabase's database default/trigger should control the
+     * timestamp, instead of the clock of the user's device.
      */
     const { error } = await supabase
       .from("user_data")
@@ -170,20 +140,13 @@ async function pushDirty(): Promise<void> {
       });
 
     if (error) {
-      /*
-       * Keep everything dirty.
-       * Nothing gets lost and the next sync will retry.
-       */
       setStatus("error");
       return;
     }
 
     /*
-     * Only clear a key if the value in localStorage is still
-     * exactly the value that we uploaded.
-     *
-     * This prevents a change made while the upload was running
-     * from being accidentally marked as synchronized.
+     * Only mark a change as uploaded if the local value is
+     * still exactly the same value that we uploaded.
      */
     for (const key of keys) {
       const uploadedValue = uploadedValues.get(key);
@@ -194,7 +157,7 @@ async function pushDirty(): Promise<void> {
       }
     }
 
-    setStatus("synced");
+    setStatus(dirty.size === 0 ? "synced" : "syncing");
   })().finally(() => {
     pushInFlight = null;
   });
@@ -202,12 +165,11 @@ async function pushDirty(): Promise<void> {
   return pushInFlight;
 }
 
-/* ---------------- schedule push ---------------- */
+/* -----------------------------------------------------------
+ * LOCAL CHANGE
+ * --------------------------------------------------------- */
 
 function schedulePush(key: string) {
-  /*
-   * Mark the change immediately.
-   */
   dirty.add(key);
 
   if (!currentUser) {
@@ -220,23 +182,20 @@ function schedulePush(key: string) {
     clearTimeout(pushTimer);
   }
 
-  /*
-   * Small debounce so editing an activity does not create
-   * dozens of database writes.
-   */
   pushTimer = setTimeout(() => {
     void pushDirty();
-  }, 1000);
+  }, 700);
 }
 
-/* ---------------- pull ---------------- */
+/* -----------------------------------------------------------
+ * DOWNLOAD FROM CLOUD
+ *
+ * This function treats Supabase as the source of truth.
+ * --------------------------------------------------------- */
 
-async function pull(): Promise<void> {
+async function pullFromCloud(): Promise<void> {
   if (!currentUser) return;
 
-  /*
-   * Don't run multiple pulls at the same time.
-   */
   if (pullInFlight) {
     return pullInFlight;
   }
@@ -244,61 +203,35 @@ async function pull(): Promise<void> {
   pullInFlight = (async () => {
     setStatus("syncing");
 
-    /*
-     * First, make sure local changes are uploaded.
-     *
-     * This is important when:
-     * - the phone changed something
-     * - the computer is still showing the old version
-     * - a focus/interval event happens before the normal upload
-     */
-    if (dirty.size > 0) {
-      await pushDirty();
-    }
-
-    /*
-     * If there are still dirty keys, don't pull yet.
-     *
-     * Pulling now could overwrite unsynchronized local data.
-     */
-    if (dirty.size > 0) {
-      setStatus("syncing");
-      return;
-    }
-
     const { data, error } = await supabase
       .from("user_data")
       .select("key,value,updated_at")
-      .eq("user_id", currentUser.id);
+      .eq("user_id", currentUser!.id);
 
     if (error) {
+      console.error("Cloud pull error:", error);
       setStatus("error");
       return;
     }
-
-    const meta = readMeta();
 
     const remote = new Map(
       (data ?? []).map((row) => [row.key as string, row])
     );
 
-    let replaced = false;
+    const meta = readMeta();
+
+    let changed = false;
 
     /*
-     * Prevent localStorage.setItem from treating remote data
-     * as a new local change.
+     * Remote writes must not be considered local edits.
      */
     applyingRemote = true;
 
     try {
       for (const key of SYNC_KEYS) {
         /*
-         * SAFETY CHECK:
-         *
-         * A local change may have happened while the request
-         * was running.
-         *
-         * Never overwrite it with remote data.
+         * NEVER overwrite a local change that hasn't finished
+         * uploading yet.
          */
         if (dirty.has(key)) {
           continue;
@@ -306,53 +239,37 @@ async function pull(): Promise<void> {
 
         const row = remote.get(key);
 
-        const localRaw = localStorage.getItem(key);
-
         if (!row) {
-          /*
-           * Nothing exists in the cloud yet.
-           *
-           * If local data exists, upload it.
-           */
-          if (localRaw != null) {
-            dirty.add(key);
-          }
-
           continue;
         }
 
-        const remoteRaw = JSON.stringify(row.value);
+        const remoteValue = JSON.stringify(row.value);
+        const localValue = localStorage.getItem(key);
 
-        /*
-         * If both are identical, nothing to do.
-         */
-        if (remoteRaw === localRaw) {
-          const remoteAt = Date.parse(row.updated_at as string);
+        if (remoteValue === localValue) {
+          const timestamp = Date.parse(row.updated_at as string);
 
-          if (Number.isFinite(remoteAt)) {
-            meta.localAt[key] = remoteAt;
+          if (Number.isFinite(timestamp)) {
+            meta.localAt[key] = timestamp;
           }
 
           continue;
         }
 
         /*
-         * Remote data is different and there is no pending
-         * local change, so the remote version is safe to apply.
+         * CLOUD IS THE SOURCE OF TRUTH.
+         *
+         * Replace the local copy with the cloud copy.
          */
-        try {
-          localStorage.setItem(key, remoteRaw);
-        } catch {
-          /* quota */
+        localStorage.setItem(key, remoteValue);
+
+        const timestamp = Date.parse(row.updated_at as string);
+
+        if (Number.isFinite(timestamp)) {
+          meta.localAt[key] = timestamp;
         }
 
-        const remoteAt = Date.parse(row.updated_at as string);
-
-        if (Number.isFinite(remoteAt)) {
-          meta.localAt[key] = remoteAt;
-        }
-
-        replaced = true;
+        changed = true;
       }
 
       writeMeta(meta);
@@ -360,26 +277,15 @@ async function pull(): Promise<void> {
       applyingRemote = false;
     }
 
-    /*
-     * If the pull discovered local-only data, upload it now.
-     */
-    if (dirty.size > 0) {
-      await pushDirty();
-    }
-
-    if (dirty.size === 0) {
-      setStatus("synced");
-    }
-
-    /*
-     * Notify the app that cloud data changed.
-     *
-     * IMPORTANT:
-     * No reload().
-     */
-    if (replaced) {
+    if (changed) {
+      /*
+       * Tell the rest of the application that the calendar
+       * needs to reload its state from localStorage.
+       */
       window.dispatchEvent(new Event(CLOUD_UPDATED_EVENT));
     }
+
+    setStatus("synced");
   })().finally(() => {
     pullInFlight = null;
   });
@@ -387,7 +293,55 @@ async function pull(): Promise<void> {
   return pullInFlight;
 }
 
-/* ---------------- localStorage interceptor ---------------- */
+/* -----------------------------------------------------------
+ * UPLOAD + INITIAL LOAD
+ * --------------------------------------------------------- */
+
+async function initialSync(): Promise<void> {
+  if (!currentUser) return;
+
+  /*
+   * First check whether the account already has cloud data.
+   */
+  const { data, error } = await supabase
+    .from("user_data")
+    .select("key,value,updated_at")
+    .eq("user_id", currentUser.id);
+
+  if (error) {
+    console.error("Initial sync error:", error);
+    setStatus("error");
+    return;
+  }
+
+  /*
+   * If the account already has data, CLOUD WINS.
+   *
+   * This is critical when logging into a second device.
+   */
+  if (data && data.length > 0) {
+    await pullFromCloud();
+    return;
+  }
+
+  /*
+   * If the account has never stored anything, use the current
+   * local device as the initial source.
+   */
+  for (const key of SYNC_KEYS) {
+    if (localStorage.getItem(key) != null) {
+      dirty.add(key);
+    }
+  }
+
+  await pushDirty();
+
+  setStatus("synced");
+}
+
+/* -----------------------------------------------------------
+ * LOCAL STORAGE INTERCEPTOR
+ * --------------------------------------------------------- */
 
 function installInterceptor() {
   if (installed || typeof window === "undefined") {
@@ -399,13 +353,10 @@ function installInterceptor() {
   const originalSetItem = localStorage.setItem.bind(localStorage);
 
   localStorage.setItem = (key: string, value: string) => {
-    /*
-     * Always write locally first.
-     */
     originalSetItem(key, value);
 
     /*
-     * Remote data must NOT be interpreted as a new local edit.
+     * Data coming FROM Supabase is not a local edit.
      */
     if (applyingRemote) {
       return;
@@ -415,9 +366,6 @@ function installInterceptor() {
       return;
     }
 
-    /*
-     * Record when this device changed the data.
-     */
     const meta = readMeta();
 
     meta.localAt[key] = Date.now();
@@ -428,15 +376,13 @@ function installInterceptor() {
       /* quota */
     }
 
-    /*
-     * Most importantly:
-     * mark this key dirty immediately.
-     */
     schedulePush(key);
   };
 }
 
-/* ---------------- startup ---------------- */
+/* -----------------------------------------------------------
+ * START
+ * --------------------------------------------------------- */
 
 export function startCloudSync() {
   if (started || typeof window === "undefined") {
@@ -447,22 +393,16 @@ export function startCloudSync() {
 
   installInterceptor();
 
-  /*
-   * Get the current Supabase session.
-   */
   void supabase.auth.getSession().then(({ data }) => {
     currentUser = data.session?.user ?? null;
 
     emit();
 
     if (currentUser) {
-      void pull();
+      void initialSync();
     }
   });
 
-  /*
-   * React to login/logout.
-   */
   supabase.auth.onAuthStateChange((event, session) => {
     const nextUser = session?.user ?? null;
 
@@ -472,41 +412,39 @@ export function startCloudSync() {
 
     if (!nextUser) {
       setStatus("offline");
-      emit();
       return;
     }
 
     emit();
 
     if (changed || event === "SIGNED_IN") {
-      void pull();
+      void initialSync();
     }
   });
 
   /*
-   * When returning to the tab/app, synchronize.
+   * Automatically save local changes.
    */
   window.addEventListener("focus", () => {
-    if (currentUser) {
-      void pull();
+    if (currentUser && dirty.size > 0) {
+      void pushDirty();
     }
   });
 
   /*
-   * Periodic synchronization.
+   * Check the account every 5 seconds.
    *
-   * This makes changes appear on another device without
-   * needing to reload the page manually.
+   * IMPORTANT:
+   * This only DOWNLOADS cloud data.
+   *
+   * It does NOT upload the local calendar first.
    */
   syncInterval = setInterval(() => {
-    if (currentUser) {
-      void pull();
+    if (currentUser && dirty.size === 0) {
+      void pullFromCloud();
     }
   }, 5000);
 
-  /*
-   * Try to upload pending changes before leaving.
-   */
   window.addEventListener("beforeunload", () => {
     if (pushTimer) {
       clearTimeout(pushTimer);
@@ -516,7 +454,9 @@ export function startCloudSync() {
   });
 }
 
-/* ---------------- hook ---------------- */
+/* -----------------------------------------------------------
+ * HOOK
+ * --------------------------------------------------------- */
 
 export function useCloudSync() {
   const [, force] = useState(0);
@@ -541,38 +481,58 @@ export function useCloudSync() {
     }
 
     await pushDirty();
-
     await supabase.auth.signOut();
   }, []);
 
-  const syncNow = useCallback(async () => {
+  /*
+   * This is now an ACTUAL "Actualizar".
+   *
+   * It downloads the current account data.
+   * It does NOT upload the local calendar first.
+   */
+  const refresh = useCallback(async () => {
     if (pushTimer) {
       clearTimeout(pushTimer);
     }
 
     /*
-     * First upload local changes.
-     * Then download anything else.
+     * If this device still has unsaved changes, save them first.
      */
-    await pushDirty();
+    if (dirty.size > 0) {
+      await pushDirty();
+    }
 
-    await pull();
+    /*
+     * Now download the account's current version.
+     */
+    await pullFromCloud();
   }, []);
 
   return {
     user: currentUser,
     status,
     signOut,
-    syncNow,
+
+    /*
+     * Keep the old name so existing components don't break.
+     */
+    syncNow: refresh,
+
+    /*
+     * New clearer name.
+     */
+    refresh,
   };
 }
 
-/* ---------------- labels ---------------- */
+/* -----------------------------------------------------------
+ * STATUS LABELS
+ * --------------------------------------------------------- */
 
 export const STATUS_LABEL: Record<SyncStatus, string> = {
   offline: "Solo en este dispositivo",
   idle: "Listo",
-  syncing: "Guardando…",
-  synced: "Sincronizado",
-  error: "Error al sincronizar",
+  syncing: "Actualizando…",
+  synced: "Actualizado",
+  error: "Error al actualizar",
 };
