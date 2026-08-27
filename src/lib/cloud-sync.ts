@@ -53,11 +53,11 @@ function writeMeta(meta: Meta) {
 let currentUser: User | null = null;
 let status: SyncStatus = "offline";
 
-let installed = false;
+
 let started = false;
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
-let syncInterval: ReturnType<typeof setInterval> | null = null;
+
 
 let pushInFlight: Promise<void> | null = null;
 let pullInFlight: Promise<void> | null = null;
