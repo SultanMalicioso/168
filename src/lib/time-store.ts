@@ -1,3 +1,7 @@
+import {
+  getWeekKey,
+  addWeeks,
+} from "@/lib/week-utils";
 import { useEffect, useState } from "react";
 import {
   CLOUD_UPDATED_EVENT,
