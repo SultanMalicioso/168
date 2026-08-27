@@ -343,42 +343,7 @@ async function initialSync(): Promise<void> {
  * LOCAL STORAGE INTERCEPTOR
  * --------------------------------------------------------- */
 
-function installInterceptor() {
-  if (installed || typeof window === "undefined") {
-    return;
-  }
 
-  installed = true;
-
-  const originalSetItem = localStorage.setItem.bind(localStorage);
-
-  localStorage.setItem = (key: string, value: string) => {
-    originalSetItem(key, value);
-
-    /*
-     * Data coming FROM Supabase is not a local edit.
-     */
-    if (applyingRemote) {
-      return;
-    }
-
-    if (!(SYNC_KEYS as readonly string[]).includes(key)) {
-      return;
-    }
-
-    const meta = readMeta();
-
-    meta.localAt[key] = Date.now();
-
-    try {
-      originalSetItem(META_KEY, JSON.stringify(meta));
-    } catch {
-      /* quota */
-    }
-
-    schedulePush(key);
-  };
-}
 
 /* -----------------------------------------------------------
  * START
