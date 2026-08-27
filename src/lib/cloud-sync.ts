@@ -355,11 +355,22 @@ export function startCloudSync() {
     return;
   }
 
-  started = true;
+started = true;
 
-  installInterceptor();
+window.addEventListener(LOCAL_DATA_CHANGED_EVENT, (event) => {
+  const customEvent = event as CustomEvent<{ key?: string }>;
+  const key = customEvent.detail?.key;
 
-  void supabase.auth.getSession().then(({ data }) => {
+  if (!key) return;
+
+  if (!(SYNC_KEYS as readonly string[]).includes(key)) {
+    return;
+  }
+
+  schedulePush(key);
+});
+
+void supabase.auth.getSession().then(({ data }) => {
     currentUser = data.session?.user ?? null;
 
     emit();
