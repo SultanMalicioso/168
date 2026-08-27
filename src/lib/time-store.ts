@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { CLOUD_UPDATED_EVENT } from "@/lib/cloud-sync";
+import {
+  CLOUD_UPDATED_EVENT,
+  LOCAL_DATA_CHANGED_EVENT,
+} from "@/lib/cloud-sync";
 
 export type Category =
   | "salud"
