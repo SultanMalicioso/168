@@ -8,36 +8,7 @@ import {
   LOCAL_DATA_CHANGED_EVENT,
 } from "@/lib/cloud-sync";
 
-selectedWeek: getWeekKey(),
-  selectedWeek: string;
 
-setSelectedWeek: (week: string) => void;
-
-goToPreviousWeek: () => void;
-goToNextWeek: () => void;
-goToCurrentWeek: () => void;
-
-setSelectedWeek: (week) => {
-  set({ selectedWeek: week });
-},
-
-goToPreviousWeek: () => {
-  set((state) => ({
-    selectedWeek: addWeeks(state.selectedWeek, -1),
-  }));
-},
-
-goToNextWeek: () => {
-  set((state) => ({
-    selectedWeek: addWeeks(state.selectedWeek, 1),
-  }));
-},
-
-goToCurrentWeek: () => {
-  set({
-    selectedWeek: getWeekKey(),
-  });
-},
 
 export type Category =
   | "salud"
