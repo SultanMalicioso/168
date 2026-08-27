@@ -84,6 +84,7 @@ export interface Activity {
   color: string;
   category: Category;
   permanent?: boolean;
+  weekStart?: string;
   notes?: string;
   goalIds?: string[];
   /** "timer" (default, back-compat) or "manual" completion. */
