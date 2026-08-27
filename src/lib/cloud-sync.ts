@@ -416,11 +416,7 @@ void supabase.auth.getSession().then(({ data }) => {
    *
    * It does NOT upload the local calendar first.
    */
-  syncInterval = setInterval(() => {
-    if (currentUser && dirty.size === 0) {
-      void pullFromCloud();
-    }
-  }, 5000);
+
 
   window.addEventListener("beforeunload", () => {
     if (pushTimer) {
