@@ -290,13 +290,26 @@ export function useTimeStore() {
     setHydrated(true);
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(KEY, JSON.stringify(store));
-    } catch {}
-  }, [store, hydrated]);
+useEffect(() => {
+  if (!hydrated) return;
 
+  try {
+    const value = JSON.stringify(store);
+
+    localStorage.setItem(KEY, value);
+
+    /*
+     * Tell cloud-sync that the calendar was actually changed.
+     */
+    window.dispatchEvent(
+      new CustomEvent(LOCAL_DATA_CHANGED_EVENT, {
+        detail: { key: KEY },
+      })
+    );
+  } catch {
+    /* Ignore localStorage errors */
+  }
+}, [store, hydrated]);
   /*
    * When cloud-sync downloads a newer version from Supabase,
    * reload the calendar from localStorage so the React state
