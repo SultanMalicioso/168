@@ -13,6 +13,7 @@ export type SyncKey = (typeof SYNC_KEYS)[number];
 
 const META_KEY = "week168.sync.meta";
 export const CLOUD_UPDATED_EVENT = "week168:cloud-updated";
+export const LOCAL_DATA_CHANGED_EVENT = "week168:local-data-changed";
 
 export type SyncStatus =
   | "offline"
