@@ -402,6 +402,47 @@ const realTotal = filtered.reduce(
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <div className="flex items-center justify-center gap-2 py-3">
+  <Button
+    variant="ghost"
+    size="icon"
+    onClick={goToPreviousWeek}
+    aria-label="Semana anterior"
+  >
+    ←
+  </Button>
+
+  <div className="min-w-[220px] text-center">
+    <div className="text-sm font-medium">
+      {store.selectedWeek === getWeekKey()
+        ? "Esta semana"
+        : `Semana del ${formatWeekRange(store.selectedWeek)}`}
+    </div>
+
+    <div className="text-xs text-muted-foreground">
+      {formatWeekRange(store.selectedWeek)}
+    </div>
+  </div>
+
+  <Button
+    variant="ghost"
+    size="icon"
+    onClick={goToNextWeek}
+    aria-label="Semana siguiente"
+  >
+    →
+  </Button>
+
+  {store.selectedWeek !== getWeekKey() && (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={goToCurrentWeek}
+    >
+      Hoy
+    </Button>
+  )}
+</div>
       <Toaster position="top-center" />
       <TimerBar activities={store.activities} onCompleteTasks={completeTasks} />
 
