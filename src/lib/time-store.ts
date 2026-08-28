@@ -16,9 +16,6 @@ import {
     year: "numeric",
   });
 
-  return `${startText} – ${endText}`;
-}
-
 const initialState = {
   activities: [],
   objectives: [],
