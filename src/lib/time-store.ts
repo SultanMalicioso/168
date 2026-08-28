@@ -296,6 +296,15 @@ const seedGoals: Goal[] = [
   { id: "gs-ocio", name: "Ocio", color: PALETTE[2], icon: "🎮", targetHours: 12, active: true, createdAt: Date.now() },
 ];
 
+interface Store {
+  activities: Activity[];
+  goals: Goal[];
+  tasks: Task[];
+  theme: "light" | "dark";
+  chartView: ChartView;
+  selectedWeek: string;
+}
+
 const defaultStore: Store = {
   activities: [
     { id: "seed-1", name: "Dormir", hoursPerDay: 8, daysPerWeek: 7, color: PALETTE[0], category: "salud", permanent: true, goalIds: ["gs-salud"] },
