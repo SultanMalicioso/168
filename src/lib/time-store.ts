@@ -8,7 +8,12 @@ import {
   LOCAL_DATA_CHANGED_EVENT,
 } from "@/lib/cloud-sync";
 
-
+const initialState = {
+  activities: [],
+  objectives: [],
+  tasks: [],
+  selectedWeek: getWeekKey(),
+};
 
 export type Category =
   | "salud"
