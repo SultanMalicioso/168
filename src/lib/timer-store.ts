@@ -309,15 +309,29 @@ export function useTimerStore(opts?: { tickFor?: string | null }) {
   const [hydrated, setHydrated] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-  useEffect(() => {
-    setData(load());
-    setHydrated(true);
-    const l = () => setData(memory);
-    listeners.add(l);
-    return () => {
-      listeners.delete(l);
-    };
-  }, []);
+useEffect(() => {
+  setData(load());
+  setHydrated(true);
+
+  const l = () => setData(memory);
+
+  const onCloudUpdated = () => {
+    const fresh = load();
+    memory = fresh;
+    setData(fresh);
+  };
+
+  listeners.add(l);
+  window.addEventListener(CLOUD_UPDATED_EVENT, onCloudUpdated);
+
+  return () => {
+    listeners.delete(l);
+    window.removeEventListener(
+      CLOUD_UPDATED_EVENT,
+      onCloudUpdated,
+    );
+  };
+}, []);
 
   // Tick only while a timer is running — keeps the app idle otherwise.
   const tickFor = opts?.tickFor;
