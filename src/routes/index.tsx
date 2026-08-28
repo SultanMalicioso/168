@@ -298,7 +298,7 @@ const realTotal = filtered.reduce(
       compliance: planned > 0 ? (done / planned) * 100 : 0,
       completedToday,
     };
-  }, [timers.data, timers.now, realTotal, plannedTotal, store.activities]);
+  }, [timers.data, timers.now, realTotal, plannedTotal, filtered]);
 
   const completeTasks = (activityId: string, taskIds: string[]) => {
     const ids = new Set(taskIds);
