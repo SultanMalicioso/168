@@ -127,10 +127,32 @@ function Index() {
   const chartView: ChartView = store.chartView ?? "activities";
   const setChartView = (v: ChartView) => setStore({ ...store, chartView: v });
 
-  const filtered = useMemo(
-    () => (filter === "all" ? store.activities : store.activities.filter((a) => a.category === filter)),
-    [store.activities, filter],
-  );
+const weekActivities = useMemo(() => {
+  const currentWeek = store.selectedWeek || getWeekKey();
+
+  return store.activities.filter((activity) => {
+    // Las permanentes aparecen en todas las semanas.
+    if (activity.permanent) return true;
+
+    // Las actividades temporales antiguas que todavía
+    // no tienen weekStart se consideran de la semana actual.
+    if (!activity.weekStart) {
+      return currentWeek === getWeekKey();
+    }
+
+    // Las temporales solamente aparecen en la semana
+    // para la que fueron programadas.
+    return activity.weekStart === currentWeek;
+  });
+}, [store.activities, store.selectedWeek]);
+
+const filtered = useMemo(
+  () =>
+    filter === "all"
+      ? weekActivities
+      : weekActivities.filter((a) => a.category === filter),
+  [weekActivities, filter],
+);
 
   /** In "real" mode every activity is measured by tracked timer hours. */
   const chartBase = useMemo<Activity[]>(
