@@ -58,6 +58,13 @@ export function ActivityForm({
   const [color, setColor] = useState(initial?.color ?? defaultColor);
   const [category, setCategory] = useState<Category>(initial?.category ?? "otro");
   const [permanent, setPermanent] = useState<boolean>(initial?.permanent ?? false);
+  const [weekOption, setWeekOption] = useState<"current" | "next" | "specific">(
+  initial?.weekStart ? "specific" : "current",
+);
+
+const [specificWeek, setSpecificWeek] = useState(
+  initial?.weekStart ?? "",
+);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [goalIds, setGoalIds] = useState<string[]>(initial?.goalIds ?? []);
   const [tasks, setTasks] = useState<Task[]>(initial?.tasks ?? []);
