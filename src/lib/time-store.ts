@@ -446,12 +446,52 @@ useEffect(() => {
     };
   }, [hydrated]);
   
-  useEffect(() => {
-    if (!hydrated) return;
-    document.documentElement.classList.toggle("dark", store.theme === "dark");
-  }, [store.theme, hydrated]);
+useEffect(() => {
+  if (!hydrated) return;
 
-  return { store, setStore, hydrated };
+  document.documentElement.classList.toggle(
+    "dark",
+    store.theme === "dark"
+  );
+}, [store.theme, hydrated]);
+
+// Cambio automático de semana
+useEffect(() => {
+  if (!hydrated) return;
+
+  let lastCurrentWeek = getWeekKey();
+
+  const checkWeekChange = () => {
+    const currentWeek = getWeekKey();
+
+    if (currentWeek === lastCurrentWeek) return;
+
+    setStore((current) => {
+      if (current.selectedWeek === lastCurrentWeek) {
+        return {
+          ...current,
+          selectedWeek: currentWeek,
+        };
+      }
+
+      return current;
+    });
+
+    lastCurrentWeek = currentWeek;
+  };
+
+  // Comprobar al cargar la aplicación
+  checkWeekChange();
+
+  // Comprobar periódicamente mientras está abierta
+  const interval = window.setInterval(checkWeekChange, 30_000);
+
+  return () => {
+    window.clearInterval(interval);
+  };
+}, [hydrated]);
+
+return { store, setStore, hydrated };
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
