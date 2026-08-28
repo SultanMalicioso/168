@@ -207,12 +207,17 @@ const LEGACY_KEY = "week168.v1";
 
 export type ChartView = "activities" | "goals" | "tasks" | "combined";
 
-export interface Store {
+export interface TimeStore {
   activities: Activity[];
-  goals: Goal[];
-  tasks: Task[]; // top-level tasks (independent or aggregated)
-  theme: "light" | "dark";
-  chartView?: ChartView;
+  objectives: Objective[];
+  tasks: Task[];
+
+  selectedWeek: string;
+
+  setSelectedWeek: (week: string) => void;
+  goToPreviousWeek: () => void;
+  goToNextWeek: () => void;
+  goToCurrentWeek: () => void;
 }
 
 const seedGoals: Goal[] = [
