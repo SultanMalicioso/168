@@ -315,8 +315,9 @@ const defaultStore: Store = {
   ],
   goals: seedGoals,
   tasks: [],
-  theme: "light",
+    theme: "light",
   chartView: "activities",
+  selectedWeek: getWeekKey(),
 };
 
 
