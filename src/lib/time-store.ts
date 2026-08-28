@@ -492,7 +492,35 @@ useEffect(() => {
   };
 }, [hydrated]);
 
-return { store, setStore, hydrated };
+const goToPreviousWeek = () => {
+  setStore((current) => ({
+    ...current,
+    selectedWeek: addWeeks(current.selectedWeek, -1),
+  }));
+};
+
+const goToNextWeek = () => {
+  setStore((current) => ({
+    ...current,
+    selectedWeek: addWeeks(current.selectedWeek, 1),
+  }));
+};
+
+const goToCurrentWeek = () => {
+  setStore((current) => ({
+    ...current,
+    selectedWeek: getWeekKey(),
+  }));
+};
+
+return {
+  store,
+  setStore,
+  hydrated,
+  goToPreviousWeek,
+  goToNextWeek,
+  goToCurrentWeek,
+};
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
