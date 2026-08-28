@@ -63,6 +63,7 @@ import { Calendar, CalendarDays } from "lucide-react";
 import {
   CATEGORIES,
   completionIcon,
+  getWeekKey,
   nextColor,
   taskProgress,
   uid,
