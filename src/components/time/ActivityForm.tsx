@@ -208,7 +208,43 @@ const [specificWeek, setSpecificWeek] = useState(
           <span className="text-muted-foreground">Total semanal</span>{" "}
           <span className="font-semibold">{weekly.toFixed(2)} h</span>
         </div>
+        <div className="space-y-1.5">
+  <Label>Semana</Label>
 
+  <Select
+    value={weekOption}
+    onValueChange={(value) =>
+      setWeekOption(value as "current" | "next" | "specific")
+    }
+  >
+    <SelectTrigger>
+      <SelectValue />
+    </SelectTrigger>
+
+    <SelectContent>
+      <SelectItem value="current">
+        Esta semana
+      </SelectItem>
+
+      <SelectItem value="next">
+        Próxima semana
+      </SelectItem>
+
+      <SelectItem value="specific">
+        Una semana específica
+      </SelectItem>
+    </SelectContent>
+  </Select>
+
+  {weekOption === "specific" && (
+    <Input
+      type="date"
+      value={specificWeek}
+      onChange={(e) => setSpecificWeek(e.target.value)}
+    />
+  )}
+</div>
+        
         <div className="space-y-1.5">
           <Label>Categoría</Label>
           <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
