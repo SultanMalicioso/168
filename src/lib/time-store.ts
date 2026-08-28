@@ -225,6 +225,27 @@ export interface TimeStore {
   goToCurrentWeek: () => void;
 }
 
+const useTimeStore = create<TimeStore>((set, get) => ({
+
+  // 2. Implementación de funciones
+  setSelectedWeek: (week) => {
+    set({ selectedWeek: week });
+  },
+
+  goToNextWeek: () => {
+    set((state) => ({
+      selectedWeek: addWeeks(state.selectedWeek, 1),
+    }));
+  },
+
+  goToPreviousWeek: () => {
+    set((state) => ({
+      selectedWeek: addWeeks(state.selectedWeek, -1),
+    }));
+  },
+
+}));
+
 const seedGoals: Goal[] = [
   { id: "gs-salud", name: "Salud", color: PALETTE[1], icon: "💪", targetHours: 70, active: true, createdAt: Date.now() },
   { id: "gs-trabajo", name: "Trabajo", color: PALETTE[0], icon: "💼", targetHours: 40, active: true, createdAt: Date.now() },
