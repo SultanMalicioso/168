@@ -8,13 +8,6 @@ import {
   LOCAL_DATA_CHANGED_EVENT,
 } from "@/lib/cloud-sync";
 
-const initialState = {
-  activities: [],
-  objectives: [],
-  tasks: [],
-  selectedWeek: getWeekKey(),
-};
-
 const useTimeStore = create<TimeStore>((set, get) => ({
   
   // 1. Estado
