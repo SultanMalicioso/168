@@ -277,7 +277,7 @@ const realTotal = filtered.reduce(
     const done = realTotal;
     const planned = plannedTotal;
     const todayKey = dateKeyOf(new Date(timers.now));
-    const completedToday = store.activities.filter((a) =>
+    const completedToday = filtered.filter((a) =>
       isCompletedToday(timers.data, a.id, todayKey),
     ).length;
     return {
