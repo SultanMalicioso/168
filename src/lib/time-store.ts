@@ -360,7 +360,8 @@ function migrate(raw: any): Store {
       ? raw.selectedWeek
       : getWeekKey(),
 };
-  
+}
+
 function normalize(store: Store): Store {
   return {
     ...store,
