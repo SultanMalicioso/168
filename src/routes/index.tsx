@@ -234,11 +234,15 @@ const filtered = useMemo(
     return map;
   }, [chartView, filtered, allT, store]);
 
-  const plannedTotal = store.activities.reduce((s, a) => s + weeklyHours(a), 0);
-  const realTotal = store.activities.reduce(
-    (s, a) => s + realHoursForWeek(timers.data, a, timers.now),
-    0,
-  );
+const plannedTotal = filtered.reduce(
+  (s, a) => s + weeklyHours(a),
+  0,
+);
+
+const realTotal = filtered.reduce(
+  (s, a) => s + realHoursForWeek(timers.data, a, timers.now),
+  0,
+);
   const totalUsed = realMode ? realTotal : plannedTotal;
   const free = Math.max(0, TOTAL - totalUsed);
   const overflow = totalUsed > TOTAL;
