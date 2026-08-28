@@ -138,7 +138,16 @@ function persist() {
 function commit(next: TimerData) {
   memory = next;
   persist();
+
   listeners.forEach((l) => l());
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(LOCAL_DATA_CHANGED_EVENT, {
+        detail: { key: KEY },
+      }),
+    );
+  }
 }
 
 if (typeof window !== "undefined") {
