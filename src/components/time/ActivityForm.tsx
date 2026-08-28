@@ -105,14 +105,15 @@ const [specificWeek, setSpecificWeek] = useState(
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          weekStart:
+         
+          if (!name.trim()) return;
+          onSubmit({
+             weekStart:
   weekOption === "current"
     ? getWeekKey()
     : weekOption === "next"
       ? addWeeks(getWeekKey(), 1)
       : specificWeek || getWeekKey(),
-          if (!name.trim()) return;
-          onSubmit({
             name: name.trim(),
             hoursPerDay,
             daysPerWeek,
