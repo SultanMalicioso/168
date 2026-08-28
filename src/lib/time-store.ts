@@ -15,6 +15,33 @@ const initialState = {
   selectedWeek: getWeekKey(),
 };
 
+const useTimeStore = create<TimeStore>((set, get) => ({
+  
+  // 1. Estado
+  activities: [],
+  objectives: [],
+  tasks: [],
+  selectedWeek: getWeekKey(),
+
+  // 2. Implementación de funciones
+  setSelectedWeek: (week) => {
+    set({ selectedWeek: week });
+  },
+
+  goToNextWeek: () => {
+    set((state) => ({
+      selectedWeek: addWeeks(state.selectedWeek, 1),
+    }));
+  },
+
+  goToPreviousWeek: () => {
+    set((state) => ({
+      selectedWeek: addWeeks(state.selectedWeek, -1),
+    }));
+  },
+
+}));
+
 export type Category =
   | "salud"
   | "trabajo"
