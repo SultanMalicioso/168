@@ -64,6 +64,8 @@ import {
   CATEGORIES,
   completionIcon,
   getWeekKey,
+  addWeeks,
+  formatWeekRange,
   nextColor,
   taskProgress,
   uid,
