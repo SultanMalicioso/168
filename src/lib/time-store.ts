@@ -247,12 +247,6 @@ const defaultStore: Store = {
 };
 
 const useTimeStore = create<TimeStore>((set, get) => ({
-  
-  // 1. Estado
-  activities: [],
-  objectives: [],
-  tasks: [],
-  selectedWeek: getWeekKey(),
 
   // 2. Implementación de funciones
   setSelectedWeek: (week) => {
