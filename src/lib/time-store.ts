@@ -279,7 +279,7 @@ export type ChartView = "activities" | "goals" | "tasks" | "combined";
 
 export interface TimeStore {
   activities: Activity[];
-  objectives: Objective[];
+  goals: Goal[];
   tasks: Task[];
 
   selectedWeek: string;
@@ -289,7 +289,6 @@ export interface TimeStore {
   goToNextWeek: () => void;
   goToCurrentWeek: () => void;
 }
-
 
 const seedGoals: Goal[] = [
   { id: "gs-salud", name: "Salud", color: PALETTE[1], icon: "💪", targetHours: 70, active: true, createdAt: Date.now() },
