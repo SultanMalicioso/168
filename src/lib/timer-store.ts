@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { activityDays, completionMode, type Activity } from "@/lib/time-store";
+import {
+  activityDays,
+  completionMode,
+  type Activity,
+} from "@/lib/time-store";
+import {
+  CLOUD_UPDATED_EVENT,
+  LOCAL_DATA_CHANGED_EVENT,
+} from "@/lib/cloud-sync";
 
 /* ------------------------------------------------------------------ *
  * Timer store
