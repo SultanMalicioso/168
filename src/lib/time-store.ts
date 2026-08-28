@@ -345,16 +345,22 @@ function migrate(raw: any): Store {
     });
   }
   return {
-    activities,
-    goals,
-    tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
-    theme: raw.theme === "dark" ? "dark" : "light",
-    chartView: raw.chartView === "goals" || raw.chartView === "tasks" || raw.chartView === "combined"
+  activities,
+  goals,
+  tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
+  theme: raw.theme === "dark" ? "dark" : "light",
+  chartView:
+    raw.chartView === "goals" ||
+    raw.chartView === "tasks" ||
+    raw.chartView === "combined"
       ? raw.chartView
       : "activities",
-  };
-}
-
+  selectedWeek:
+    typeof raw.selectedWeek === "string"
+      ? raw.selectedWeek
+      : getWeekKey(),
+};
+  
 function normalize(store: Store): Store {
   return {
     ...store,
