@@ -8,13 +8,32 @@ import {
   LOCAL_DATA_CHANGED_EVENT,
 } from "@/lib/cloud-sync";
 
-const initialState = {
+const useTimeStore = create<TimeStore>((set, get) => ({
+  
+  // 1. Estado
   activities: [],
   objectives: [],
   tasks: [],
   selectedWeek: getWeekKey(),
-};
 
+  // 2. Implementación de funciones
+  setSelectedWeek: (week) => {
+    set({ selectedWeek: week });
+  },
+
+  goToNextWeek: () => {
+    set((state) => ({
+      selectedWeek: addWeeks(state.selectedWeek, 1),
+    }));
+  },
+
+  goToPreviousWeek: () => {
+    set((state) => ({
+      selectedWeek: addWeeks(state.selectedWeek, -1),
+    }));
+  },
+
+}));
 export type Category =
   | "salud"
   | "trabajo"
@@ -225,26 +244,6 @@ export interface TimeStore {
   goToCurrentWeek: () => void;
 }
 
-const useTimeStore = create<TimeStore>((set, get) => ({
-
-  // 2. Implementación de funciones
-  setSelectedWeek: (week) => {
-    set({ selectedWeek: week });
-  },
-
-  goToNextWeek: () => {
-    set((state) => ({
-      selectedWeek: addWeeks(state.selectedWeek, 1),
-    }));
-  },
-
-  goToPreviousWeek: () => {
-    set((state) => ({
-      selectedWeek: addWeeks(state.selectedWeek, -1),
-    }));
-  },
-
-}));
 
 const seedGoals: Goal[] = [
   { id: "gs-salud", name: "Salud", color: PALETTE[1], icon: "💪", targetHours: 70, active: true, createdAt: Date.now() },
