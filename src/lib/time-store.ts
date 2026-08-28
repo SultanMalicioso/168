@@ -8,32 +8,13 @@ import {
   LOCAL_DATA_CHANGED_EVENT,
 } from "@/lib/cloud-sync";
 
-const useTimeStore = create<TimeStore>((set, get) => ({
-  
-  // 1. Estado
+const initialState = {
   activities: [],
   objectives: [],
   tasks: [],
   selectedWeek: getWeekKey(),
+};
 
-  // 2. Implementación de funciones
-  setSelectedWeek: (week) => {
-    set({ selectedWeek: week });
-  },
-
-  goToNextWeek: () => {
-    set((state) => ({
-      selectedWeek: addWeeks(state.selectedWeek, 1),
-    }));
-  },
-
-  goToPreviousWeek: () => {
-    set((state) => ({
-      selectedWeek: addWeeks(state.selectedWeek, -1),
-    }));
-  },
-
-}));
 export type Category =
   | "salud"
   | "trabajo"
