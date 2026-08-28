@@ -255,7 +255,8 @@ const realTotal = filtered.reduce(
   const totalUsed = realMode ? realTotal : plannedTotal;
   const free = Math.max(0, TOTAL - totalUsed);
   const overflow = totalUsed > TOTAL;
-  const topActivity = [...store.activities].sort((a, b) => weeklyHours(b) - weeklyHours(a))[0];
+  const topActivity = [...filtered]
+  .sort((a, b) => weeklyHours(b) - weeklyHours(a))[0];
 
   const taskStats = useMemo(() => {
     let total = 0,
