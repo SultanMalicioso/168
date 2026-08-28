@@ -246,26 +246,6 @@ const defaultStore: Store = {
   chartView: "activities",
 };
 
-const useTimeStore = create<TimeStore>((set, get) => ({
-
-  // 2. Implementación de funciones
-  setSelectedWeek: (week) => {
-    set({ selectedWeek: week });
-  },
-
-  goToNextWeek: () => {
-    set((state) => ({
-      selectedWeek: addWeeks(state.selectedWeek, 1),
-    }));
-  },
-
-  goToPreviousWeek: () => {
-    set((state) => ({
-      selectedWeek: addWeeks(state.selectedWeek, -1),
-    }));
-  },
-
-}));
 
 function migrate(raw: any): Store {
   if (!raw || typeof raw !== "object") return defaultStore;
