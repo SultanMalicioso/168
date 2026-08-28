@@ -255,7 +255,7 @@ const realTotal = filtered.reduce(
       pending = 0;
     let topByCount: { name: string; count: number } | null = null;
     let topByCompletion: { name: string; pct: number; total: number } | null = null;
-    for (const a of store.activities) {
+    for (const a of filtered) {
       const tp = taskProgress(a);
       total += tp.total;
       done += tp.completed;
@@ -270,7 +270,7 @@ const realTotal = filtered.reduce(
     }
     const pct = total > 0 ? (done / total) * 100 : 0;
     return { total, done, inProg, pending, pct, topByCount, topByCompletion };
-  }, [store.activities]);
+  }, [filtered]);
 
   const timerStats = useMemo(() => {
     const sessions = timers.data.sessions.length;
