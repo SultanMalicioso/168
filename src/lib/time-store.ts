@@ -371,11 +371,12 @@ function normalize(store: Store): Store {
         : getWeekKey(),
     tasks: Array.isArray(store.tasks) ? store.tasks : [],
     activities: Array.isArray(store.activities)
-      ? store.activities.map((a) => ({
-          ...a,
-          tasks: Array.isArray(a.tasks) ? a.tasks : [],
-        }))
-      : [],
+  ? store.activities.map((a) => ({
+      ...a,
+      weekStart: a.weekStart ?? getWeekKey(),
+      tasks: Array.isArray(a.tasks) ? a.tasks : [],
+    }))
+  : [],
   };
 }
 
