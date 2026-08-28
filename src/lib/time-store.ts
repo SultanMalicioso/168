@@ -364,11 +364,17 @@ function migrate(raw: any): Store {
 function normalize(store: Store): Store {
   return {
     ...store,
+    selectedWeek:
+      typeof store.selectedWeek === "string"
+        ? store.selectedWeek
+        : getWeekKey(),
     tasks: Array.isArray(store.tasks) ? store.tasks : [],
-    activities: store.activities.map((a) => ({
-      ...a,
-      tasks: Array.isArray(a.tasks) ? a.tasks : [],
-    })),
+    activities: Array.isArray(store.activities)
+      ? store.activities.map((a) => ({
+          ...a,
+          tasks: Array.isArray(a.tasks) ? a.tasks : [],
+        }))
+      : [],
   };
 }
 
