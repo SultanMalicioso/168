@@ -112,7 +112,14 @@ export const Route = createFileRoute("/")({
 const TOTAL = 168;
 
 function Index() {
-  const { store, setStore, hydrated } = useTimeStore();
+  const {
+  store,
+  setStore,
+  hydrated,
+  goToPreviousWeek,
+  goToNextWeek,
+  goToCurrentWeek,
+} = useTimeStore();
   const [editing, setEditing] = useState<Activity | null>(null);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<Activity | null>(null);
