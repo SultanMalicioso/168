@@ -383,16 +383,6 @@ const realTotal = filtered.reduce(
     return g;
   };
 
-  const startNewWeek = () => {
-    const kept = store.activities.filter((a) => a.permanent);
-    const removed = store.activities.length - kept.length;
-    setStore({ ...store, activities: kept });
-    toast.success(
-      removed > 0
-        ? `Nueva semana iniciada · ${kept.length} permanentes conservadas, ${removed} eliminadas`
-        : "Nueva semana iniciada",
-    );
-  };
 
   const toggleTheme = () =>
     setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
