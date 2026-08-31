@@ -475,55 +475,7 @@ const realTotal = filtered.reduce(
             <SyncBadge />
 
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" className="gap-1.5">
-                  <RotateCcw className="h-4 w-4" />
-                  <span className="hidden sm:inline">Nueva semana</span>
-
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="font-display text-2xl">
-                    ¿Comenzar una nueva semana?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Se eliminarán todas las actividades temporales. Las actividades
-                    marcadas como <span className="font-medium text-foreground">permanentes</span>{" "}
-                    se conservarán con toda su información.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                {(() => {
-                  const perm = store.activities.filter((a) => a.permanent).length;
-                  const temp = store.activities.length - perm;
-                  return (
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-lg border p-3">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Se conservan
-                        </div>
-                        <div className="font-display text-2xl mt-1">{perm}</div>
-                        <div className="text-xs text-muted-foreground">permanentes</div>
-                      </div>
-                      <div className="rounded-lg border p-3">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Se eliminan
-                        </div>
-                        <div className="font-display text-2xl mt-1">{temp}</div>
-                        <div className="text-xs text-muted-foreground">temporales</div>
-                      </div>
-                    </div>
-                  );
-                })()}
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={startNewWeek}>
-                    Sí, comenzar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
