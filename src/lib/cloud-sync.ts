@@ -23,6 +23,31 @@ interface Meta {
   cloudHash: Record<string, string>;
 }
 
+/** Key-order independent serialization so that re-normalized data compares equal. */
+function canonical(value: string): string {
+  try {
+    return stableStringify(JSON.parse(value));
+  } catch {
+    return value;
+  }
+}
+
+function stableStringify(input: unknown): string {
+  if (Array.isArray(input)) {
+    return `[${input.map(stableStringify).join(",")}]`;
+  }
+
+  if (input && typeof input === "object") {
+    const entries = Object.entries(input as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`);
+    return `{${entries.join(",")}}`;
+  }
+
+  return JSON.stringify(input) ?? "null";
+}
+
 function hash(value: string): string {
   let h = 5381;
   for (let i = 0; i < value.length; i++) {
@@ -56,7 +81,7 @@ function writeMeta(meta: Meta) {
 
 function rememberCloudValue(key: string, value: string, updatedAt?: string) {
   const meta = readMeta();
-  meta.cloudHash[key] = hash(value);
+  meta.cloudHash[key] = hash(canonical(value));
 
   if (updatedAt) {
     const timestamp = Date.parse(updatedAt);
@@ -73,7 +98,7 @@ function matchesCloud(key: string): boolean {
   if (local == null) return true;
 
   const known = readMeta().cloudHash[key];
-  return known != null && known === hash(local);
+  return known != null && known === hash(canonical(local));
 }
 
 let currentUser: User | null = null;
@@ -242,7 +267,7 @@ async function pullFromCloud(): Promise<void> {
       const remoteValue = JSON.stringify(row.value);
       const localValue = localStorage.getItem(key);
 
-      if (remoteValue !== localValue) {
+      if (localValue == null || canonical(remoteValue) !== canonical(localValue)) {
         localStorage.setItem(key, remoteValue);
         changed = true;
       }
