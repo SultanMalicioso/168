@@ -292,7 +292,7 @@ const seedGoals: Goal[] = [
   { id: "gs-ocio", name: "Ocio", color: PALETTE[2], icon: "🎮", targetHours: 12, active: true, createdAt: Date.now() },
 ];
 
-interface Store {
+export interface Store {
   activities: Activity[];
   goals: Goal[];
   tasks: Task[];
