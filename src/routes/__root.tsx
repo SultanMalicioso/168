@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { startCloudSync } from "../lib/cloud-sync";
+import { startNotifyEngine } from "../lib/notify-engine";
 
 function NotFoundComponent() {
   return (
@@ -132,6 +133,7 @@ function RootComponent() {
 
   useEffect(() => {
     startCloudSync();
+    startNotifyEngine();
   }, []);
 
   return (

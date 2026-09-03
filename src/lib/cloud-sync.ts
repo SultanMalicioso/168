@@ -7,6 +7,7 @@ export const SYNC_KEYS = [
   "week168.v2",
   "week168.timers.v1",
   "week168.history.v1",
+  "week168.notify.v1",
 ] as const;
 
 export type SyncKey = (typeof SYNC_KEYS)[number];
