@@ -31,6 +31,7 @@ import {
   type Goal,
   type Task,
 } from "@/lib/time-store";
+import { LEAD_OPTIONS, leadLabel } from "@/lib/notify-store";
 import { GoalForm } from "./GoalForm";
 import { TaskList } from "./TaskList";
 
@@ -83,6 +84,10 @@ const [specificWeek, setSpecificWeek] = useState(
   const [completion, setCompletion] = useState<CompletionMode>(
     initial ? completionMode(initial) : "timer",
   );
+  const [startTime, setStartTime] = useState(initial?.startTime ?? "");
+  const [reminderMinutes, setReminderMinutes] = useState<string>(
+    initial?.reminderMinutes === undefined ? "default" : String(initial.reminderMinutes),
+  );
   const [showGoalForm, setShowGoalForm] = useState(false);
 
 
@@ -124,6 +129,9 @@ const [specificWeek, setSpecificWeek] = useState(
             notes: notes.trim() || undefined,
             goalIds: goalIds.length > 0 ? goalIds : undefined,
             completion,
+            startTime: startTime || undefined,
+            reminderMinutes:
+              reminderMinutes === "default" ? undefined : Number(reminderMinutes),
             tasks,
           });
         }}
@@ -154,6 +162,38 @@ const [specificWeek, setSpecificWeek] = useState(
               setHoursPerDay(Math.max(0, Math.min(24, Number(e.target.value) || 0)))
             }
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="start-time">Horario (opcional)</Label>
+            <Input
+              id="start-time"
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Recordatorio</Label>
+            <Select
+              value={reminderMinutes}
+              onValueChange={setReminderMinutes}
+              disabled={!startTime}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Usar valor por defecto</SelectItem>
+                {LEAD_OPTIONS.map((m) => (
+                  <SelectItem key={m} value={String(m)}>
+                    {leadLabel(m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="space-y-1.5">

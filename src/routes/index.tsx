@@ -51,6 +51,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster } from "@/components/ui/sonner";
 import { SyncBadge } from "@/components/sync/SyncBadge";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { toast } from "sonner";
 import { DonutChart } from "@/components/time/DonutChart";
 import { ActivityForm } from "@/components/time/ActivityForm";
@@ -473,6 +474,7 @@ const realTotal = filtered.reduce(
               <span className="hidden sm:inline">To-Do</span>
             </Link>
             <SyncBadge />
+            <NotificationCenter />
 
 
             

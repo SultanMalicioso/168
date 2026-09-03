@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { SyncBadge } from "@/components/sync/SyncBadge";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -442,6 +443,7 @@ function TodoPage() {
               <Plus className="h-4 w-4" /> Nueva
             </Button>
             <SyncBadge />
+            <NotificationCenter />
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Cambiar tema">
               {store.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
