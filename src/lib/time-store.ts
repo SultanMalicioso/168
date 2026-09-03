@@ -161,6 +161,10 @@ export interface Activity {
   goalIds?: string[];
   /** "timer" (default, back-compat) or "manual" completion. */
   completion?: CompletionMode;
+  /** Optional daily start time (HH:mm). Drives notifications. */
+  startTime?: string;
+  /** Minutes of anticipation for the reminder. undefined = global default. */
+  reminderMinutes?: number;
   /** Legacy inline tasks — still supported for backward compatibility. */
   tasks?: Task[];
 }
