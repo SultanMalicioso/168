@@ -395,7 +395,9 @@ async function tick() {
     });
 
     for (const e of due.sort((a, b) => a.at - b.at)) {
+      console.log("[notify] delivering", e.key);
       await deliver(e.input, Math.max(e.at, nowMs - e.graceMs));
+      console.log("[notify] delivered", e.key, loadNotify().items.length);
     }
   } finally {
     running = false;
