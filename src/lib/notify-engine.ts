@@ -10,7 +10,6 @@ import {
 import { LOCAL_DATA_CHANGED_EVENT } from "@/lib/cloud-sync";
 import {
   deliver,
-  inQuietHours,
   loadNotify,
   updateNotify,
   type NotifyInput,
@@ -380,7 +379,6 @@ async function tick() {
     const now = new Date();
     const timers = readTimers();
     const events = planEvents(now, store, timers, data.settings);
-    const quiet = inQuietHours(data.settings, now);
     const nowMs = now.getTime();
 
     const due = events.filter(
@@ -388,16 +386,6 @@ async function tick() {
     );
 
     if (due.length === 0) return;
-
-    /* During quiet hours nothing is shown, and nothing piles up for later. */
-    if (quiet) {
-      updateNotify((d) => {
-        const sent = { ...d.sent };
-        for (const e of due) sent[e.key] = nowMs;
-        return { ...d, sent };
-      });
-      return;
-    }
 
     /* Reserve the keys first: no duplicates even if delivery is slow. */
     updateNotify((d) => {
