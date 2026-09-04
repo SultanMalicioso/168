@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      push_sent: {
+        Row: {
+          dedupe_key: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          dedupe_key: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          dedupe_key?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          enabled: boolean
+          endpoint: string
+          id: string
+          last_used_at: string | null
+          p256dh: string
+          time_zone: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          enabled?: boolean
+          endpoint: string
+          id?: string
+          last_used_at?: string | null
+          p256dh: string
+          time_zone?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          enabled?: boolean
+          endpoint?: string
+          id?: string
+          last_used_at?: string | null
+          p256dh?: string
+          time_zone?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_data: {
         Row: {
           key: string
