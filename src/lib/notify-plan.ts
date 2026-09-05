@@ -7,10 +7,7 @@ import {
   type Task,
   type TaskPriority,
 } from "@/lib/time-store";
-import {
-  type NotifyInput,
-  type NotifySettings,
-} from "@/lib/notify-store";
+import type { NotifyInput, NotifySettings } from "@/lib/notify-store";
 
 /* ------------------------------------------------------------------ *
  * Notification planner (pure)
