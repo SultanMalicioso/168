@@ -14,6 +14,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
+import { Route as ApiPublicPushTickRouteImport } from './routes/api/public/push-tick'
 
 const TodoRoute = TodoRouteImport.update({
   id: '/todo',
@@ -40,6 +41,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPushTickRoute = ApiPublicPushTickRouteImport.update({
+  id: '/api/public/push-tick',
+  path: '/api/public/push-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/todo': typeof TodoRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/api/public/push-tick': typeof ApiPublicPushTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/todo': typeof TodoRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/api/public/push-tick': typeof ApiPublicPushTickRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,33 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/todo': typeof TodoRoute
   '/auth_/callback': typeof AuthCallbackRoute
+  '/api/public/push-tick': typeof ApiPublicPushTickRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/calendar' | '/todo' | '/auth/callback'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/calendar'
+    | '/todo'
+    | '/auth/callback'
+    | '/api/public/push-tick'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/calendar' | '/todo' | '/auth/callback'
-  id: '__root__' | '/' | '/auth' | '/calendar' | '/todo' | '/auth_/callback'
+  to:
+    | '/'
+    | '/auth'
+    | '/calendar'
+    | '/todo'
+    | '/auth/callback'
+    | '/api/public/push-tick'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/calendar'
+    | '/todo'
+    | '/auth_/callback'
+    | '/api/public/push-tick'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +105,7 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   TodoRoute: typeof TodoRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  ApiPublicPushTickRoute: typeof ApiPublicPushTickRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/push-tick': {
+      id: '/api/public/push-tick'
+      path: '/api/public/push-tick'
+      fullPath: '/api/public/push-tick'
+      preLoaderRoute: typeof ApiPublicPushTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   TodoRoute: TodoRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  ApiPublicPushTickRoute: ApiPublicPushTickRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

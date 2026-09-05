@@ -218,11 +218,15 @@ export interface NotifyInput {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-/** Logs the notification and delivers it through the OS when allowed. */
-export async function deliver(input: NotifyInput, at = Date.now()) {
+/**
+ * Logs the notification and delivers it through the OS when allowed.
+ * `osSilent` keeps the entry in the center without an OS banner — used
+ * when the server push already owns delivery for this device.
+ */
+export async function deliver(input: NotifyInput, at = Date.now(), osSilent = false) {
   const data = loadNotify();
   const quiet = inQuietHours(data.settings, new Date(at));
-  const canShow = permissionState() === "granted" && !quiet;
+  const canShow = permissionState() === "granted" && !quiet && !osSilent;
 
   const item: NotifyItem = {
     id: uid(),
