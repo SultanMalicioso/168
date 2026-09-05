@@ -106,6 +106,97 @@ function Row({
   );
 }
 
+/** Registers this device so avisos arrive with the app closed. */
+function BackgroundPush() {
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    void pushState().then(setState);
+  }, []);
+
+  const run = async (fn: () => Promise<PushState>) => {
+    setBusy(true);
+    setNote(null);
+    try {
+      setState(await fn());
+    } catch {
+      setNote("No pudimos completar el registro. Probá de nuevo.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!state) return null;
+
+  const copy: Record<PushState, string> = {
+    unsupported: "Este navegador no admite avisos en segundo plano.",
+    "signed-out": "Iniciá sesión para recibir avisos con la app cerrada.",
+    "not-configured": "Los avisos en segundo plano no están disponibles ahora.",
+    denied: "Los avisos están bloqueados en los permisos del sitio.",
+    off: "Recibí tus recordatorios aunque cierres la app en el celular.",
+    on: "Este dispositivo recibe avisos aunque la app esté cerrada.",
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium">Avisos con la app cerrada</p>
+        {state === "on" && (
+          <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-background">
+            Activo
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">{copy[state]}</p>
+
+      {(state === "off" || state === "on") && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {state === "off" ? (
+            <Button size="sm" disabled={busy} onClick={() => void run(enableDevicePush)}>
+              Activar en este dispositivo
+            </Button>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  void (async () => {
+                    setBusy(true);
+                    const res = await testDevicePush().catch(() => ({
+                      sent: 0,
+                      error: "Falló el envío",
+                    }));
+                    setNote(
+                      res.sent > 0 ? "Aviso de prueba enviado." : (res.error ?? "Sin dispositivos"),
+                    );
+                    setBusy(false);
+                  })()
+                }
+              >
+                Probar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void run(disableDevicePush)}
+              >
+                Desactivar
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {note && <p className="mt-2 text-xs text-muted-foreground">{note}</p>}
+    </div>
+  );
+}
+
 export function NotificationCenter() {
   const {
     items,
