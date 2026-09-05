@@ -15,9 +15,12 @@ export interface VapidKeys {
   subject: string;
 }
 
-const enc = new TextEncoder();
+const encoder = new TextEncoder();
+const enc = (v: string): Bytes => encoder.encode(v) as Bytes;
 
-function b64urlToBytes(value: string): Uint8Array {
+type Bytes = Uint8Array<ArrayBuffer>;
+
+function b64urlToBytes(value: string): Bytes {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
   const bin = atob(padded);
@@ -26,13 +29,13 @@ function b64urlToBytes(value: string): Uint8Array {
   return out;
 }
 
-function bytesToB64url(bytes: Uint8Array): string {
+function bytesToB64url(bytes: Bytes): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function concat(...parts: Uint8Array[]): Uint8Array {
+function concat(...parts: Bytes[]): Bytes {
   const total = parts.reduce((n, p) => n + p.length, 0);
   const out = new Uint8Array(total);
   let offset = 0;
@@ -43,23 +46,23 @@ function concat(...parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
-async function hmac(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+async function hmac(key: Bytes, data: Bytes): Promise<Bytes> {
   const k = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, [
     "sign",
   ]);
-  return new Uint8Array(await crypto.subtle.sign("HMAC", k, data));
+  return new Uint8Array(await crypto.subtle.sign("HMAC", k, data)) as Bytes;
 }
 
 /** HKDF with a single output block (enough for every web push secret). */
 async function hkdf(
-  salt: Uint8Array,
-  ikm: Uint8Array,
-  info: Uint8Array,
+  salt: Bytes,
+  ikm: Bytes,
+  info: Bytes,
   length: number,
-): Promise<Uint8Array> {
+): Promise<Bytes> {
   const prk = await hmac(salt, ikm);
   const okm = await hmac(prk, concat(info, new Uint8Array([1])));
-  return okm.slice(0, length);
+  return okm.slice(0, length) as Bytes;
 }
 
 /* ---------------- VAPID ---------------- */
@@ -81,9 +84,9 @@ async function vapidToken(audience: string, vapid: VapidKeys): Promise<string> {
     ["sign"],
   );
 
-  const header = bytesToB64url(enc.encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+  const header = bytesToB64url(enc(JSON.stringify({ typ: "JWT", alg: "ES256" })));
   const payload = bytesToB64url(
-    enc.encode(
+    enc(
       JSON.stringify({
         aud: audience,
         exp: Math.floor(Date.now() / 1000) + 12 * 3600,
@@ -96,9 +99,9 @@ async function vapidToken(audience: string, vapid: VapidKeys): Promise<string> {
     await crypto.subtle.sign(
       { name: "ECDSA", hash: "SHA-256" },
       key,
-      enc.encode(`${header}.${payload}`),
+      enc(`${header}.${payload}`),
     ),
-  );
+  ) as Bytes;
 
   return `${header}.${payload}.${bytesToB64url(signature)}`;
 }
@@ -107,15 +110,17 @@ async function vapidToken(audience: string, vapid: VapidKeys): Promise<string> {
 
 async function encryptPayload(
   sub: PushSubscriptionRecord,
-  plaintext: Uint8Array,
-): Promise<Uint8Array> {
+  plaintext: Bytes,
+): Promise<Bytes> {
   const uaPublic = b64urlToBytes(sub.p256dh);
   const authSecret = b64urlToBytes(sub.auth);
 
   const localKeys = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
     "deriveBits",
   ]);
-  const localPublic = new Uint8Array(await crypto.subtle.exportKey("raw", localKeys.publicKey));
+  const localPublic = new Uint8Array(
+    await crypto.subtle.exportKey("raw", localKeys.publicKey),
+  ) as Bytes;
 
   const uaKey = await crypto.subtle.importKey(
     "raw",
@@ -126,26 +131,26 @@ async function encryptPayload(
   );
   const shared = new Uint8Array(
     await crypto.subtle.deriveBits({ name: "ECDH", public: uaKey }, localKeys.privateKey, 256),
-  );
+  ) as Bytes;
 
   const ikm = await hkdf(
     authSecret,
     shared,
-    concat(enc.encode("WebPush: info\0"), uaPublic, localPublic),
+    concat(enc("WebPush: info\0"), uaPublic, localPublic),
     32,
   );
 
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const cek = await hkdf(salt, ikm, enc.encode("Content-Encoding: aes128gcm\0"), 16);
-  const nonce = await hkdf(salt, ikm, enc.encode("Content-Encoding: nonce\0"), 12);
+  const salt = crypto.getRandomValues(new Uint8Array(16)) as Bytes;
+  const cek = await hkdf(salt, ikm, enc("Content-Encoding: aes128gcm\0"), 16);
+  const nonce = await hkdf(salt, ikm, enc("Content-Encoding: nonce\0"), 12);
 
   const aesKey = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
   const record = concat(plaintext, new Uint8Array([2])); // 0x02 = last record delimiter
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, aesKey, record),
-  );
+  ) as Bytes;
 
-  const header = new Uint8Array(21);
+  const header = new Uint8Array(21) as Bytes;
   header.set(salt, 0);
   new DataView(header.buffer).setUint32(16, 4096); // record size
   header[20] = localPublic.length;
@@ -169,7 +174,7 @@ export async function sendWebPush(
   vapid: VapidKeys,
   options: { ttl?: number; urgency?: "very-low" | "low" | "normal" | "high" } = {},
 ): Promise<PushSendResult> {
-  const body = await encryptPayload(sub, enc.encode(JSON.stringify(payload)));
+  const body = await encryptPayload(sub, enc(JSON.stringify(payload)));
   const audience = new URL(sub.endpoint).origin;
   const token = await vapidToken(audience, vapid);
 
