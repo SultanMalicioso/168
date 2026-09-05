@@ -76,7 +76,7 @@ async function tick() {
     });
 
     for (const e of due.sort((a, b) => a.at - b.at)) {
-      await deliver(e.input, Math.max(e.at, nowMs - e.graceMs));
+      await deliver(e.input, Math.max(e.at, nowMs - e.graceMs), pushActiveHere());
     }
   } finally {
     running = false;
