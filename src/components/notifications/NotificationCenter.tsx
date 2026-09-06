@@ -275,6 +275,8 @@ export function NotificationCenter() {
               </div>
             )}
 
+            <BackgroundPush />
+
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {FILTERS.map((f) => (
                 <button
