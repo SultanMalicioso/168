@@ -120,28 +120,35 @@ export const sendTestPush = createServerFn({ method: "POST" })
     const errors: string[] = [];
 
     for (const sub of subs) {
-      const res = await sendWebPush(
-        sub,
-        {
-          title: "🔔 Prueba de aviso",
-          body: "Los avisos llegan aunque la app esté cerrada.",
-          tag: "test",
-          link: "/",
-        },
-        vapid,
+  try {
+    const res = await sendWebPush(
+      sub,
+      {
+        title: "🔔 Prueba de aviso",
+        body: "Los avisos llegan aunque la app esté cerrada.",
+        tag: "test",
+        link: "/",
+      },
+      vapid,
+    );
+
+    if (res.ok) {
+      sent++;
+    } else {
+      errors.push(
+        `${res.status ?? "error"}: ${
+          res.body ?? "El proveedor rechazó la notificación"
+        }`,
       );
-
-      if (res.ok) {
-        sent++;
-      } else {
-        errors.push(
-          `${res.status ?? "error"}: ${
-            res.body ?? "El proveedor rechazó la notificación"
-          }`,
-        );
-      }
     }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error);
 
+    errors.push(`EXCEPCIÓN PUSH: ${message}`);
+    console.error("[push-test] sendWebPush exception", error);
+  }
+}
     if (sent === 0 && errors.length > 0) {
       return {
         sent: 0,
