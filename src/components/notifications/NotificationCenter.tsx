@@ -123,13 +123,18 @@ function BackgroundPush() {
     void pushState().then(setState);
   }, []);
 
-  const run = async (fn: () => Promise<PushState>) => {
+    const run = async (fn: () => Promise<PushState>) => {
     setBusy(true);
     setNote(null);
+
     try {
       setState(await fn());
-    } catch {
-      setNote("No pudimos completar el registro. Probá de nuevo.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+
+      console.error("[push-register] error", error);
+      setNote(`Error de registro: ${message}`);
     } finally {
       setBusy(false);
     }
