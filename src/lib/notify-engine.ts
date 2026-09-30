@@ -40,7 +40,6 @@ function readTimers(): TimerSnapshot {
 
 /* ---------------- tick loop ---------------- */
 
-
 let started = false;
 let timer: ReturnType<typeof setInterval> | null = null;
 let debounce: ReturnType<typeof setTimeout> | null = null;
@@ -76,11 +75,8 @@ async function tick() {
     });
 
     for (const e of due.sort((a, b) => a.at - b.at)) {
-      await deliver(
-  e.input,
-  Math.max(e.at, nowMs - e.graceMs),
-  false
-);
+      /* With server push on this device the server owns the OS banner. */
+      await deliver(e.input, Math.max(e.at, nowMs - e.graceMs), pushActiveHere());
     }
   } finally {
     running = false;
