@@ -3,6 +3,15 @@
  * so it runs inside the edge runtime that serves this app.
  * ------------------------------------------------------------------ */
 
+import {
+  base64UrlToBytes,
+  bytesToBase64Url,
+  isValidP256PublicKey,
+  normalizeBase64Url,
+  publicKeyFromPrivate,
+  type Bytes,
+} from "@/lib/vapid";
+
 export interface PushSubscriptionRecord {
   endpoint: string;
   p256dh: string;
@@ -17,23 +26,6 @@ export interface VapidKeys {
 
 const encoder = new TextEncoder();
 const enc = (v: string): Bytes => encoder.encode(v) as Bytes;
-
-type Bytes = Uint8Array<ArrayBuffer>;
-
-function b64urlToBytes(value: string): Bytes {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const bin = atob(padded);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-function bytesToB64url(bytes: Bytes): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
 
 function concat(...parts: Bytes[]): Bytes {
   const total = parts.reduce((n, p) => n + p.length, 0);
@@ -54,12 +46,7 @@ async function hmac(key: Bytes, data: Bytes): Promise<Bytes> {
 }
 
 /** HKDF with a single output block (enough for every web push secret). */
-async function hkdf(
-  salt: Bytes,
-  ikm: Bytes,
-  info: Bytes,
-  length: number,
-): Promise<Bytes> {
+async function hkdf(salt: Bytes, ikm: Bytes, info: Bytes, length: number): Promise<Bytes> {
   const prk = await hmac(salt, ikm);
   const okm = await hmac(prk, concat(info, new Uint8Array([1])));
   return okm.slice(0, length) as Bytes;
@@ -68,14 +55,14 @@ async function hkdf(
 /* ---------------- VAPID ---------------- */
 
 async function vapidToken(audience: string, vapid: VapidKeys): Promise<string> {
-  const pub = b64urlToBytes(vapid.publicKey);
+  const pub = base64UrlToBytes(vapid.publicKey);
   const key = await crypto.subtle.importKey(
     "jwk",
     {
       kty: "EC",
       crv: "P-256",
-      x: bytesToB64url(pub.slice(1, 33)),
-      y: bytesToB64url(pub.slice(33, 65)),
+      x: bytesToBase64Url(pub.slice(1, 33)),
+      y: bytesToBase64Url(pub.slice(33, 65)),
       d: vapid.privateKey,
       ext: true,
     },
@@ -84,8 +71,8 @@ async function vapidToken(audience: string, vapid: VapidKeys): Promise<string> {
     ["sign"],
   );
 
-  const header = bytesToB64url(enc(JSON.stringify({ typ: "JWT", alg: "ES256" })));
-  const payload = bytesToB64url(
+  const header = bytesToBase64Url(enc(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+  const payload = bytesToBase64Url(
     enc(
       JSON.stringify({
         aud: audience,
@@ -96,24 +83,17 @@ async function vapidToken(audience: string, vapid: VapidKeys): Promise<string> {
   );
 
   const signature = new Uint8Array(
-    await crypto.subtle.sign(
-      { name: "ECDSA", hash: "SHA-256" },
-      key,
-      enc(`${header}.${payload}`),
-    ),
+    await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, enc(`${header}.${payload}`)),
   ) as Bytes;
 
-  return `${header}.${payload}.${bytesToB64url(signature)}`;
+  return `${header}.${payload}.${bytesToBase64Url(signature)}`;
 }
 
 /* ---------------- payload encryption ---------------- */
 
-async function encryptPayload(
-  sub: PushSubscriptionRecord,
-  plaintext: Bytes,
-): Promise<Bytes> {
-  const uaPublic = b64urlToBytes(sub.p256dh);
-  const authSecret = b64urlToBytes(sub.auth);
+async function encryptPayload(sub: PushSubscriptionRecord, plaintext: Bytes): Promise<Bytes> {
+  const uaPublic = base64UrlToBytes(sub.p256dh);
+  const authSecret = base64UrlToBytes(sub.auth);
 
   const localKeys = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
     "deriveBits",
@@ -198,10 +178,58 @@ export async function sendWebPush(
   };
 }
 
+let cachedVapid: { source: string; keys: VapidKeys | null } | null = null;
+
+/**
+ * Reads the VAPID pair from the environment. The public key is derived
+ * from VAPID_PRIVATE_KEY, so the key the browser subscribes with is
+ * always the one that matches the signing key — a mistyped or quoted
+ * VAPID_PUBLIC_KEY can no longer break subscriptions.
+ */
 export function readVapid(): VapidKeys | null {
-  const publicKey = process.env["VAPID_PUBLIC_KEY"];
-  const privateKey = process.env["VAPID_PRIVATE_KEY"];
-  const subject = process.env["VAPID_SUBJECT"] ?? "mailto:notificaciones@lovable.app";
-  if (!publicKey || !privateKey) return null;
-  return { publicKey, privateKey, subject };
+  const rawPublic = process.env["VAPID_PUBLIC_KEY"];
+  const rawPrivate = process.env["VAPID_PRIVATE_KEY"];
+  const subject =
+    (process.env["VAPID_SUBJECT"] ?? "").trim().replace(/^["']|["']$/g, "") ||
+    "mailto:notificaciones@lovable.app";
+
+  const source = `${rawPublic}|${rawPrivate}|${subject}`;
+  if (cachedVapid?.source === source) return cachedVapid.keys;
+
+  let keys: VapidKeys | null = null;
+  const privateKey = normalizeBase64Url(rawPrivate);
+
+  if (privateKey) {
+    try {
+      const publicKey = publicKeyFromPrivate(privateKey);
+      const envPublic = normalizeBase64Url(rawPublic);
+
+      if (envPublic && envPublic !== publicKey) {
+        console.warn(
+          `[vapid] VAPID_PUBLIC_KEY (${envPublic}) ${
+            isValidP256PublicKey(safeBytes(envPublic))
+              ? "no corresponde a"
+              : "no es una clave P-256 válida y no corresponde a"
+          } VAPID_PRIVATE_KEY. Se usa la clave pública derivada: ${publicKey}`,
+        );
+      }
+
+      keys = { publicKey, privateKey, subject };
+    } catch (error) {
+      console.error("[vapid] VAPID_PRIVATE_KEY inválida", error);
+    }
+  } else {
+    console.error("[vapid] Falta VAPID_PRIVATE_KEY");
+  }
+
+  cachedVapid = { source, keys };
+  return keys;
+}
+
+function safeBytes(value: string): Uint8Array {
+  try {
+    return base64UrlToBytes(value);
+  } catch {
+    return new Uint8Array();
+  }
 }

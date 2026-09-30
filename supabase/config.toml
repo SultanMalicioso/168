@@ -1,1 +1,4 @@
 project_id = "mbpzqosnsgxwjwotsfvl"
+
+[functions.notify-scheduler]
+verify_jwt = false

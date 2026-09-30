@@ -5,8 +5,8 @@ import type { Store } from "@/lib/time-store";
 
 /* ------------------------------------------------------------------ *
  * Scheduled push dispatcher.
- * Runs every minute from the database scheduler. For each registered
- * device it replays the very same planner the app uses, in the user's
+ * Called on a schedule by the Supabase `notify-scheduler` edge function
+ * (pg_cron). For each registered device it replays the very same planner the app uses, in the user's
  * own time zone, and pushes whatever became due — once, ever.
  * ------------------------------------------------------------------ */
 
@@ -27,7 +27,9 @@ const DEFAULT_SETTINGS: NotifySettings = {
 };
 
 const hhmmToMin = (v: string) => {
-  const [h, m] = String(v).split(":").map((n) => parseInt(n, 10));
+  const [h, m] = String(v)
+    .split(":")
+    .map((n) => parseInt(n, 10));
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
 };
 
@@ -55,12 +57,12 @@ function tzOffsetMs(timeZone: string, date: Date): number {
     });
     const p = Object.fromEntries(dtf.formatToParts(date).map((x) => [x.type, x.value]));
     const asUTC = Date.UTC(
-      Number(p['year']),
-      Number(p['month']) - 1,
-      Number(p['day']),
-      Number(p['hour']) % 24,
-      Number(p['minute']),
-      Number(p['second']),
+      Number(p["year"]),
+      Number(p["month"]) - 1,
+      Number(p["day"]),
+      Number(p["hour"]) % 24,
+      Number(p["minute"]),
+      Number(p["second"]),
     );
     return asUTC - Math.floor(date.getTime() / 1000) * 1000;
   } catch {
@@ -112,6 +114,7 @@ export const Route = createFileRoute("/api/public/push-tick")({
         const now = new Date();
         let sent = 0;
         let dropped = 0;
+        let failed = 0;
 
         for (const [userId, devices] of byUser) {
           const { data: dataRows } = await supabaseAdmin
@@ -119,7 +122,7 @@ export const Route = createFileRoute("/api/public/push-tick")({
             .select("key, value")
             .eq("user_id", userId);
 
-          const get = <T,>(key: string): T | null => {
+          const get = <T>(key: string): T | null => {
             const raw = dataRows?.find((r) => r.key === key)?.value;
             if (raw == null) return null;
             try {
@@ -171,21 +174,29 @@ export const Route = createFileRoute("/api/public/push-tick")({
             const due = events.filter((e) => fresh.has(e.key)).sort((a, b) => a.at - b.at);
 
             for (const e of due) {
-              const res = await sendWebPush(
-                device,
-                {
-                  title: e.input.title,
-                  body: e.input.body,
-                  tag: e.input.tag ?? e.key,
-                  link: e.input.link ?? "/",
-                  kind: e.input.kind,
-                  color: e.input.color,
-                  activityId: e.input.activityId,
-                  taskId: e.input.taskId,
-                  at: Date.now(),
-                },
-                vapid,
-              );
+              let res: Awaited<ReturnType<typeof sendWebPush>>;
+              try {
+                res = await sendWebPush(
+                  device,
+                  {
+                    title: e.input.title,
+                    body: e.input.body,
+                    tag: e.input.tag ?? e.key,
+                    link: e.input.link ?? "/",
+                    kind: e.input.kind,
+                    color: e.input.color,
+                    activityId: e.input.activityId,
+                    taskId: e.input.taskId,
+                    at: Date.now(),
+                  },
+                  vapid,
+                );
+              } catch (err) {
+                /* One broken subscription must not stop the whole tick. */
+                failed++;
+                console.error(`push exception [${device.id}]`, err);
+                break;
+              }
 
               if (res.ok) {
                 sent++;
@@ -194,7 +205,8 @@ export const Route = createFileRoute("/api/public/push-tick")({
                 await supabaseAdmin.from("push_subscriptions").delete().eq("id", device.id);
                 break;
               } else {
-                console.error(`push failed [${res.status}]: ${res.body ?? ""}`);
+                failed++;
+                console.error(`push failed [${device.id}] [${res.status}]: ${res.body ?? ""}`);
               }
             }
 
@@ -205,15 +217,15 @@ export const Route = createFileRoute("/api/public/push-tick")({
           }
         }
 
-        /* Keep the ledger small. */
-        if (now.getMinutes() === 7) {
+        /* Keep the ledger small (the scheduler may run every 1 or 5 minutes). */
+        if (now.getMinutes() < 5) {
           await supabaseAdmin
             .from("push_sent")
             .delete()
             .lt("sent_at", new Date(Date.now() - 7 * 86_400_000).toISOString());
         }
 
-        return Response.json({ ok: true, devices: rows.length, sent, dropped });
+        return Response.json({ ok: true, devices: rows.length, sent, dropped, failed });
       },
     },
   },

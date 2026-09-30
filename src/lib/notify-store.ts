@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  CLOUD_UPDATED_EVENT,
-  LOCAL_DATA_CHANGED_EVENT,
-} from "@/lib/cloud-sync";
+import { CLOUD_UPDATED_EVENT, LOCAL_DATA_CHANGED_EVENT } from "@/lib/cloud-sync";
 
 /* ------------------------------------------------------------------ *
  * Notification store
@@ -172,9 +169,13 @@ export function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null>
   }
   if (!swReady) {
     swReady = navigator.serviceWorker
-      .register("/sw-notify.js")
+      .register("/sw-notify.js", { scope: "/", updateViaCache: "none" })
       .then((reg) => navigator.serviceWorker.ready.then(() => reg))
-      .catch(() => null);
+      .catch((error) => {
+        console.error("[sw] registration failed", error);
+        swReady = null; // let the next call try again
+        return null;
+      });
   }
   return swReady;
 }
