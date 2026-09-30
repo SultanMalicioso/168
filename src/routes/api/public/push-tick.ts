@@ -70,6 +70,17 @@ function tzOffsetMs(timeZone: string, date: Date): number {
   }
 }
 
+/**
+ * The push service says the subscription belongs to another VAPID key
+ * (Apple: 400 VapidPkHashMismatch; FCM: 403 "...do not correspond...").
+ */
+function isOtherVapidKey(status: number, body?: string): boolean {
+  return (
+    (status === 400 || status === 403) &&
+    /VapidPkHashMismatch|do not correspond to the credentials/i.test(body ?? "")
+  );
+}
+
 interface SubRow {
   id: string;
   user_id: string;
@@ -161,17 +172,24 @@ export const Route = createFileRoute("/api/public/push-tick")({
             );
             if (events.length === 0) continue;
 
-            /* Reserve the keys first: the ledger makes duplicates impossible. */
+            /*
+             * Reserve the keys first: the ledger makes duplicates impossible.
+             * Keys are per device, so every registered device gets the event
+             * (a per-user key let the first device in the list claim it).
+             */
+            const ledgerKey = (key: string) => `${device.id}:${key}`;
             const { data: reserved } = await supabaseAdmin
               .from("push_sent")
               .upsert(
-                events.map((e) => ({ user_id: userId, dedupe_key: e.key })),
+                events.map((e) => ({ user_id: userId, dedupe_key: ledgerKey(e.key) })),
                 { onConflict: "user_id,dedupe_key", ignoreDuplicates: true },
               )
               .select("dedupe_key");
 
             const fresh = new Set((reserved ?? []).map((r) => r.dedupe_key));
-            const due = events.filter((e) => fresh.has(e.key)).sort((a, b) => a.at - b.at);
+            const due = events
+              .filter((e) => fresh.has(ledgerKey(e.key)))
+              .sort((a, b) => a.at - b.at);
 
             for (const e of due) {
               let res: Awaited<ReturnType<typeof sendWebPush>>;
@@ -203,6 +221,14 @@ export const Route = createFileRoute("/api/public/push-tick")({
               } else if (res.expired) {
                 dropped++;
                 await supabaseAdmin.from("push_subscriptions").delete().eq("id", device.id);
+                break;
+              } else if (isOtherVapidKey(res.status, res.body)) {
+                /* Created with an old VAPID key: it can never work again. */
+                dropped++;
+                await supabaseAdmin
+                  .from("push_subscriptions")
+                  .update({ enabled: false })
+                  .eq("id", device.id);
                 break;
               } else {
                 failed++;
