@@ -3,11 +3,15 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /* Server functions backing device push registration. */
 
-export const getVapidPublicKey = createServerFn({ method: "GET" }).handler(
-  async () => ({
-    publicKey: process.env["VAPID_PUBLIC_KEY"] ?? null,
-  }),
-);
+/**
+ * The public key handed to `pushManager.subscribe()`. It is derived from
+ * VAPID_PRIVATE_KEY on the server, so it always matches the key that
+ * signs the pushes (see readVapid).
+ */
+export const getVapidPublicKey = createServerFn({ method: "GET" }).handler(async () => {
+  const { readVapid } = await import("@/lib/web-push.server");
+  return { publicKey: readVapid()?.publicKey ?? null };
+});
 
 interface SubscriptionInput {
   endpoint: string;
@@ -39,20 +43,18 @@ export const savePushSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(validate)
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("push_subscriptions")
-      .upsert(
-        {
-          user_id: context.userId,
-          endpoint: data.endpoint,
-          p256dh: data.p256dh,
-          auth: data.auth,
-          time_zone: data.timeZone,
-          user_agent: data.userAgent ?? null,
-          enabled: true,
-        },
-        { onConflict: "endpoint" },
-      );
+    const { error } = await context.supabase.from("push_subscriptions").upsert(
+      {
+        user_id: context.userId,
+        endpoint: data.endpoint,
+        p256dh: data.p256dh,
+        auth: data.auth,
+        time_zone: data.timeZone,
+        user_agent: data.userAgent ?? null,
+        enabled: true,
+      },
+      { onConflict: "endpoint" },
+    );
 
     if (error) {
       throw new Error(error.message);
@@ -83,8 +85,7 @@ export const removePushSubscription = createServerFn({ method: "POST" })
 export const sendTestPush = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { sendWebPush, readVapid } =
-      await import("@/lib/web-push.server");
+    const { sendWebPush, readVapid } = await import("@/lib/web-push.server");
 
     const vapid = readVapid();
 
@@ -95,12 +96,11 @@ export const sendTestPush = createServerFn({ method: "POST" })
       };
     }
 
-    const { data: subs, error: subsError } =
-      await context.supabase
-        .from("push_subscriptions")
-        .select("endpoint, p256dh, auth")
-        .eq("user_id", context.userId)
-        .eq("enabled", true);
+    const { data: subs, error: subsError } = await context.supabase
+      .from("push_subscriptions")
+      .select("endpoint, p256dh, auth")
+      .eq("user_id", context.userId)
+      .eq("enabled", true);
 
     if (subsError) {
       return {
@@ -120,35 +120,41 @@ export const sendTestPush = createServerFn({ method: "POST" })
     const errors: string[] = [];
 
     for (const sub of subs) {
-  try {
-    const res = await sendWebPush(
-      sub,
-      {
-        title: "🔔 Prueba de aviso",
-        body: "Los avisos llegan aunque la app esté cerrada.",
-        tag: "test",
-        link: "/",
-      },
-      vapid,
-    );
+      try {
+        const res = await sendWebPush(
+          sub,
+          {
+            title: "🔔 Prueba de aviso",
+            body: "Los avisos llegan aunque la app esté cerrada.",
+            tag: "test",
+            link: "/",
+          },
+          vapid,
+        );
 
-    if (res.ok) {
-      sent++;
-    } else {
-      errors.push(
-        `${res.status ?? "error"}: ${
-          res.body ?? "El proveedor rechazó la notificación"
-        }`,
-      );
+        if (res.ok) {
+          sent++;
+        } else if (res.expired) {
+          /* The push service says this endpoint is gone: stop using it. */
+          await context.supabase
+            .from("push_subscriptions")
+            .update({ enabled: false })
+            .eq("endpoint", sub.endpoint)
+            .eq("user_id", context.userId);
+          errors.push(`${res.status}: suscripción vencida, volvé a activar los avisos`);
+        } else {
+          errors.push(
+            `${res.status ?? "error"}: ${res.body ?? "El proveedor rechazó la notificación"}`,
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        errors.push(`EXCEPCIÓN PUSH: ${message}`);
+        console.error("[push-test] sendWebPush exception", error);
+      }
     }
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : String(error);
 
-    errors.push(`EXCEPCIÓN PUSH: ${message}`);
-    console.error("[push-test] sendWebPush exception", error);
-  }
-}
     if (sent === 0 && errors.length > 0) {
       return {
         sent: 0,
