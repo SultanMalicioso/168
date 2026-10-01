@@ -1,4 +1,4 @@
-import { activityDays, completionIcon, DAY_SHORT, type Activity } from "@/lib/time-store";
+import { activityDays, completionIcon, DAY_SHORT, type Activity, formatDuration } from "@/lib/time-store";
 
 const DAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -43,7 +43,7 @@ export function WeekGrid({ activities }: Props) {
           <div key={i} className="text-center">
             {d}
             <span className="ml-1 tabular-nums text-muted-foreground/70">
-              {perDay[i].reduce((s, a) => s + a.hoursPerDay, 0)}h
+              {formatDuration(perDay[i].reduce((s, a) => s + a.hoursPerDay, 0))}
             </span>
           </div>
         ))}
@@ -77,7 +77,7 @@ export function WeekGrid({ activities }: Props) {
                       background: a.color,
                       minHeight: 2,
                     }}
-                    title={`${completionIcon(a)} ${a.name} — ${a.hoursPerDay}h`}
+                    title={`${completionIcon(a)} ${a.name} — ${formatDuration(a.hoursPerDay)}`}
                   >
                     <span className="truncate mix-blend-luminosity">
                       {pct > 6 ? a.name : ""}

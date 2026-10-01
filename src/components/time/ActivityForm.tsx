@@ -5,12 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -33,6 +28,8 @@ import {
 } from "@/lib/time-store";
 import { LEAD_OPTIONS, leadLabel } from "@/lib/notify-store";
 import { GoalForm } from "./GoalForm";
+
+type DurationUnit = "min" | "h";
 import { TaskList } from "./TaskList";
 
 const PALETTE = [
@@ -65,6 +62,21 @@ export function ActivityForm({
 }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
   const [hoursPerDay, setHoursPerDay] = useState(initial?.hoursPerDay ?? 1);
+  /* Typed as a number + unit; stored as hours (max 24 h). */
+  const [durationUnit, setDurationUnit] = useState<DurationUnit>(() =>
+    (initial?.hoursPerDay ?? 1) < 1 ? "min" : "h",
+  );
+  const [durationText, setDurationText] = useState(() => {
+    const h = initial?.hoursPerDay ?? 1;
+    return String(h < 1 ? Math.round(h * 60 * 100) / 100 : h);
+  });
+  const setDuration = (text: string, unit: DurationUnit) => {
+    setDurationText(text);
+    setDurationUnit(unit);
+    const n = Number(text.replace(",", "."));
+    const hours = Number.isFinite(n) && n > 0 ? (unit === "min" ? n / 60 : n) : 0;
+    setHoursPerDay(Math.min(24, hours));
+  };
   const [dayIndices, setDayIndices] = useState<number[]>(
     initial ? Array.from(activityDays(initial)).sort((a, b) => a - b) : [0, 1, 2, 3, 4],
   );
@@ -72,12 +84,10 @@ export function ActivityForm({
   const [category, setCategory] = useState<Category>(initial?.category ?? "otro");
   const [permanent, setPermanent] = useState<boolean>(initial?.permanent ?? false);
   const [weekOption, setWeekOption] = useState<"current" | "next" | "specific">(
-  initial?.weekStart ? "specific" : "current",
-);
+    initial?.weekStart ? "specific" : "current",
+  );
 
-const [specificWeek, setSpecificWeek] = useState(
-  initial?.weekStart ?? "",
-);
+  const [specificWeek, setSpecificWeek] = useState(initial?.weekStart ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [goalIds, setGoalIds] = useState<string[]>(initial?.goalIds ?? []);
   const [tasks, setTasks] = useState<Task[]>(initial?.tasks ?? []);
@@ -89,7 +99,6 @@ const [specificWeek, setSpecificWeek] = useState(
     initial?.reminderMinutes === undefined ? "default" : String(initial.reminderMinutes),
   );
   const [showGoalForm, setShowGoalForm] = useState(false);
-
 
   const daysPerWeek = dayIndices.length;
   const toggleDay = (d: number) =>
@@ -110,15 +119,15 @@ const [specificWeek, setSpecificWeek] = useState(
       <form
         onSubmit={(e) => {
           e.preventDefault();
-         
+
           if (!name.trim()) return;
           onSubmit({
-             weekStart:
-  weekOption === "current"
-    ? getWeekKey()
-    : weekOption === "next"
-      ? addWeeks(getWeekKey(), 1)
-      : specificWeek || getWeekKey(),
+            weekStart:
+              weekOption === "current"
+                ? getWeekKey()
+                : weekOption === "next"
+                  ? addWeeks(getWeekKey(), 1)
+                  : specificWeek || getWeekKey(),
             name: name.trim(),
             hoursPerDay,
             daysPerWeek,
@@ -130,8 +139,7 @@ const [specificWeek, setSpecificWeek] = useState(
             goalIds: goalIds.length > 0 ? goalIds : undefined,
             completion,
             startTime: startTime || undefined,
-            reminderMinutes:
-              reminderMinutes === "default" ? undefined : Number(reminderMinutes),
+            reminderMinutes: reminderMinutes === "default" ? undefined : Number(reminderMinutes),
             tasks,
           });
         }}
@@ -150,18 +158,31 @@ const [specificWeek, setSpecificWeek] = useState(
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="hpd">Horas por día</Label>
-          <Input
-            id="hpd"
-            type="number"
-            min={0}
-            max={24}
-            step={0.25}
-            value={hoursPerDay}
-            onChange={(e) =>
-              setHoursPerDay(Math.max(0, Math.min(24, Number(e.target.value) || 0)))
-            }
-          />
+          <Label htmlFor="hpd">Duración por día</Label>
+          <div className="flex gap-2">
+            <Input
+              id="hpd"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              className="flex-1"
+              value={durationText}
+              onChange={(e) => setDuration(e.target.value, durationUnit)}
+            />
+            <Select
+              value={durationUnit}
+              onValueChange={(u) => setDuration(durationText, u as DurationUnit)}
+            >
+              <SelectTrigger className="w-[7.5rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="min">Minutos</SelectItem>
+                <SelectItem value="h">Horas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -256,42 +277,34 @@ const [specificWeek, setSpecificWeek] = useState(
           <span className="font-semibold">{weekly.toFixed(2)} h</span>
         </div>
         <div className="space-y-1.5">
-  <Label>Semana</Label>
+          <Label>Semana</Label>
 
-  <Select
-    value={weekOption}
-    onValueChange={(value) =>
-      setWeekOption(value as "current" | "next" | "specific")
-    }
-  >
-    <SelectTrigger>
-      <SelectValue />
-    </SelectTrigger>
+          <Select
+            value={weekOption}
+            onValueChange={(value) => setWeekOption(value as "current" | "next" | "specific")}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
 
-    <SelectContent>
-      <SelectItem value="current">
-        Esta semana
-      </SelectItem>
+            <SelectContent>
+              <SelectItem value="current">Esta semana</SelectItem>
 
-      <SelectItem value="next">
-        Próxima semana
-      </SelectItem>
+              <SelectItem value="next">Próxima semana</SelectItem>
 
-      <SelectItem value="specific">
-        Una semana específica
-      </SelectItem>
-    </SelectContent>
-  </Select>
+              <SelectItem value="specific">Una semana específica</SelectItem>
+            </SelectContent>
+          </Select>
 
-  {weekOption === "specific" && (
-    <Input
-      type="date"
-      value={specificWeek}
-      onChange={(e) => setSpecificWeek(e.target.value)}
-    />
-  )}
-</div>
-        
+          {weekOption === "specific" && (
+            <Input
+              type="date"
+              value={specificWeek}
+              onChange={(e) => setSpecificWeek(e.target.value)}
+            />
+          )}
+        </div>
+
         <div className="space-y-1.5">
           <Label>Categoría</Label>
           <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
@@ -312,10 +325,17 @@ const [specificWeek, setSpecificWeek] = useState(
         <div className="space-y-1.5">
           <Label>Modo de finalización</Label>
           <div className="grid grid-cols-2 gap-2">
-            {([
-              { id: "timer", icon: "⏱", title: "Con temporizador", sub: "Registrá el tiempo real" },
-              { id: "manual", icon: "✅", title: "Manual", sub: "Solo marcar como hecha" },
-            ] as const).map((o) => {
+            {(
+              [
+                {
+                  id: "timer",
+                  icon: "⏱",
+                  title: "Con temporizador",
+                  sub: "Registrá el tiempo real",
+                },
+                { id: "manual", icon: "✅", title: "Manual", sub: "Solo marcar como hecha" },
+              ] as const
+            ).map((o) => {
               const on = completion === o.id;
               return (
                 <button
@@ -337,8 +357,6 @@ const [specificWeek, setSpecificWeek] = useState(
           </div>
         </div>
 
-
-
         {/* GOALS SECTION */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -359,7 +377,9 @@ const [specificWeek, setSpecificWeek] = useState(
             >
               <span
                 className={`h-4 w-4 rounded border flex items-center justify-center ${
-                  goalIds.length === 0 ? "bg-foreground border-foreground" : "border-muted-foreground/40"
+                  goalIds.length === 0
+                    ? "bg-foreground border-foreground"
+                    : "border-muted-foreground/40"
                 }`}
               >
                 {goalIds.length === 0 && <Check className="h-3 w-3 text-background" />}
