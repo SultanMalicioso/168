@@ -149,13 +149,33 @@ export const Route = createFileRoute("/api/public/push-tick")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env["PUSH_CRON_SECRET"];
+        const { hit, blockedFor, clientIp, safeEqual, tooManyRequests, WINDOW_15_MIN } =
+          await import("@/lib/rate-limit.server");
+        const ip = clientIp(request);
+        const failKey = `push-tick:fail:${ip}`;
+
+        /* Authenticated route: max 5 failed attempts per IP every 15 minutes. */
+        const locked = blockedFor(failKey, 5);
+        if (locked > 0) return tooManyRequests(locked);
+
+        // The cron has no body; reject anything sizeable outright.
+        if (Number(request.headers.get("content-length") ?? 0) > 1024) {
+          return new Response("Payload too large", { status: 413 });
+        }
+
+        const secret = process.env["PUSH_CRON_SECRET"] ?? "";
         const provided =
           request.headers.get("x-push-secret") ??
-          request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-        if (!secret || provided !== secret) {
+          request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
+          "";
+        if (!secret || !safeEqual(provided, secret)) {
+          hit(failKey, 5, WINDOW_15_MIN);
           return new Response("Unauthorized", { status: 401 });
         }
+
+        /* Valid calls (the cron, once a minute) are capped too, so a leaked secret can't hammer the push services. */
+        const wait = hit("push-tick:ok", 60, WINDOW_15_MIN);
+        if (wait > 0) return tooManyRequests(wait);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { sendWebPush, readVapid } = await import("@/lib/web-push.server");

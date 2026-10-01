@@ -21,28 +21,73 @@ interface SubscriptionInput {
   userAgent?: string;
 }
 
-const validate = (input: SubscriptionInput): SubscriptionInput => {
-  if (!input?.endpoint?.startsWith("https://")) {
+const B64URL = /^[A-Za-z0-9_-]+$/;
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Rejects (never truncates) malformed or oversized input. */
+const validate = (input: unknown): SubscriptionInput => {
+  if (!isObject(input)) throw new Error("Datos inválidos");
+  const { endpoint, p256dh, auth, timeZone, userAgent } = input;
+
+  if (typeof endpoint !== "string" || endpoint.length > 1000) {
+    throw new Error("Endpoint inválido");
+  }
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    throw new Error("Endpoint inválido");
+  }
+  if (url.protocol !== "https:" || url.username || url.password) {
     throw new Error("Endpoint inválido");
   }
 
-  if (!input.p256dh || !input.auth) {
-    throw new Error("Claves de push faltantes");
+  // p256dh: 65-byte P-256 point (87 chars); auth: 16-byte secret (22 chars).
+  if (typeof p256dh !== "string" || !B64URL.test(p256dh) || p256dh.length !== 87) {
+    throw new Error("Clave p256dh inválida");
+  }
+  if (typeof auth !== "string" || !B64URL.test(auth) || auth.length < 16 || auth.length > 64) {
+    throw new Error("Clave auth inválida");
+  }
+
+  let tz = "UTC";
+  if (typeof timeZone === "string" && timeZone.length <= 64) {
+    try {
+      tz = new Intl.DateTimeFormat("en-US", { timeZone }).resolvedOptions().timeZone;
+    } catch {
+      throw new Error("Zona horaria inválida");
+    }
   }
 
   return {
-    endpoint: input.endpoint.slice(0, 2000),
-    p256dh: input.p256dh.slice(0, 500),
-    auth: input.auth.slice(0, 500),
-    timeZone: (input.timeZone || "UTC").slice(0, 64),
-    userAgent: input.userAgent?.slice(0, 300),
+    endpoint,
+    p256dh,
+    auth,
+    timeZone: tz,
+    userAgent:
+      typeof userAgent === "string"
+        ? Array.from(userAgent)
+            .filter((c) => c >= " " && c !== "\u007f")
+            .join("")
+            .slice(0, 300)
+        : undefined,
   };
 };
+
+/** Per-user and per-IP limits for the push server functions. */
+async function limit(name: string, userId: string, max: number) {
+  const { enforce, clientIp, WINDOW_15_MIN } = await import("@/lib/rate-limit.server");
+  const { getRequest } = await import("@tanstack/react-start/server");
+  enforce(`${name}:u:${userId}`, max, WINDOW_15_MIN);
+  enforce(`${name}:ip:${clientIp(getRequest())}`, max * 3, WINDOW_15_MIN);
+}
 
 export const savePushSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(validate)
   .handler(async ({ data, context }) => {
+    await limit("push-save", context.userId, 20);
     const { error } = await context.supabase.from("push_subscriptions").upsert(
       {
         user_id: context.userId,
@@ -65,10 +110,15 @@ export const savePushSubscription = createServerFn({ method: "POST" })
 
 export const removePushSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { endpoint: string }) => ({
-    endpoint: String(input.endpoint ?? ""),
-  }))
+  .inputValidator((input: unknown) => {
+    const endpoint = isObject(input) ? input.endpoint : null;
+    if (typeof endpoint !== "string" || !endpoint || endpoint.length > 1000) {
+      throw new Error("Endpoint inválido");
+    }
+    return { endpoint };
+  })
   .handler(async ({ data, context }) => {
+    await limit("push-remove", context.userId, 20);
     const { error } = await context.supabase
       .from("push_subscriptions")
       .delete()
@@ -85,6 +135,7 @@ export const removePushSubscription = createServerFn({ method: "POST" })
 export const sendTestPush = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await limit("push-test", context.userId, 5);
     const { sendWebPush, readVapid } = await import("@/lib/web-push.server");
 
     const vapid = readVapid();
