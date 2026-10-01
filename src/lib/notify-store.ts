@@ -52,10 +52,18 @@ export interface NotifyData {
   sent: Record<string, number>;
 }
 
-export const LEAD_OPTIONS = [0, 5, 10, 15, 30, 60] as const;
+/** Minutes before the start time. 0 = at the exact time, -1 = no reminder at all. */
+export const NO_REMINDER = -1;
+export const LEAD_OPTIONS = [NO_REMINDER, 0, 5, 10, 15, 30, 60] as const;
 
 export const leadLabel = (m: number) =>
-  m === 0 ? "Sin recordatorio" : m >= 60 ? "1 hora antes" : `${m} minutos antes`;
+  m < 0
+    ? "Sin recordatorio"
+    : m === 0
+      ? "A la hora exacta"
+      : m >= 60
+        ? "1 hora antes"
+        : `${m} minutos antes`;
 
 const DEFAULT_SETTINGS: NotifySettings = {
   enabled: true,
