@@ -159,7 +159,7 @@ function TodoPage() {
 
 
   const toggleTheme = () =>
-    setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
+    setStore((s) => ({ ...s, theme: s.theme === "dark" ? "light" : "dark" }));
 
   const viewDefaults = (): Partial<ParsedTask> =>
     view === "today"
@@ -179,10 +179,10 @@ function TodoPage() {
 
   const saveTask = (t: Task) => {
     if (t.id) {
-      setStore(updateTask(store, t.id, t));
+      setStore((s) => updateTask(s, t.id, t));
       toast.success("Tarea actualizada");
     } else {
-      setStore(createTask(store, t));
+      setStore((s) => createTask(s, t));
       toast.success("Tarea creada");
     }
     setOpenEditor(false);
@@ -190,42 +190,43 @@ function TodoPage() {
   };
 
   const quickCreate = (p: ParsedTask) => {
-    setStore(createTask(store, p as Partial<Task>));
+    setStore((s) => createTask(s, p as Partial<Task>));
     toast.success("Tarea creada", { duration: 1200 });
   };
 
   const remove = (t: Task) => {
-    setStore(trashTask(store, t.id));
+    setStore((s) => trashTask(s, t.id));
     toast.success("Tarea enviada a papelera", {
-      action: { label: "Deshacer", onClick: () => setStore(restoreTask(store, t.id)) },
+      action: { label: "Deshacer", onClick: () => setStore((s) => restoreTask(s, t.id)) },
     });
   };
 
   const rowActions = (t: Task) => ({
     onToggle: () =>
-      setStore(
-        updateTask(store, t.id, {
+      setStore((s) =>
+        updateTask(s, t.id, {
           status: (t.status === "completed" ? "pending" : "completed") as TaskStatus,
         }),
       ),
     onEdit: () => openEdit(t),
     onDuplicate: () => {
-      setStore(duplicateTask(store, t.id));
+      setStore((s) => duplicateTask(s, t.id));
       toast.success("Tarea duplicada");
     },
-    onArchive: () => setStore(updateTask(store, t.id, { archived: !t.archived })),
+    onArchive: () => setStore((s) => updateTask(s, t.id, { archived: !t.archived })),
     onDelete: () => remove(t),
-    onRestore: () => setStore(restoreTask(store, t.id)),
-    onPurge: () => setStore(purgeTask(store, t.id)),
-    onPriority: (p: TaskPriority) => setStore(updateTask(store, t.id, { priority: p })),
-    onReschedule: (iso?: string) => setStore(updateTask(store, t.id, { dueDate: iso })),
+    onRestore: () => setStore((s) => restoreTask(s, t.id)),
+    onPurge: () => setStore((s) => purgeTask(s, t.id)),
+    onPriority: (p: TaskPriority) => setStore((s) => updateTask(s, t.id, { priority: p })),
+    onReschedule: (iso?: string) => setStore((s) => updateTask(s, t.id, { dueDate: iso })),
   });
 
   // ---- derived ----
   const baseList = useMemo<Task[]>(() => {
     switch (view) {
       case "today":
-        return tasksToday(store);
+        // Overdue tasks stay in "Hoy" (marked in red) until done or rescheduled.
+        return [...tasksOverdue(store), ...tasksToday(store)];
       case "upcoming":
         return tasksUpcoming(store);
       case "overdue":
@@ -285,7 +286,9 @@ function TodoPage() {
 
   const counts = useMemo(
     () => ({
-      today: tasksToday(store).filter((t) => t.status !== "completed").length,
+      today:
+        tasksOverdue(store).length +
+        tasksToday(store).filter((t) => t.status !== "completed").length,
       upcoming: tasksUpcoming(store).filter((t) => t.status !== "completed").length,
       overdue: tasksOverdue(store).length,
       nodate: tasksNoDate(store).length,
@@ -305,10 +308,10 @@ function TodoPage() {
     setSelectMode(false);
   };
 
-  const bulk = (fn: (ids: string[]) => Store, msg: string) => {
+  const bulk = (fn: (s: Store, ids: string[]) => Store, msg: string) => {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
-    setStore(fn(ids));
+    setStore((s) => fn(s, ids));
     clearSelection();
     toast.success(msg);
   };
@@ -378,7 +381,7 @@ function TodoPage() {
         activities={store.activities}
         onCompleteTasks={(activityId, taskIds) => {
           const ids = new Set(taskIds);
-          setStore({
+          setStore((store) => ({
             ...store,
             activities: store.activities.map((a) =>
               a.id === activityId
@@ -395,7 +398,7 @@ function TodoPage() {
             tasks: (store.tasks ?? []).map((t) =>
               ids.has(t.id) ? { ...t, status: "completed" as const, completedAt: Date.now() } : t,
             ),
-          });
+          }));
         }}
       />
 
@@ -713,7 +716,7 @@ function TodoPage() {
 
           <WeekStrip
             store={store}
-            onDrop={(taskId, dueDate) => setStore(updateTask(store, taskId, { dueDate }))}
+            onDrop={(taskId, dueDate) => setStore((s) => updateTask(s, taskId, { dueDate }))}
             onOpen={openEdit}
           />
         </section>
@@ -738,7 +741,7 @@ function TodoPage() {
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  bulk((ids) => updateManyTasks(store, ids, { status: "completed" }), "Completadas")
+                  bulk((s, ids) => updateManyTasks(s, ids, { status: "completed" }), "Completadas")
                 }
               >
                 <Check className="h-3.5 w-3.5 mr-1" /> Completar
@@ -747,8 +750,7 @@ function TodoPage() {
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  bulk(
-                    (ids) => updateManyTasks(store, ids, { dueDate: todayISO() }),
+                  bulk((s, ids) => updateManyTasks(s, ids, { dueDate: todayISO() }),
                     "Movidas a hoy",
                   )
                 }
@@ -758,7 +760,7 @@ function TodoPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => bulk((ids) => trashManyTasks(store, ids), "Enviadas a papelera")}
+                onClick={() => bulk((s, ids) => trashManyTasks(s, ids), "Enviadas a papelera")}
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
               </Button>
@@ -798,7 +800,7 @@ function TodoPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setStore(purgeAllTrashed(store));
+                setStore((s) => purgeAllTrashed(s));
                 setConfirmPurge(false);
                 toast.success("Papelera vacía");
               }}
