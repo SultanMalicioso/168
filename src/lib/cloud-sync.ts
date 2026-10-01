@@ -64,8 +64,7 @@ function readMeta(): Meta {
 
     return {
       localAt: parsed?.localAt && typeof parsed.localAt === "object" ? parsed.localAt : {},
-      cloudHash:
-        parsed?.cloudHash && typeof parsed.cloudHash === "object" ? parsed.cloudHash : {},
+      cloudHash: parsed?.cloudHash && typeof parsed.cloudHash === "object" ? parsed.cloudHash : {},
     };
   } catch {
     return { localAt: {}, cloudHash: {} };
@@ -168,9 +167,7 @@ async function pushDirty(): Promise<void> {
       return;
     }
 
-    const { error } = await supabase
-      .from("user_data")
-      .upsert(rows, { onConflict: "user_id,key" });
+    const { error } = await supabase.from("user_data").upsert(rows, { onConflict: "user_id,key" });
 
     if (error) {
       console.error("Cloud push error:", error);
@@ -233,7 +230,8 @@ function schedulePush(key: string) {
  * DOWNLOAD FROM CLOUD (cloud is the source of truth)
  * --------------------------------------------------------- */
 
-async function pullFromCloud(): Promise<void> {
+/** `quiet` skips the "syncing" badge for background checks. */
+async function pullFromCloud(quiet = false): Promise<void> {
   if (!currentUser) return;
 
   if (pullInFlight) {
@@ -241,7 +239,7 @@ async function pullFromCloud(): Promise<void> {
   }
 
   pullInFlight = (async () => {
-    setStatus("syncing");
+    if (!quiet) setStatus("syncing");
 
     const { data, error } = await supabase
       .from("user_data")
@@ -379,13 +377,46 @@ export function startCloudSync() {
     })();
   });
 
-  window.addEventListener("beforeunload", () => {
+  /* Upload pending work right away (skips the debounce). */
+  const flush = () => {
     if (pushTimer) {
       clearTimeout(pushTimer);
+      pushTimer = null;
     }
 
     void pushDirty();
+  };
+
+  window.addEventListener("beforeunload", flush);
+
+  /*
+   * iOS never fires `beforeunload` when an installed app is closed:
+   * `pagehide` / hidden visibility are the last chance to upload (e.g. a
+   * timer that was just started).
+   */
+  window.addEventListener("pagehide", flush);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!currentUser) return;
+
+    if (document.visibilityState === "hidden") {
+      flush();
+      return;
+    }
+
+    /* Back in the app: pick up what other devices changed meanwhile. */
+    void (async () => {
+      if (dirty.size > 0) await pushDirty();
+      await pullFromCloud(true);
+    })();
   });
+
+  /* While the app is visible, keep up with other devices (e.g. a timer started elsewhere). */
+  window.setInterval(() => {
+    if (!currentUser || bootstrapping || document.visibilityState !== "visible") return;
+    if (dirty.size > 0 || pushInFlight) return;
+    void pullFromCloud(true);
+  }, 15_000);
 }
 
 /* -----------------------------------------------------------

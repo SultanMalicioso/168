@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  activityDays,
-  completionMode,
-  type Activity,
-} from "@/lib/time-store";
-import {
-  CLOUD_UPDATED_EVENT,
-  LOCAL_DATA_CHANGED_EVENT,
-} from "@/lib/cloud-sync";
+import { activityDays, completionMode, type Activity } from "@/lib/time-store";
+import { CLOUD_UPDATED_EVENT, LOCAL_DATA_CHANGED_EVENT } from "@/lib/cloud-sync";
 
 /* ------------------------------------------------------------------ *
  * Timer store
@@ -109,7 +102,9 @@ function sanitize(raw: unknown): TimerData {
     sessions: Array.isArray(r.sessions) ? r.sessions : [],
     settings: { ...DEFAULT.settings, ...(r.settings ?? {}) },
     completions:
-      r.completions && typeof r.completions === "object" ? (r.completions as Record<string, string[]>) : {},
+      r.completions && typeof r.completions === "object"
+        ? (r.completions as Record<string, string[]>)
+        : {},
     progressMode: r.progressMode === "real" ? "real" : "planned",
   };
 }
@@ -160,6 +155,22 @@ if (typeof window !== "undefined") {
     }
     listeners.forEach((l) => l());
   });
+
+  /*
+   * cloud-sync wrote a newer copy (e.g. a timer started on another
+   * device) to localStorage: adopt it. Reading the cached `memory` here
+   * would ignore it and the next local write would upload stale data.
+   */
+  window.addEventListener(CLOUD_UPDATED_EVENT, () => {
+    try {
+      const raw = localStorage.getItem(KEY);
+      memory = sanitize(raw ? JSON.parse(raw) : null);
+      loaded = true;
+    } catch {
+      return;
+    }
+    listeners.forEach((l) => l());
+  });
 }
 
 /* ---------------- selectors ---------------- */
@@ -167,7 +178,9 @@ if (typeof window !== "undefined") {
 export function elapsedMs(t: ActiveTimer | null, now = Date.now()): number {
   if (!t) return 0;
   // Wall-clock based: survives reloads, tab switches and throttled intervals.
-  return t.status === "running" && t.startedAt ? t.elapsedMs + Math.max(0, now - t.startedAt) : t.elapsedMs;
+  return t.status === "running" && t.startedAt
+    ? t.elapsedMs + Math.max(0, now - t.startedAt)
+    : t.elapsedMs;
 }
 
 export function remainingMs(t: ActiveTimer | null, now = Date.now()): number {
@@ -250,7 +263,11 @@ export function activityStats(
   };
 }
 
-export function isCompletedToday(data: TimerData, activityId: string, dateKey = dateKeyOf()): boolean {
+export function isCompletedToday(
+  data: TimerData,
+  activityId: string,
+  dateKey = dateKeyOf(),
+): boolean {
   return (data.completions[dateKey] ?? []).includes(activityId);
 }
 
@@ -269,7 +286,9 @@ export function realHoursForDay(
   now = Date.now(),
 ): number {
   if (completionMode(activity) === "manual") {
-    return isCompletedToday(data, activity.id, dateKey) ? (plannedHours ?? activity.hoursPerDay) : 0;
+    return isCompletedToday(data, activity.id, dateKey)
+      ? (plannedHours ?? activity.hoursPerDay)
+      : 0;
   }
   return doneHoursForDay(data, activity.id, dateKey, now);
 }
@@ -298,40 +317,32 @@ export function dayCompletion(
 ): { total: number; done: number; complete: boolean } {
   const scheduled = activities.filter((a) => activityDays(a).has(dayIndex));
   const done = scheduled.filter((a) => isCompletedToday(data, a.id, dateKey)).length;
-  return { total: scheduled.length, done, complete: scheduled.length > 0 && done === scheduled.length };
+  return {
+    total: scheduled.length,
+    done,
+    complete: scheduled.length > 0 && done === scheduled.length,
+  };
 }
-
 
 /* ---------------- hook ---------------- */
 
 export function useTimerStore(opts?: { tickFor?: string | null }) {
-  const [data, setData] = useState<TimerData>(() => (typeof window === "undefined" ? DEFAULT : load()));
+  const [data, setData] = useState<TimerData>(() =>
+    typeof window === "undefined" ? DEFAULT : load(),
+  );
   const [hydrated, setHydrated] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-useEffect(() => {
-  setData(load());
-  setHydrated(true);
+  useEffect(() => {
+    setData(load());
+    setHydrated(true);
 
-  const l = () => setData(memory);
-
-  const onCloudUpdated = () => {
-    const fresh = load();
-    memory = fresh;
-    setData(fresh);
-  };
-
-  listeners.add(l);
-  window.addEventListener(CLOUD_UPDATED_EVENT, onCloudUpdated);
-
-  return () => {
-    listeners.delete(l);
-    window.removeEventListener(
-      CLOUD_UPDATED_EVENT,
-      onCloudUpdated,
-    );
-  };
-}, []);
+    const l = () => setData(memory);
+    listeners.add(l);
+    return () => {
+      listeners.delete(l);
+    };
+  }, []);
 
   // Tick only while a timer is running — keeps the app idle otherwise.
   const tickFor = opts?.tickFor;
@@ -412,7 +423,9 @@ useEffect(() => {
       if (!a) return null;
       const ended = Date.now();
       const session: TimerSession = {
-        id: tuid(),
+        // Same id as the timer: if two devices (or the server) finish it,
+        // the session is still recorded once.
+        id: a.id,
         activityId: a.activityId,
         dateKey: a.dateKey,
         startedAt: a.sessionStart,
@@ -426,7 +439,7 @@ useEffect(() => {
         return {
           ...d,
           active: null,
-          sessions: [...d.sessions, session],
+          sessions: [...d.sessions.filter((x) => x.id !== session.id), session],
           completions: completed
             ? { ...d.completions, [a.dateKey]: Array.from(new Set([...list, a.activityId])) }
             : d.completions,
