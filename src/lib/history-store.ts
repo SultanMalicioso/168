@@ -6,12 +6,7 @@ import {
   type Goal,
   type Task,
 } from "@/lib/time-store";
-import {
-  dateKeyOf,
-  isCompletedToday,
-  realHoursForDay,
-  type TimerData,
-} from "@/lib/timer-store";
+import { dateKeyOf, isCompletedToday, realHoursForDay, type TimerData } from "@/lib/timer-store";
 
 /* ------------------------------------------------------------------ *
  * Daily completion history
@@ -115,6 +110,40 @@ function taskCountsFor(dateKey: string, activities: Activity[], tasks: Task[]) {
   return { total, done };
 }
 
+/** Share of the day's scheduled activities that were completed. */
+function dayPct(total: number, done: number, emptyDayMode: EmptyDayMode): number {
+  if (total === 0) return emptyDayMode === "complete" ? 100 : 0;
+  return Math.max(0, Math.min(100, (done / total) * 100));
+}
+
+/**
+ * A frozen day keeps the activities that were scheduled then, but its
+ * completions always come from the current timer data: a completion that
+ * synced from another device after the day was frozen still counts.
+ */
+function refreshFrozen(
+  snap: DaySnapshot,
+  timers: TimerData,
+  emptyDayMode: EmptyDayMode,
+): DaySnapshot {
+  if (!(snap.dateKey in timers.completions)) return snap;
+  const activities = snap.activities.map((a) => ({
+    ...a,
+    done: isCompletedToday(timers, a.id, snap.dateKey),
+  }));
+  const total = activities.length;
+  const done = activities.filter((a) => a.done).length;
+  const status: DayStatus =
+    total === 0
+      ? emptyDayMode === "complete"
+        ? "completed"
+        : "empty"
+      : done === total
+        ? "completed"
+        : "incomplete";
+  return { ...snap, activities, total, done, pct: dayPct(total, done, emptyDayMode), status };
+}
+
 /** Live computation of a day from the current data. */
 export function computeDay(
   dateKey: string,
@@ -142,28 +171,23 @@ export function computeDay(
   const done = records.filter((r) => r.done).length;
   const plannedHours = records.reduce((s, r) => s + r.plannedHours, 0);
   const realHours = records.reduce((s, r) => s + r.realHours, 0);
-  // Progress mixes finished activities with partial tracked time — never > 100.
-  const pct =
-    total === 0
-      ? emptyDayMode === "complete"
-        ? 100
-        : 0
-      : Math.max(
-          0,
-          Math.min(
-            100,
-            plannedHours > 0 ? (Math.min(realHours, plannedHours) / plannedHours) * 100 : (done / total) * 100,
-          ),
-        );
+  const pct = dayPct(total, done, emptyDayMode);
 
   const goalHours = new Map<string, number>();
   for (const a of scheduled) {
     const rec = records.find((r) => r.id === a.id)!;
-    for (const gid of a.goalIds ?? []) goalHours.set(gid, (goalHours.get(gid) ?? 0) + rec.realHours);
+    for (const gid of a.goalIds ?? [])
+      goalHours.set(gid, (goalHours.get(gid) ?? 0) + rec.realHours);
   }
   const goalList = goals
     .filter((g) => goalHours.has(g.id))
-    .map((g) => ({ id: g.id, name: g.name, color: g.color, icon: g.icon, hours: goalHours.get(g.id) ?? 0 }));
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      color: g.color,
+      icon: g.icon,
+      hours: goalHours.get(g.id) ?? 0,
+    }));
 
   const daySessions = timers.sessions.filter((s) => s.dateKey === dateKey);
   const t = taskCountsFor(dateKey, activities, tasks);
@@ -207,6 +231,10 @@ export interface HistoryStats {
   inProgress: number;
   tracked: number;
   compliance: number;
+  /** Activities completed / scheduled across the period (today included). */
+  activitiesDone: number;
+  activitiesTotal: number;
+  activityPct: number;
   currentStreak: number;
   bestStreak: number;
   weeklyAvg: number;
@@ -224,6 +252,9 @@ export function computeStats(days: DaySnapshot[], now = Date.now()): HistoryStat
   const inProgress = counted.filter((d) => d.status === "in_progress").length;
   const compliance = counted.length ? (completed / counted.length) * 100 : 0;
   const totalHours = days.reduce((s, d) => s + d.realHours, 0);
+  const activitiesDone = counted.reduce((s, d) => s + d.done, 0);
+  const activitiesTotal = counted.reduce((s, d) => s + d.total, 0);
+  const activityPct = activitiesTotal ? (activitiesDone / activitiesTotal) * 100 : 0;
 
   // Streaks over the chronological, non-future timeline (empty days are neutral).
   const ordered = [...counted].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
@@ -263,6 +294,9 @@ export function computeStats(days: DaySnapshot[], now = Date.now()): HistoryStat
     inProgress,
     tracked: counted.length,
     compliance,
+    activitiesDone,
+    activitiesTotal,
+    activityPct,
     currentStreak: current,
     bestStreak: best,
     weeklyAvg: avg(7),
@@ -357,7 +391,8 @@ export function useHistoryStore(source: DaySource) {
   const getDay = useCallback(
     (dateKey: string): DaySnapshot => {
       const frozen = data.days[dateKey];
-      if (frozen && isPastKey(dateKey, now)) return frozen;
+      if (frozen && isPastKey(dateKey, now))
+        return refreshFrozen(frozen, source.timers, emptyDayMode);
       return computeDay(
         dateKey,
         source.activities,
@@ -411,5 +446,13 @@ export function useHistoryStore(source: DaySource) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source.activities, source.timers, emptyDayMode]);
 
-  return { data, settings: data.settings, emptyDayMode, getDay, getDays, setEmptyDayMode, clearHistory };
+  return {
+    data,
+    settings: data.settings,
+    emptyDayMode,
+    getDay,
+    getDays,
+    setEmptyDayMode,
+    clearHistory,
+  };
 }

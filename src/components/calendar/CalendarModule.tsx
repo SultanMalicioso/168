@@ -1,19 +1,7 @@
 import { useMemo, useState } from "react";
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Flame,
-  Settings2,
-  Sparkles,
-} from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Flame, Settings2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DAY_STATUS_META,
   computeStats,
@@ -39,8 +27,18 @@ interface Props {
 }
 
 const MONTHS = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
 ];
 
 /** Heat color by completion percentage — shared by every view. */
@@ -73,7 +71,10 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
       const e = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
       return keysBetween(s, e);
     }
-    return keysBetween(new Date(cursor.getFullYear(), 0, 1), new Date(cursor.getFullYear(), 11, 31));
+    return keysBetween(
+      new Date(cursor.getFullYear(), 0, 1),
+      new Date(cursor.getFullYear(), 11, 31),
+    );
   }, [view, cursor]);
 
   const days = useMemo(() => history.getDays(range), [history, range]);
@@ -118,11 +119,25 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shift(-1)} aria-label="Anterior">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => shift(-1)}
+              aria-label="Anterior"
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="min-w-[9rem] text-center text-sm font-medium tabular-nums">{rangeLabel}</span>
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shift(1)} aria-label="Siguiente">
+            <span className="min-w-[9rem] text-center text-sm font-medium tabular-nums">
+              {rangeLabel}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => shift(1)}
+              aria-label="Siguiente"
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" className="h-8" onClick={() => setCursor(new Date())}>
@@ -151,25 +166,70 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
 
       {/* Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Días completados" value={String(stats.completed)} sub={`de ${stats.tracked} con actividades`} />
-        <Stat label="Días incompletos" value={String(stats.incomplete)} sub={`${stats.inProgress} en progreso`} />
-        <Stat label="Cumplimiento" value={`${stats.compliance.toFixed(0)}%`} sub="del período" />
-        <Stat label="Racha actual" value={`${stats.currentStreak}d`} sub={`Mejor racha: ${stats.bestStreak}d`} icon={<Flame className="h-3.5 w-3.5" />} />
-        <Stat label="Promedio semanal" value={`${stats.weeklyAvg.toFixed(1)}d`} sub="días completados / semana" />
-        <Stat label="Promedio mensual" value={`${stats.monthlyAvg.toFixed(1)}d`} sub="días completados / mes" />
-        <Stat label="Promedio anual" value={`${stats.yearlyAvg.toFixed(0)}d`} sub="proyección a 365 días" />
-        <Stat label="Tiempo completado" value={`${stats.totalHours.toFixed(1)}h`} sub="registrado en el período" />
+        <Stat
+          label="Días completados"
+          value={String(stats.completed)}
+          sub={`de ${stats.tracked} con actividades`}
+        />
+        <Stat
+          label="Días incompletos"
+          value={String(stats.incomplete)}
+          sub={`${stats.inProgress} en progreso`}
+        />
+        <Stat
+          label="Actividades completadas"
+          value={`${stats.activityPct.toFixed(0)}%`}
+          sub={`${stats.activitiesDone} de ${stats.activitiesTotal} en el período`}
+        />
+        <Stat
+          label="Racha actual"
+          value={`${stats.currentStreak}d`}
+          sub={`Mejor racha: ${stats.bestStreak}d`}
+          icon={<Flame className="h-3.5 w-3.5" />}
+        />
+        <Stat
+          label="Promedio semanal"
+          value={`${stats.weeklyAvg.toFixed(1)}d`}
+          sub="días completados / semana"
+        />
+        <Stat
+          label="Promedio mensual"
+          value={`${stats.monthlyAvg.toFixed(1)}d`}
+          sub="días completados / mes"
+        />
+        <Stat
+          label="Promedio anual"
+          value={`${stats.yearlyAvg.toFixed(0)}d`}
+          sub="proyección a 365 días"
+        />
+        <Stat
+          label="Tiempo completado"
+          value={`${stats.totalHours.toFixed(1)}h`}
+          sub="registrado en el período"
+        />
         <Stat
           label="Actividad más cumplida"
           value={stats.bestActivity?.name ?? "—"}
-          sub={stats.bestActivity ? `${stats.bestActivity.pct.toFixed(0)}% de cumplimiento` : "sin datos"}
+          sub={
+            stats.bestActivity
+              ? `${stats.bestActivity.pct.toFixed(0)}% de cumplimiento`
+              : "sin datos"
+          }
         />
         <Stat
           label="Actividad menos cumplida"
           value={stats.worstActivity?.name ?? "—"}
-          sub={stats.worstActivity ? `${stats.worstActivity.pct.toFixed(0)}% de cumplimiento` : "sin datos"}
+          sub={
+            stats.worstActivity
+              ? `${stats.worstActivity.pct.toFixed(0)}% de cumplimiento`
+              : "sin datos"
+          }
         />
-        <Stat label="Sesiones" value={String(days.reduce((s, d) => s + d.sessions, 0))} sub="de temporizador" />
+        <Stat
+          label="Sesiones"
+          value={String(days.reduce((s, d) => s + d.sessions, 0))}
+          sub="de temporizador"
+        />
         <Stat
           label="Tareas completadas"
           value={String(days.reduce((s, d) => s + d.tasksDone, 0))}
@@ -276,7 +336,10 @@ function MonthView({
     <div>
       <div className="grid grid-cols-7 gap-1.5 mb-1.5">
         {DAY_SHORT.map((s) => (
-          <div key={s} className="text-center text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div
+            key={s}
+            className="text-center text-[10px] uppercase tracking-widest text-muted-foreground"
+          >
             {s}
           </div>
         ))}
@@ -295,7 +358,9 @@ function MonthView({
             }`}
             style={{ background: `color-mix(in oklab, ${heatColor(d)} 22%, transparent)` }}
           >
-            <span className="text-xs tabular-nums font-medium">{parseKey(d.dateKey).getDate()}</span>
+            <span className="text-xs tabular-nums font-medium">
+              {parseKey(d.dateKey).getDate()}
+            </span>
             <span className="mt-1 h-1.5 w-1.5 rounded-full" style={{ background: heatColor(d) }} />
             <span className="text-[9px] text-muted-foreground tabular-nums hidden sm:block">
               {d.total > 0 ? `${d.done}/${d.total}` : "—"}
@@ -360,7 +425,10 @@ function Legend() {
     <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
       {items.map((i) => (
         <span key={i.status} className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: DAY_STATUS_META[i.status].color }} />
+          <span
+            className="h-2.5 w-2.5 rounded-[3px]"
+            style={{ background: DAY_STATUS_META[i.status].color }}
+          />
           {i.label}
         </span>
       ))}
@@ -458,7 +526,9 @@ function Section({
 }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">{title}</div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
+        {title}
+      </div>
       {items.length === 0 ? (
         <p className="text-xs text-muted-foreground">{empty}</p>
       ) : (
