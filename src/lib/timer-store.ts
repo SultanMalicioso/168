@@ -228,7 +228,9 @@ export function doneHoursForWeek(data: TimerData, activityId: string, now = Date
     if (s.startedAt >= start && s.startedAt < end) ms += s.durationMs;
   }
   const a = data.active;
-  if (a && a.activityId === activityId && a.sessionStart >= start) ms += elapsedMs(a, now);
+  if (a && a.activityId === activityId && a.sessionStart >= start && a.sessionStart < end) {
+    ms += elapsedMs(a, now);
+  }
   return ms / 3_600_000;
 }
 
