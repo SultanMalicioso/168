@@ -25,21 +25,32 @@ interface Props {
   onDuplicate: (a: Activity) => void;
   onDelete: (a: Activity) => void;
   realMode?: boolean;
+  /** Monday (yyyy-mm-dd) of the week being viewed; defaults to this week. */
+  weekKey?: string;
 }
 
 const DAY_TOTAL = 24;
 
-export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, realMode }: Props) {
+export function DayView({
+  activities,
+  goals,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  realMode,
+  weekKey,
+}: Props) {
   const today = ((new Date().getDay() + 6) % 7) as number;
   const [day, setDay] = useState<number>(today);
   const timers = useTimerStore();
 
-  // Selected day → yyyy-mm-dd of the current week, used to scope timer data.
+  // Selected day → yyyy-mm-dd inside the week being viewed, used to scope timer data.
   const dayKey = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + (day - today));
+    const d = weekKey ? new Date(`${weekKey}T00:00:00`) : new Date();
+    if (weekKey) d.setDate(d.getDate() + day);
+    else d.setDate(d.getDate() + (day - today));
     return dateKeyOf(d);
-  }, [day, today]);
+  }, [day, today, weekKey]);
 
   const realHours = (a: Activity) =>
     realHoursForDay(timers.data, a, dayKey, a.hoursPerDay, timers.now);

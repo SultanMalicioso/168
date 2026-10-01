@@ -78,7 +78,8 @@ import {
   type ChartView,
   type Goal,
   type Task,
-  formatDuration
+  formatDuration,
+  activityDays,
 } from "@/lib/time-store";
 import { allTasks, taskColor, taskMinutes, tasksInWeek } from "@/lib/task-utils";
 import { TimerBar } from "@/components/time/TimerBar";
@@ -88,6 +89,7 @@ import {
   isCompletedToday,
   realHoursForWeek,
   useTimerStore,
+  type TimerData,
 } from "@/lib/timer-store";
 
 import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
@@ -139,6 +141,15 @@ function Index() {
   const chartView: ChartView = store.chartView ?? "activities";
   const setChartView = (v: ChartView) => setStore({ ...store, chartView: v });
 
+/*
+ * Timer data is measured in the week being viewed, not always in the
+ * current one: completing something today must not show up in every week.
+ */
+const isCurrentWeek = (store.selectedWeek || getWeekKey()) === getWeekKey();
+const weekRef = isCurrentWeek
+  ? timers.now
+  : new Date(`${store.selectedWeek}T12:00:00`).getTime();
+
 const weekActivities = useMemo(() => {
   const currentWeek = store.selectedWeek || getWeekKey();
 
@@ -172,11 +183,11 @@ const filtered = useMemo(
       realMode
         ? filtered.map((a) => ({
             ...a,
-            hoursPerDay: realHoursForWeek(timers.data, a, timers.now),
+            hoursPerDay: realHoursForWeek(timers.data, a, weekRef),
             daysPerWeek: 1,
           }))
         : filtered,
-    [realMode, filtered, timers.data, timers.now],
+    [realMode, filtered, timers.data, weekRef],
   );
 
   // Aggregate top-level + activity-inline tasks
@@ -251,7 +262,7 @@ const plannedTotal = filtered.reduce(
 );
 
 const realTotal = filtered.reduce(
-  (s, a) => s + realHoursForWeek(timers.data, a, timers.now),
+  (s, a) => s + realHoursForWeek(timers.data, a, weekRef),
   0,
 );
   const totalUsed = realMode ? realTotal : plannedTotal;
@@ -776,6 +787,7 @@ const realTotal = filtered.reduce(
               activities={filtered}
               goals={store.goals}
               realMode={realMode}
+              weekKey={store.selectedWeek || getWeekKey()}
               onEdit={(a) => {
                 setEditing(a);
                 setOpen(true);
@@ -885,7 +897,11 @@ const realTotal = filtered.reduce(
                             {formatDuration(a.hoursPerDay)} × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
-                          <ActivityTimer activity={a} compact />
+                          {isCurrentWeek ? (
+                            <ActivityTimer activity={a} compact />
+                          ) : (
+                            <WeekCompletion activity={a} weekKey={store.selectedWeek} data={timers.data} />
+                          )}
                           <InlineTasks
                             activity={a}
                             onChange={(tasks) => updateTasks(a.id, () => tasks)}
@@ -975,6 +991,32 @@ const realTotal = filtered.reduce(
       <footer className="mx-auto max-w-[1400px] px-6 py-8 text-xs text-muted-foreground">
         Los datos se guardan automáticamente en tu navegador.
       </footer>
+    </div>
+  );
+}
+
+/** Read-only summary of a past / future week: days completed of days scheduled. */
+function WeekCompletion({
+  activity,
+  weekKey,
+  data,
+}: {
+  activity: Activity;
+  weekKey: string;
+  data: TimerData;
+}) {
+  const monday = new Date(`${weekKey}T00:00:00`);
+  let scheduled = 0;
+  let done = 0;
+  for (const d of activityDays(activity)) {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + d);
+    scheduled++;
+    if (isCompletedToday(data, activity.id, dateKeyOf(day))) done++;
+  }
+  return (
+    <div className="mt-1.5 text-[11px] text-muted-foreground tabular-nums">
+      Esa semana: {done}/{scheduled} {scheduled === 1 ? "día completado" : "días completados"}
     </div>
   );
 }
