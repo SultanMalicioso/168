@@ -12,6 +12,7 @@ import {
   usesTimer,
   type Activity,
   type Goal,
+  formatDuration
 } from "@/lib/time-store";
 import { ActivityTimer } from "@/components/time/ActivityTimer";
 import { dateKeyOf, dayCompletion, realHoursForDay, useTimerStore } from "@/lib/timer-store";
@@ -201,7 +202,7 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
         <Stat
           label="Top del día"
           value={top?.name ?? "—"}
-          sub={top ? `${top.hoursPerDay}h` : ""}
+          sub={top ? formatDuration(top.hoursPerDay) : ""}
         />
         <Stat label="Objetivos tocados" value={String(goalsToday.length)} sub={goalsToday.map((g) => g.name).join(" · ") || "—"} />
         <Stat label="Tareas pendientes" value={String(taskToday.pending)} sub={`${taskToday.done}/${taskToday.total} completadas`} />
@@ -250,7 +251,7 @@ export function DayView({ activities, goals, onEdit, onDuplicate, onDelete, real
                         {CATEGORIES.find((c) => c.id === a.category)?.label ?? a.category}
                       </Badge>
                       <span className="text-xs text-muted-foreground tabular-nums">
-                        {a.hoursPerDay}h · {((a.hoursPerDay / DAY_TOTAL) * 100).toFixed(0)}%
+                        {formatDuration(a.hoursPerDay)} · {((a.hoursPerDay / DAY_TOTAL) * 100).toFixed(0)}%
                       </span>
                       {tp.total > 0 && (
                         <span className="text-[10px] text-muted-foreground">

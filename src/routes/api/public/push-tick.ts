@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { planEvents, type TimerSnapshot } from "@/lib/notify-plan";
+import { planEvents, type PlannedEvent, type TimerSnapshot } from "@/lib/notify-plan";
+import type { Json } from "@/integrations/supabase/types";
 import type { NotifySettings } from "@/lib/notify-store";
 import type { Store } from "@/lib/time-store";
 
@@ -81,6 +82,61 @@ function isOtherVapidKey(status: number, body?: string): boolean {
   );
 }
 
+interface ActiveTimerRow {
+  id: string;
+  activityId: string;
+  plannedMs: number;
+  startedAt: number | null;
+  elapsedMs: number;
+  status: "running" | "paused";
+  dateKey: string;
+  sessionStart: number;
+}
+
+/** Open apps finish their own timer; the server only steps in after this. */
+const TIMER_FINISH_GRACE_MS = 90_000;
+
+/**
+ * Completes a running timer whose time is up (same shape the app's
+ * timer store writes when it finishes a session itself).
+ */
+function finishExpiredTimer(raw: Record<string, unknown> | null, nowMs: number) {
+  const a = raw?.active as ActiveTimerRow | null | undefined;
+  if (!raw || !a || a.status !== "running" || !a.startedAt || !a.plannedMs) return null;
+  const elapsed = (a.elapsedMs ?? 0) + Math.max(0, nowMs - a.startedAt);
+  if (elapsed < a.plannedMs + TIMER_FINISH_GRACE_MS) return null;
+
+  const sessions = (Array.isArray(raw.sessions) ? raw.sessions : []) as { id?: string }[];
+  const completions = {
+    ...((raw.completions && typeof raw.completions === "object" ? raw.completions : {}) as Record<
+      string,
+      string[]
+    >),
+  };
+  completions[a.dateKey] = Array.from(new Set([...(completions[a.dateKey] ?? []), a.activityId]));
+
+  const session = {
+    id: a.id,
+    activityId: a.activityId,
+    dateKey: a.dateKey,
+    startedAt: a.sessionStart,
+    endedAt: a.startedAt + (a.plannedMs - (a.elapsedMs ?? 0)),
+    durationMs: a.plannedMs,
+    plannedMs: a.plannedMs,
+    completed: true,
+  };
+
+  return {
+    timer: a,
+    data: {
+      ...raw,
+      active: null,
+      sessions: [...sessions.filter((x) => x.id !== a.id), session] as TimerSnapshot["sessions"],
+      completions,
+    },
+  };
+}
+
 interface SubRow {
   id: string;
   user_id: string;
@@ -157,6 +213,43 @@ export const Route = createFileRoute("/api/public/push-tick")({
             sessions: Array.isArray(timersRaw?.sessions) ? timersRaw.sessions : [],
           };
 
+          /* A timer that ran out while every device was closed: complete it here. */
+          const expired = finishExpiredTimer(
+            get<Record<string, unknown>>("week168.timers.v1"),
+            Date.now(),
+          );
+          let timerEvent: PlannedEvent | null = null;
+          if (expired) {
+            const { error: saveError } = await supabaseAdmin
+              .from("user_data")
+              .upsert(
+                { user_id: userId, key: "week168.timers.v1", value: expired.data as Json },
+                { onConflict: "user_id,key" },
+              );
+            if (saveError) {
+              console.error(`timer finish failed [${userId}]: ${saveError.message}`);
+            } else {
+              timers.active = null;
+              timers.completions = expired.data.completions;
+              timers.sessions = expired.data.sessions;
+              const act = store.activities.find((a) => a.id === expired.timer.activityId);
+              timerEvent = {
+                key: `timer:${expired.timer.id}`,
+                at: 0,
+                graceMs: Number.MAX_SAFE_INTEGER,
+                input: {
+                  kind: "activity",
+                  title: `✅ ${act?.name ?? "Actividad"} completada`,
+                  body: "Se cumplió el tiempo del temporizador.",
+                  tag: `timer:${expired.timer.id}`,
+                  color: act?.color,
+                  activityId: expired.timer.activityId,
+                  link: "/",
+                },
+              };
+            }
+          }
+
           const notify = get<{ settings?: Partial<NotifySettings> }>("week168.notify.v1");
           const settings: NotifySettings = { ...DEFAULT_SETTINGS, ...(notify?.settings ?? {}) };
           if (!settings.enabled) continue;
@@ -170,6 +263,7 @@ export const Route = createFileRoute("/api/public/push-tick")({
             const events = planEvents(local, store, timers, settings).filter(
               (e) => e.at <= localMs && localMs - e.at <= Math.min(e.graceMs, 30 * 60_000),
             );
+            if (timerEvent) events.push(timerEvent);
             if (events.length === 0) continue;
 
             /*

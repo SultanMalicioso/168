@@ -10,6 +10,7 @@ import {
   usesTimer,
   type Activity,
   type Goal,
+  formatDuration
 } from "@/lib/time-store";
 
 
@@ -297,8 +298,7 @@ function DayCard({
         </div>
         <div className="text-right shrink-0">
           <div className="font-display text-lg tabular-nums leading-none">
-            {a.hoursPerDay}
-            <span className="text-xs text-muted-foreground">h</span>
+            {formatDuration(a.hoursPerDay)}
           </div>
         </div>
       </div>

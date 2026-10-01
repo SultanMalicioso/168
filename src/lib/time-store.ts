@@ -207,6 +207,16 @@ export function nextColor(existing: { color: string }[]): string {
 
 export const weeklyHours = (a: Activity) => a.hoursPerDay * a.daysPerWeek;
 
+/** Human duration from hours: "10 min", "2 h", "1 h 30 min". */
+export function formatDuration(hours: number): string {
+  const total = Math.round(hours * 60);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m} min`;
+}
+
 export function activityDays(a: Activity): Set<number> {
   const days = new Set<number>();
   if (a.dayIndices && a.dayIndices.length > 0) {

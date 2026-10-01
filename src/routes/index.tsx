@@ -78,6 +78,7 @@ import {
   type ChartView,
   type Goal,
   type Task,
+  formatDuration
 } from "@/lib/time-store";
 import { allTasks, taskColor, taskMinutes, tasksInWeek } from "@/lib/task-utils";
 import { TimerBar } from "@/components/time/TimerBar";
@@ -881,7 +882,7 @@ const realTotal = filtered.reduce(
                             })}
                           </div>
                           <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
-                            {a.hoursPerDay}h × {a.daysPerWeek}d ={" "}
+                            {formatDuration(a.hoursPerDay)} × {a.daysPerWeek}d ={" "}
                             <span className="text-foreground font-medium">{h.toFixed(1)}h</span>
                           </div>
                           <ActivityTimer activity={a} compact />
