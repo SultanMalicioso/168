@@ -100,15 +100,20 @@ export function tasksTrashed(store: Store): Task[] {
 // ---------- CRUD (returns a new store) ----------
 
 export function createTask(store: Store, data: Partial<Task>): Store {
+  // Defaults go last so a draft's empty id ("") or explicit undefineds can
+  // never override them: every new task gets its own id.
+  const now = Date.now();
+  const status = data.status ?? "pending";
   const t: Task = {
+    ...data,
     id: uid(),
     name: data.name?.trim() || "Nueva tarea",
-    status: data.status ?? "pending",
+    status,
     priority: data.priority ?? "medium",
-    estimatedMinutes: Math.max(1, data.estimatedMinutes ?? DEFAULT_TASK_MINUTES),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    ...data,
+    estimatedMinutes: Math.max(1, Math.round(data.estimatedMinutes ?? DEFAULT_TASK_MINUTES)),
+    createdAt: now,
+    updatedAt: now,
+    completedAt: status === "completed" ? (data.completedAt ?? now) : undefined,
   };
   // Sanity: strip stale refs
   if (t.activityId && !store.activities.some((a) => a.id === t.activityId)) {
@@ -154,9 +159,13 @@ export function updateTask(store: Store, id: string, patch: Partial<Task>): Stor
       ? store.tasks[loc.index]
       : (store.activities.find((a) => a.id === loc.activityId)!.tasks ?? [])[loc.index];
 
-  const merged: Task = { ...current, ...patch, updatedAt: Date.now() };
-  if (patch.status !== undefined) {
+  const merged: Task = { ...current, ...patch, id: current.id, updatedAt: Date.now() };
+  // Only a real status change moves completedAt (saving an already
+  // completed task from the editor must not re-date it).
+  if (patch.status !== undefined && patch.status !== current.status) {
     merged.completedAt = patch.status === "completed" ? Date.now() : undefined;
+  } else {
+    merged.completedAt = current.completedAt;
   }
   if (merged.estimatedMinutes !== undefined) {
     merged.estimatedMinutes = Math.max(1, Math.round(merged.estimatedMinutes));

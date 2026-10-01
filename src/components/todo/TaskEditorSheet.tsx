@@ -179,8 +179,14 @@ function EditorForm({
               inputMode="numeric"
               min={1}
               step={5}
-              value={t.estimatedMinutes ?? 30}
-              onChange={(e) => set("estimatedMinutes", Math.max(1, Number(e.target.value) || 1))}
+              value={t.estimatedMinutes ?? ""}
+              onChange={(e) =>
+                // Allow an empty field while typing; saving validates ≥ 1 min.
+                set(
+                  "estimatedMinutes",
+                  e.target.value === "" ? undefined : Math.max(0, Math.round(Number(e.target.value))),
+                )
+              }
               className="h-10 text-sm w-24"
               aria-invalid={!!errors.estimatedMinutes}
             />
@@ -231,28 +237,41 @@ function EditorForm({
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            <Input
-              type="date"
-              value={t.dueDate ?? ""}
-              onChange={(e) => set("dueDate", e.target.value || undefined)}
-              className="h-10 text-sm"
-            />
-            <Input
-              type="time"
-              value={t.startTime ?? ""}
-              onChange={(e) => set("startTime", e.target.value || undefined)}
-              className="h-10 text-sm"
-              aria-label="Hora de inicio"
-            />
-            <Input
-              type="time"
-              value={t.dueTime ?? ""}
-              onChange={(e) => set("dueTime", e.target.value || undefined)}
-              className="h-10 text-sm"
-              aria-label="Hora límite"
-              aria-invalid={!!errors.dueTime}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+            {(
+              [
+                { key: "dueDate", label: "Día", type: "date" },
+                { key: "startTime", label: "Hora de inicio", type: "time" },
+                { key: "dueTime", label: "Hora límite", type: "time" },
+              ] as const
+            ).map((f) => (
+              <div key={f.key} className="min-w-0">
+                <label className="text-[11px] text-muted-foreground">{f.label}</label>
+                <div className="flex gap-1.5">
+                  <Input
+                    type={f.type}
+                    value={t[f.key] ?? ""}
+                    onChange={(e) => set(f.key, e.target.value || undefined)}
+                    className="h-10 text-sm flex-1 min-w-0"
+                    aria-label={f.label}
+                    aria-invalid={f.key === "dueTime" ? !!errors.dueTime : undefined}
+                  />
+                  {t[f.key] && (
+                    // iOS date/time pickers have no "clear" button.
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 shrink-0"
+                      onClick={() => set(f.key, undefined)}
+                      aria-label={`Quitar ${f.label.toLowerCase()}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
           {errors.dueTime && <p className="text-[11px] text-destructive mt-1">{errors.dueTime}</p>}
         </div>

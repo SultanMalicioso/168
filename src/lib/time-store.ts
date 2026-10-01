@@ -372,8 +372,33 @@ function migrate(raw: any): Store {
 };
 }
 
+/**
+ * Older builds saved tasks created from the editor with an empty id (""),
+ * so several tasks shared one id and actions hit the wrong task. Give every
+ * task without a unique id a fresh one.
+ */
+function repairTaskIds(store: Store): Store {
+  const seen = new Set<string>();
+  let changed = false;
+  const fix = (tasks: Task[]) =>
+    tasks.map((t) => {
+      if (t.id && !seen.has(t.id)) {
+        seen.add(t.id);
+        return t;
+      }
+      changed = true;
+      let id = uid();
+      while (seen.has(id)) id = uid();
+      seen.add(id);
+      return { ...t, id };
+    });
+  const tasks = fix(store.tasks);
+  const activities = store.activities.map((a) => ({ ...a, tasks: fix(a.tasks ?? []) }));
+  return changed ? { ...store, tasks, activities } : store;
+}
+
 function normalize(store: Store): Store {
-  return {
+  return repairTaskIds({
     ...store,
     selectedWeek:
       typeof store.selectedWeek === "string"
@@ -387,7 +412,7 @@ function normalize(store: Store): Store {
       tasks: Array.isArray(a.tasks) ? a.tasks : [],
     }))
   : [],
-  };
+  });
 }
 
 export function useTimeStore() {
