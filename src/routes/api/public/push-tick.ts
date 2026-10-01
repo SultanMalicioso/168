@@ -93,9 +93,6 @@ interface ActiveTimerRow {
   sessionStart: number;
 }
 
-/** Open apps finish their own timer; the server only steps in after this. */
-const TIMER_FINISH_GRACE_MS = 90_000;
-
 /**
  * Completes a running timer whose time is up (same shape the app's
  * timer store writes when it finishes a session itself).
@@ -104,7 +101,9 @@ function finishExpiredTimer(raw: Record<string, unknown> | null, nowMs: number) 
   const a = raw?.active as ActiveTimerRow | null | undefined;
   if (!raw || !a || a.status !== "running" || !a.startedAt || !a.plannedMs) return null;
   const elapsed = (a.elapsedMs ?? 0) + Math.max(0, nowMs - a.startedAt);
-  if (elapsed < a.plannedMs + TIMER_FINISH_GRACE_MS) return null;
+  // An open app finishes (and uploads) its timer at the exact second, so
+  // by the next tick the server only sees timers whose app was closed.
+  if (elapsed < a.plannedMs) return null;
 
   const sessions = (Array.isArray(raw.sessions) ? raw.sessions : []) as { id?: string }[];
   const completions = {
