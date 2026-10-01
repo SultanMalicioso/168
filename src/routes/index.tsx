@@ -97,13 +97,13 @@ import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "168 · Visualiza tu semana en un círculo" },
+      { title: "168 · Organízate fácil con un círculo" },
       {
         name: "description",
         content:
           "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
       },
-      { property: "og:title", content: "168 · Visualiza tu semana en un círculo" },
+      { property: "og:title", content: "168 · Organízate fácil con un círculo" },
       {
         property: "og:description",
         content: "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",

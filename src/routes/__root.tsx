@@ -83,20 +83,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { title: "168 · Visualiza tu semana en un círculo" },
+      { title: "168 · Organízate fácil con un círculo" },
       {
         name: "description",
         content:
           "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
       },
-      { property: "og:title", content: "168 · Visualiza tu semana en un círculo" },
+      { property: "og:title", content: "168 · Organízate fácil con un círculo" },
       {
         property: "og:description",
         content: "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "168" },
+      { name: "application-name", content: "168" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "168 · Visualiza tu semana en un círculo" },
+      { name: "twitter:title", content: "168 · Organízate fácil con un círculo" },
       { name: "twitter:description", content: "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e0bb55bd-aa1d-4bfd-b257-e2730163d7e7/id-preview-61917182--999d52b7-1804-44d9-a731-d2a9de7dfa49.lovable.app-1784503259900.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e0bb55bd-aa1d-4bfd-b257-e2730163d7e7/id-preview-61917182--999d52b7-1804-44d9-a731-d2a9de7dfa49.lovable.app-1784503259900.png" },
@@ -110,6 +112,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "168",
+          url: "https://168-theta.vercel.app/",
+        }),
       },
     ],
   }),
