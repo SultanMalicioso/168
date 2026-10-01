@@ -109,7 +109,12 @@ export interface PlannedEvent {
 
 const MIN = 60_000;
 
-export function planEvents(now: Date, store: Store, timers: TimerSnapshot, s: NotifySettings): PlannedEvent[] {
+export function planEvents(
+  now: Date,
+  store: Store,
+  timers: TimerSnapshot,
+  s: NotifySettings,
+): PlannedEvent[] {
   const events: PlannedEvent[] = [];
   const key = dayKey(now);
   const acts = todaysActivities(store, now);
@@ -198,25 +203,29 @@ export function planEvents(now: Date, store: Store, timers: TimerSnapshot, s: No
           });
         }
 
-        events.push({
-          key: `start:${a.id}:${key}:${a.startTime}`,
-          at: start,
-          graceMs: 20 * MIN,
-          input: {
-            kind: "activity",
-            title: `${icon(a)} Es hora de ${a.name}`,
-            tag: `start:${a.id}:${key}`,
-            body:
-              `Tenés ${fmtHours(a.hoursPerDay)} programados.` +
-              (completionMode(a) === "timer" ? "\nAbrí la app para iniciar el temporizador." : "") +
-              (linkedPending.length > 0
-                ? `\n📚 ${linkedPending.length} tarea${linkedPending.length === 1 ? "" : "s"} pendiente${linkedPending.length === 1 ? "" : "s"}.`
-                : ""),
-            color: a.color,
-            activityId: a.id,
-            link: "/",
-          },
-        });
+        // "Es hora de…" fires at the exact start unless reminders are off (-1).
+        if (lead >= 0)
+          events.push({
+            key: `start:${a.id}:${key}:${a.startTime}`,
+            at: start,
+            graceMs: 20 * MIN,
+            input: {
+              kind: "activity",
+              title: `${icon(a)} Es hora de ${a.name}`,
+              tag: `start:${a.id}:${key}`,
+              body:
+                `Tenés ${fmtHours(a.hoursPerDay)} programados.` +
+                (completionMode(a) === "timer"
+                  ? "\nAbrí la app para iniciar el temporizador."
+                  : "") +
+                (linkedPending.length > 0
+                  ? `\n📚 ${linkedPending.length} tarea${linkedPending.length === 1 ? "" : "s"} pendiente${linkedPending.length === 1 ? "" : "s"}.`
+                  : ""),
+              color: a.color,
+              activityId: a.id,
+              link: "/",
+            },
+          });
       }
 
       /* ---- 6. Pending tasks once the activity window ended ---- */
@@ -314,7 +323,9 @@ export function planEvents(now: Date, store: Store, timers: TimerSnapshot, s: No
             `${doneActs.length}/${acts.length} actividades completadas\n` +
             `${doneTasks.length}/${tasks.length} tareas completadas\n` +
             `${pct} % del día cumplido` +
-            (left.length > 0 ? `\n\nTe quedó pendiente:\n${left.map((n) => `• ${n}`).join("\n")}` : ""),
+            (left.length > 0
+              ? `\n\nTe quedó pendiente:\n${left.map((n) => `• ${n}`).join("\n")}`
+              : ""),
           link: "/calendar",
         },
       });
@@ -323,4 +334,3 @@ export function planEvents(now: Date, store: Store, timers: TimerSnapshot, s: No
 
   return events;
 }
-

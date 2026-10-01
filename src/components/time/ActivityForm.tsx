@@ -185,15 +185,31 @@ export function ActivityForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="start-time">Horario (opcional)</Label>
-            <Input
-              id="start-time"
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="start-time"
+                type="time"
+                className="flex-1 min-w-0"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+              {startTime && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => setStartTime("")}
+                >
+                  Quitar
+                </Button>
+              )}
+            </div>
+            {!startTime && (
+              <p className="text-[11px] text-muted-foreground">Sin horario: no envía avisos.</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Recordatorio</Label>
