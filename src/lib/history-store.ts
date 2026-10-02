@@ -7,6 +7,7 @@ import {
   type Task,
 } from "@/lib/time-store";
 import { getWeekKey } from "@/lib/week-utils";
+import { CLOUD_UPDATED_EVENT, LOCAL_DATA_CHANGED_EVENT } from "@/lib/cloud-sync";
 import { dateKeyOf, isCompletedToday, realHoursForDay, type TimerData } from "@/lib/timer-store";
 
 /* ------------------------------------------------------------------ *
@@ -197,9 +198,11 @@ function refreshFrozen(
   const hasCompletions = snap.dateKey in timers.completions;
   const activities = snap.activities
     .filter((rec) => {
-      // Drop records that were frozen in by mistake (other week / created later).
+      // Drop records that were frozen in by mistake (other week / created later,
+      // or demo activities frozen before the user's data had loaded).
       const a = current.find((x) => x.id === rec.id);
-      return !a || scheduledOn(a, snap.dateKey);
+      if (!a) return !rec.id.startsWith("seed-");
+      return scheduledOn(a, snap.dateKey);
     })
     .map((rec) => {
       const done = hasCompletions ? isCompletedToday(timers, rec.id, snap.dateKey) : rec.done;
@@ -423,9 +426,22 @@ function commit(next: HistoryData) {
     /* quota */
   }
   listeners.forEach((l) => l());
+  window.dispatchEvent(new CustomEvent(LOCAL_DATA_CHANGED_EVENT, { detail: { key: KEY } }));
 }
 
 if (typeof window !== "undefined") {
+  /* Another device's history arrived: adopt it instead of overwriting it later. */
+  window.addEventListener(CLOUD_UPDATED_EVENT, () => {
+    try {
+      const raw = localStorage.getItem(KEY);
+      memory = sanitize(raw ? JSON.parse(raw) : null);
+      loaded = true;
+    } catch {
+      return;
+    }
+    listeners.forEach((l) => l());
+  });
+
   window.addEventListener("storage", (e) => {
     if (e.key !== KEY) return;
     try {
@@ -445,6 +461,8 @@ export interface DaySource {
   tasks: Task[];
   timers: TimerData;
   now?: number;
+  /** False until the activities were loaded from storage: never freeze demo data. */
+  ready?: boolean;
 }
 
 export function useHistoryStore(source: DaySource) {
@@ -480,7 +498,6 @@ export function useHistoryStore(source: DaySource) {
         now,
       );
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, source.activities, source.goals, source.tasks, source.timers, emptyDayMode, now],
   );
 
@@ -497,7 +514,7 @@ export function useHistoryStore(source: DaySource) {
    * source changes, so a day rolls into history automatically at midnight.
    */
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || source.ready === false) return;
     const relevant = new Set<string>();
     for (const s of source.timers.sessions) relevant.add(s.dateKey);
     for (const k of Object.keys(source.timers.completions)) {
@@ -521,7 +538,7 @@ export function useHistoryStore(source: DaySource) {
     }
     if (Object.keys(patch).length) commit({ ...memory, days: { ...memory.days, ...patch } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source.activities, source.timers, emptyDayMode]);
+  }, [source.activities, source.timers, emptyDayMode, source.ready]);
 
   return {
     data,

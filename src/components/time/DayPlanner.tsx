@@ -23,6 +23,8 @@ import {
 
 interface Props {
   activities: Activity[];
+  /** Every activity of the week, to detect overlaps even while filtering. */
+  scheduleActivities?: Activity[];
   goals: Goal[];
   onNew?: () => void;
   onEdit?: (a: Activity) => void;
@@ -39,6 +41,7 @@ function todayIndex() {
 
 export function DayPlanner({
   activities,
+  scheduleActivities,
   goals,
   onNew,
   onEdit,
@@ -101,13 +104,13 @@ export function DayPlanner({
   const conflictsOf = useMemo(() => {
     const map = new Map<string, ScheduleConflict[]>();
     for (const a of dayActivities) {
-      const list = findScheduleConflicts(a, activities).filter(
+      const list = findScheduleConflicts(a, scheduleActivities ?? activities).filter(
         (c) => c.dayIndex === day && !c.weekKey,
       );
       if (list.length) map.set(a.id, list);
     }
     return map;
-  }, [dayActivities, activities, day]);
+  }, [dayActivities, activities, scheduleActivities, day]);
 
   return (
     <div className="space-y-4">

@@ -49,6 +49,7 @@ import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
 import { GoalsManager } from "@/components/time/GoalsManager";
 import { activitiesInWeek } from "@/lib/time-stats";
+import { useHistoryStore } from "@/lib/history-store";
 import { DayPlanner } from "@/components/time/DayPlanner";
 import { DayView } from "@/components/time/DayView";
 import { BarChart3, Calendar, CalendarDays } from "lucide-react";
@@ -81,6 +82,7 @@ import {
   isCompletedToday,
   realHoursForWeek,
   useTimerStore,
+  weekStart as weekStartOf,
   type TimerData,
 } from "@/lib/timer-store";
 
@@ -126,6 +128,14 @@ function Index() {
 
 
   const timers = useTimerStore({ tickMs: 15_000 });
+  /* Past days are frozen into the history as soon as the app opens, not only on the calendar. */
+  useHistoryStore({
+    activities: store.activities,
+    goals: store.goals,
+    tasks: store.tasks,
+    timers: timers.data,
+    ready: hydrated,
+  });
   const realMode = timers.progressMode === "real";
 
   const chartView: ChartView = store.chartView ?? "activities";
@@ -272,7 +282,11 @@ const realTotal = filtered.reduce(
   }, [filtered]);
 
   const timerStats = useMemo(() => {
-    const sessions = timers.data.sessions.length;
+    const from = weekStartOf(new Date(weekRef)).getTime();
+    const to = from + 7 * 86_400_000;
+    const sessions = timers.data.sessions.filter(
+      (x) => x.startedAt >= from && x.startedAt < to,
+    ).length;
     const done = realTotal;
     const planned = plannedTotal;
     const todayKey = dateKeyOf(new Date(timers.now));
@@ -287,27 +301,7 @@ const realTotal = filtered.reduce(
       compliance: planned > 0 ? (done / planned) * 100 : 0,
       completedToday,
     };
-  }, [timers.data, timers.now, realTotal, plannedTotal, filtered]);
-
-  const completeTasks = (activityId: string, taskIds: string[]) => {
-    const ids = new Set(taskIds);
-    setStore({
-      ...store,
-      activities: store.activities.map((a) =>
-        a.id === activityId
-          ? {
-              ...a,
-              tasks: (a.tasks ?? []).map((t) =>
-                ids.has(t.id) ? { ...t, status: "completed" as const, completedAt: Date.now() } : t,
-              ),
-            }
-          : a,
-      ),
-      tasks: (store.tasks ?? []).map((t) =>
-        ids.has(t.id) ? { ...t, status: "completed" as const, completedAt: Date.now() } : t,
-      ),
-    });
-  };
+  }, [timers.data, timers.now, realTotal, plannedTotal, filtered, weekRef]);
 
   const updateTasks = (activityId: string, updater: (tasks: Task[]) => Task[]) => {
     setStore({
@@ -436,7 +430,7 @@ const realTotal = filtered.reduce(
   )}
 </div>
       <Toaster position="top-center" />
-      <TimerBar activities={store.activities} onCompleteTasks={completeTasks} />
+      <TimerBar store={store} setStore={setStore} ready={hydrated} />
       <Button
         aria-label="Nueva actividad"
         onClick={() => {
@@ -749,6 +743,7 @@ const realTotal = filtered.reduce(
             <div className="pt-4 border-t">
               <DayPlanner
                 activities={filtered}
+                scheduleActivities={weekActivities}
                 goals={store.goals}
                 onNew={() => {
                   setEditing(null);

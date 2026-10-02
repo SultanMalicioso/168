@@ -27,6 +27,31 @@ export function allTasks(store: Store): Task[] {
 }
 
 /** Include trashed tasks. */
+/** Unfinished tasks of an activity that belong to today (undated, overdue or due today). */
+export function openTasksOf(store: Store, activityId: string, today = todayISO()): Task[] {
+  return allTasks(store).filter(
+    (t) =>
+      t.activityId === activityId &&
+      t.status !== "completed" &&
+      !t.archived &&
+      (!t.dueDate || t.dueDate <= today),
+  );
+}
+
+/** Marks the given tasks completed, wherever they are stored. */
+export function completeTasksIn(store: Store, ids: string[], now = Date.now()): Store {
+  const set = new Set(ids);
+  const done = (t: Task): Task =>
+    set.has(t.id) ? { ...t, status: "completed", completedAt: now, updatedAt: now } : t;
+  return {
+    ...store,
+    tasks: (store.tasks ?? []).map(done),
+    activities: store.activities.map((a) =>
+      a.tasks?.some((t) => set.has(t.id)) ? { ...a, tasks: a.tasks.map(done) } : a,
+    ),
+  };
+}
+
 export function allTasksWithTrash(store: Store): Task[] {
   const out: Task[] = [];
   for (const t of store.tasks ?? []) out.push(t);

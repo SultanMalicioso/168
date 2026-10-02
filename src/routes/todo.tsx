@@ -380,30 +380,7 @@ function TodoPage() {
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 lg:pb-0">
       <Toaster position="top-center" />
-      <TimerBar
-        activities={store.activities}
-        onCompleteTasks={(activityId, taskIds) => {
-          const ids = new Set(taskIds);
-          setStore((store) => ({
-            ...store,
-            activities: store.activities.map((a) =>
-              a.id === activityId
-                ? {
-                    ...a,
-                    tasks: (a.tasks ?? []).map((t) =>
-                      ids.has(t.id)
-                        ? { ...t, status: "completed" as const, completedAt: Date.now() }
-                        : t,
-                    ),
-                  }
-                : a,
-            ),
-            tasks: (store.tasks ?? []).map((t) =>
-              ids.has(t.id) ? { ...t, status: "completed" as const, completedAt: Date.now() } : t,
-            ),
-          }));
-        }}
-      />
+      <TimerBar store={store} setStore={setStore} ready={hydrated} />
 
       <header className="border-b border-border/60 bg-background sticky top-0 z-30">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-2.5 flex items-center gap-2">

@@ -132,3 +132,23 @@ describe("history helpers", () => {
     assert.equal(averageOfWeeks([computeWeekStats([s], timers([]), PREV, NOW)]), null);
   });
 });
+
+describe("compactSessions", () => {
+  it("merges sessions older than a year per activity and day, keeping totals", async () => {
+    const { compactSessions, doneHoursForDay } = await import("./timer-store");
+    const now = new Date("2026-10-02T12:00:00").getTime();
+    const old = [
+      session("s", "2025-01-10", 1),
+      { ...session("s", "2025-01-10", 2), id: "x2" },
+      session("s", "2025-01-11", 1),
+      session("s", "2026-09-29", 3),
+    ];
+    const out = compactSessions(old, now);
+    assert.equal(out.length, 3);
+    assert.equal(out[0].id, "agg:s:2025-01-10");
+    const t = timers(out);
+    assert.equal(doneHoursForDay(t, "s", "2025-01-10", now), 3);
+    assert.equal(doneHoursForDay(t, "s", "2026-09-29", now), 3);
+    assert.equal(compactSessions(out, now), out);
+  });
+});

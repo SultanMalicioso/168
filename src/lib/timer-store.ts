@@ -130,8 +130,53 @@ function persist() {
   }
 }
 
+const COMPACT_AFTER_MS = 365 * 86_400_000;
+
+/**
+ * Sessions older than a year are merged into one per activity and day, so the
+ * synced data stops growing forever. Daily and weekly totals stay identical.
+ */
+export function compactSessions(sessions: TimerSession[], now = Date.now()): TimerSession[] {
+  const cutoff = now - COMPACT_AFTER_MS;
+  const groups = new Map<string, TimerSession[]>();
+  for (const x of sessions) {
+    if (x.startedAt >= cutoff) continue;
+    const k = `${x.activityId}|${x.dateKey}`;
+    groups.set(k, [...(groups.get(k) ?? []), x]);
+  }
+  const merged = new Map<string, TimerSession>();
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const first = list[0];
+    merged.set(`${first.activityId}|${first.dateKey}`, {
+      id: `agg:${first.activityId}:${first.dateKey}`,
+      activityId: first.activityId,
+      dateKey: first.dateKey,
+      startedAt: Math.min(...list.map((x) => x.startedAt)),
+      endedAt: Math.max(...list.map((x) => x.endedAt)),
+      durationMs: list.reduce((t, x) => t + x.durationMs, 0),
+      plannedMs: list.reduce((t, x) => t + x.plannedMs, 0),
+      completed: list.some((x) => x.completed),
+    });
+  }
+  if (merged.size === 0) return sessions;
+  const out: TimerSession[] = [];
+  const emitted = new Set<string>();
+  for (const x of sessions) {
+    const k = `${x.activityId}|${x.dateKey}`;
+    const m = x.startedAt < cutoff ? merged.get(k) : undefined;
+    if (!m) out.push(x);
+    else if (!emitted.has(k)) {
+      emitted.add(k);
+      out.push(m);
+    }
+  }
+  return out;
+}
+
 function commit(next: TimerData) {
-  memory = next;
+  const sessions = compactSessions(next.sessions);
+  memory = sessions === next.sessions ? next : { ...next, sessions };
   persist();
 
   listeners.forEach((l) => l());

@@ -28,7 +28,7 @@ export const Route = createFileRoute("/estadisticas")({
 });
 
 function StatsPage() {
-  const { store, hydrated, goToPreviousWeek, goToNextWeek, goToCurrentWeek } = useTimeStore();
+  const { store, setStore, hydrated, goToPreviousWeek, goToNextWeek, goToCurrentWeek } = useTimeStore();
   const timers = useTimerStore({ tickMs: 15_000 });
   const [category, setCategory] = useState<Category | "all">("all");
 
@@ -39,7 +39,7 @@ function StatsPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <TimerBar activities={store.activities} />
+      <TimerBar store={store} setStore={setStore} ready={hydrated} />
 
       <header className="border-b border-border/60 bg-background sticky top-0 z-30">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-2.5 flex items-center gap-2">

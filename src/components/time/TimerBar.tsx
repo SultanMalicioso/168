@@ -9,7 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { Activity, Task } from "@/lib/time-store";
+import type { Activity, Store, Task } from "@/lib/time-store";
+import { completeTasksIn, openTasksOf } from "@/lib/task-utils";
 import {
   elapsedMs,
   formatClock,
@@ -20,17 +21,19 @@ import {
 } from "@/lib/timer-store";
 
 interface Props {
-  activities: Activity[];
-  /** Called when the user confirms which tasks of the session are done. */
-  onCompleteTasks?: (activityId: string, taskIds: string[]) => void;
+  store: Store;
+  setStore: (update: (s: Store) => Store) => void;
+  /** False until the store was loaded from storage. */
+  ready: boolean;
 }
 
 /**
  * Global, always-visible timer bar. Owns the auto-finish logic so a running
  * session completes exactly once, no matter which screen is mounted.
  */
-export function TimerBar({ activities, onCompleteTasks }: Props) {
-  const { data, active, now, settings, pause, resume, reset, finish, setSettings } = useTimerStore();
+export function TimerBar({ store, setStore, ready }: Props) {
+  const activities = store.activities;
+  const { active, now, settings, pause, resume, reset, finish, setSettings } = useTimerStore();
   const [celebrate, setCelebrate] = useState<Activity | null>(null);
   const [taskPrompt, setTaskPrompt] = useState<{ activity: Activity; tasks: Task[] } | null>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
@@ -45,7 +48,9 @@ export function TimerBar({ activities, onCompleteTasks }: Props) {
 
   // Auto-complete when the countdown reaches zero.
   useEffect(() => {
-    if (!active || active.status !== "running" || remaining > 0 || finishing.current) return;
+    // Wait for the user's activities: finishing against demo data loses the task prompt.
+    if (!ready || !active || active.status !== "running" || remaining > 0 || finishing.current)
+      return;
     finishing.current = true;
     const done = finish(true);
     const act = activities.find((a) => a.id === done?.activityId) ?? null;
@@ -65,7 +70,7 @@ export function TimerBar({ activities, onCompleteTasks }: Props) {
     if (act) {
       setCelebrate(act);
       window.setTimeout(() => setCelebrate(null), 2200);
-      const pending = (act.tasks ?? []).filter((t) => t.status !== "completed");
+      const pending = openTasksOf(store, act.id);
       if (pending.length > 0) {
         setPicked(Object.fromEntries(pending.map((t) => [t.id, true])));
         setTaskPrompt({ activity: act, tasks: pending });
@@ -74,7 +79,7 @@ export function TimerBar({ activities, onCompleteTasks }: Props) {
     window.setTimeout(() => {
       finishing.current = false;
     }, 500);
-  }, [active, remaining, finish, activities, settings]);
+  }, [active, remaining, finish, activities, settings, store, ready]);
 
   const askPermission = () => {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -226,7 +231,7 @@ export function TimerBar({ activities, onCompleteTasks }: Props) {
                   .filter(([, v]) => v)
                   .map(([k]) => k);
                 if (taskPrompt && ids.length > 0) {
-                  onCompleteTasks?.(taskPrompt.activity.id, ids);
+                  setStore((s) => completeTasksIn(s, ids));
                   toast.success(`${ids.length} tarea(s) completadas`);
                 }
                 setTaskPrompt(null);
@@ -238,8 +243,6 @@ export function TimerBar({ activities, onCompleteTasks }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* Keeps sessions referenced so the bar re-renders on store writes */}
-      <span className="hidden">{data.sessions.length}</span>
     </>
   );
 }

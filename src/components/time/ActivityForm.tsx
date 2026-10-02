@@ -30,6 +30,7 @@ import {
   DAY_SHORT,
   getWeekKey,
   addWeeks,
+  mondayKeyOf,
   type Activity,
   type Category,
   type CompletionMode,
@@ -146,7 +147,7 @@ export function ActivityForm({
       ? getWeekKey()
       : weekOption === "next"
         ? addWeeks(getWeekKey(), 1)
-        : specificWeek || getWeekKey();
+        : mondayKeyOf(specificWeek);
 
   /* Only the selected days whose time differs from the general one are stored. */
   const dayStartTimes = (() => {

@@ -31,12 +31,12 @@ export const Route = createFileRoute("/calendar")({
 });
 
 function CalendarPage() {
-  const { store } = useTimeStore();
+  const { store, setStore, hydrated } = useTimeStore();
   const timers = useTimerStore({ tickMs: 15_000 });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <TimerBar activities={store.activities} />
+      <TimerBar store={store} setStore={setStore} ready={hydrated} />
 
       <header className="border-b border-border/60 bg-background sticky top-0 z-30">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-2.5 flex items-center gap-2">
@@ -54,7 +54,7 @@ function CalendarPage() {
             <CheckSquare className="h-4 w-4" /> To-Do
           </Link>
           <SyncBadge />
-            <NotificationCenter />
+          <NotificationCenter />
         </div>
       </header>
 
@@ -67,13 +67,15 @@ function CalendarPage() {
           </p>
         </div>
 
-        <CalendarModule
-          activities={store.activities}
-          goals={store.goals}
-          tasks={store.tasks}
-          timers={timers.data}
-          now={timers.now}
-        />
+        {hydrated && (
+          <CalendarModule
+            activities={store.activities}
+            goals={store.goals}
+            tasks={store.tasks}
+            timers={timers.data}
+            now={timers.now}
+          />
+        )}
       </main>
       <SiteFooter />
     </div>

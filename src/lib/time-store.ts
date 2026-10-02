@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
 import { rollRecurring } from "@/lib/recurrence";
+import { merge3 } from "@/lib/sync-merge";
 import {
   CLOUD_UPDATED_EVENT,
   LOCAL_DATA_CHANGED_EVENT,
@@ -440,22 +441,34 @@ function repairTaskIds(store: Store): Store {
   return changed ? { ...store, tasks, activities } : store;
 }
 
+/** Any date of a week → that week's Monday key (older builds stored any picked day). */
+export function mondayKeyOf(value: string | undefined): string {
+  if (!value) return getWeekKey();
+  const d = new Date(`${value}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? getWeekKey() : getWeekKey(d);
+}
+
+/** The viewed week is per device and per visit: it always opens on the current week. */
 function normalize(store: Store): Store {
   return rollRecurring(repairTaskIds({
     ...store,
-    selectedWeek:
-      typeof store.selectedWeek === "string"
-        ? store.selectedWeek
-        : getWeekKey(),
+    selectedWeek: getWeekKey(),
     tasks: Array.isArray(store.tasks) ? store.tasks : [],
     activities: Array.isArray(store.activities)
   ? store.activities.map((a) => ({
       ...a,
-      weekStart: a.weekStart ?? getWeekKey(),
+      weekStart: mondayKeyOf(a.weekStart),
       tasks: Array.isArray(a.tasks) ? a.tasks : [],
     }))
   : [],
   }));
+}
+
+/** What gets stored and synced: everything except the device's viewed week. */
+function persistable(store: Store): string {
+  const { selectedWeek: _viewOnly, ...data } = store;
+  void _viewOnly;
+  return JSON.stringify(data);
 }
 
 export function useTimeStore() {
@@ -476,16 +489,31 @@ export function useTimeStore() {
     return () => window.clearInterval(id);
   }, [setStoreRolled]);
 
+  /* Last value written to storage, without view-only fields. */
+  const savedRef = useRef<string | null>(null);
+
   useEffect(() => {
+    const raw = localStorage.getItem(KEY);
     try {
-      const raw = localStorage.getItem(KEY);
       if (raw) {
         setStore(normalize({ ...defaultStore, ...JSON.parse(raw) }));
+        savedRef.current = raw;
       } else {
         const legacy = localStorage.getItem(LEGACY_KEY);
         if (legacy) setStore(normalize(migrate(JSON.parse(legacy))));
+        /* Nothing stored: demo data stays unsaved until the user changes something. */
+        savedRef.current = persistable(defaultStore);
       }
-    } catch {}
+    } catch {
+      /* Unreadable data: keep a copy and let the cloud copy win on the next sync. */
+      try {
+        if (raw) localStorage.setItem(`${KEY}.backup-${Date.now()}`, raw);
+        localStorage.removeItem("week168.sync.meta");
+      } catch {
+        /* storage unavailable */
+      }
+      savedRef.current = persistable(defaultStore);
+    }
     setHydrated(true);
   }, []);
 
@@ -493,7 +521,23 @@ useEffect(() => {
   if (!hydrated) return;
 
   try {
-    const value = JSON.stringify(store);
+    let value = persistable(store);
+    /* Unchanged data (a reload echo, or only the viewed week changed): nothing to save. */
+    if (value === savedRef.current) return;
+
+    /* Storage changed behind our back (cloud or another tab): merge, never overwrite. */
+    const onDisk = localStorage.getItem(KEY);
+    if (onDisk != null && savedRef.current != null && onDisk !== savedRef.current) {
+      try {
+        const merged = merge3(JSON.parse(savedRef.current), JSON.parse(value), JSON.parse(onDisk));
+        value = JSON.stringify(merged);
+        const next = normalize({ ...defaultStore, ...(merged as Partial<Store>) });
+        setStore((current) => ({ ...next, selectedWeek: current.selectedWeek }));
+      } catch {
+        /* Malformed data on disk: keep ours */
+      }
+    }
+    savedRef.current = value;
 
     localStorage.setItem(KEY, value);
 
@@ -514,30 +558,40 @@ useEffect(() => {
    * reload the calendar from localStorage so the React state
    * changes too.
    */
+  /* Registered on mount, before cloud-sync starts, so no cloud update is missed. */
   useEffect(() => {
-    if (!hydrated) return;
-
     const handleCloudUpdate = () => {
       try {
         const raw = localStorage.getItem(KEY);
 
         if (!raw) return;
 
-        setStore(normalize({ ...defaultStore, ...JSON.parse(raw) }));
+        savedRef.current = raw;
+        setStore((current) => ({
+          ...normalize({ ...defaultStore, ...JSON.parse(raw) }),
+          selectedWeek: current.selectedWeek,
+        }));
       } catch {
         /* Ignore malformed cloud data */
       }
     };
 
+    /* Another tab of this browser saved: adopt it instead of overwriting it later. */
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === KEY) handleCloudUpdate();
+    };
+
     window.addEventListener(CLOUD_UPDATED_EVENT, handleCloudUpdate);
+    window.addEventListener("storage", handleStorage);
 
     return () => {
       window.removeEventListener(
         CLOUD_UPDATED_EVENT,
         handleCloudUpdate
       );
+      window.removeEventListener("storage", handleStorage);
     };
-  }, [hydrated]);
+  }, []);
   
 useEffect(() => {
   if (!hydrated) return;

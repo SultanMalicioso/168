@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import { merge3 } from "@/lib/sync-merge";
 
 export const SYNC_KEYS = [
   "week168.v2",
@@ -22,6 +23,10 @@ interface Meta {
   localAt: Record<string, number>;
   /** Hash of the last value known to be stored in the cloud, per key. */
   cloudHash: Record<string, string>;
+  /** Last cloud value seen, per key: the common base for merging edits. */
+  cloudBase: Record<string, string>;
+  /** Account these hashes belong to. */
+  userId?: string;
 }
 
 /** Key-order independent serialization so that re-normalized data compares equal. */
@@ -65,9 +70,11 @@ function readMeta(): Meta {
     return {
       localAt: parsed?.localAt && typeof parsed.localAt === "object" ? parsed.localAt : {},
       cloudHash: parsed?.cloudHash && typeof parsed.cloudHash === "object" ? parsed.cloudHash : {},
+      cloudBase: parsed?.cloudBase && typeof parsed.cloudBase === "object" ? parsed.cloudBase : {},
+      userId: typeof parsed?.userId === "string" ? parsed.userId : undefined,
     };
   } catch {
-    return { localAt: {}, cloudHash: {} };
+    return { localAt: {}, cloudHash: {}, cloudBase: {} };
   }
 }
 
@@ -82,6 +89,7 @@ function writeMeta(meta: Meta) {
 function rememberCloudValue(key: string, value: string, updatedAt?: string) {
   const meta = readMeta();
   meta.cloudHash[key] = hash(canonical(value));
+  meta.cloudBase[key] = value;
 
   if (updatedAt) {
     const timestamp = Date.parse(updatedAt);
@@ -148,9 +156,44 @@ async function pushDirty(): Promise<void> {
     const rows: { user_id: string; key: string; value: Json }[] = [];
     const uploadedValues = new Map<string, string>();
 
+    /*
+     * Another device may have saved since this one last synced: merge both
+     * edits instead of overwriting theirs with ours.
+     */
+    const { data: remoteRows, error: readError } = await supabase
+      .from("user_data")
+      .select("key,value")
+      .eq("user_id", currentUser!.id)
+      .in("key", keys);
+    if (readError) {
+      console.error("Cloud read before push failed:", readError);
+      setStatus("error");
+      return;
+    }
+    const meta = readMeta();
+    let mergedLocally = false;
+
     for (const key of keys) {
-      const raw = localStorage.getItem(key);
+      let raw = localStorage.getItem(key);
       if (raw == null) continue;
+
+      const remote = remoteRows?.find((r) => r.key === key);
+      if (remote) {
+        const remoteRaw = JSON.stringify(remote.value);
+        if (hash(canonical(remoteRaw)) !== meta.cloudHash[key]) {
+          try {
+            const base = meta.cloudBase[key] ? JSON.parse(meta.cloudBase[key]) : undefined;
+            const merged = JSON.stringify(merge3(base, JSON.parse(raw), remote.value));
+            if (merged !== raw) {
+              localStorage.setItem(key, merged);
+              raw = merged;
+              mergedLocally = true;
+            }
+          } catch {
+            /* Malformed data: keep the local copy */
+          }
+        }
+      }
 
       try {
         rows.push({
@@ -187,6 +230,8 @@ async function pushDirty(): Promise<void> {
         dirty.delete(key);
       }
     }
+
+    if (mergedLocally) window.dispatchEvent(new Event(CLOUD_UPDATED_EVENT));
 
     setStatus(dirty.size === 0 ? "synced" : "syncing");
   })().finally(() => {
@@ -232,8 +277,11 @@ function schedulePush(key: string) {
  * DOWNLOAD FROM CLOUD (cloud is the source of truth)
  * --------------------------------------------------------- */
 
-/** `quiet` skips the "syncing" badge for background checks. */
-async function pullFromCloud(quiet = false): Promise<void> {
+/**
+ * `quiet` skips the "syncing" badge for background checks; `adopt` takes the
+ * cloud copy even over pending local changes (first sync of an account).
+ */
+async function pullFromCloud(quiet = false, adopt = false): Promise<void> {
   if (deleting) return;
   if (!currentUser) return;
 
@@ -260,11 +308,14 @@ async function pullFromCloud(quiet = false): Promise<void> {
     let changed = false;
 
     for (const key of SYNC_KEYS) {
-      /* Never overwrite a real local edit that hasn't uploaded yet. */
-      if (dirty.has(key)) continue;
-
       const row = remote.get(key);
       if (!row) continue;
+
+      /* Never overwrite a real local edit that hasn't uploaded yet. */
+      if (dirty.has(key)) {
+        if (!adopt) continue;
+        dirty.delete(key);
+      }
 
       const remoteValue = JSON.stringify(row.value);
       const localValue = localStorage.getItem(key);
@@ -299,9 +350,24 @@ async function initialSync(): Promise<void> {
   bootstrapping = true;
   setStatus("syncing");
 
+  /*
+   * First sync of this account on this device: what is stored locally is
+   * demo data or another account's, never newer than the account's cloud
+   * copy. The cloud wins; only keys the cloud lacks get uploaded below.
+   */
+  const meta = readMeta();
+  const legacySynced = meta.userId === undefined && Object.keys(meta.cloudHash).length > 0;
+  const firstSync = meta.userId !== currentUser.id && !legacySynced;
+  if (firstSync) {
+    dirty.clear();
+    writeMeta({ localAt: {}, cloudHash: {}, cloudBase: {}, userId: currentUser.id });
+  } else if (meta.userId !== currentUser.id) {
+    writeMeta({ ...meta, userId: currentUser.id });
+  }
+
   try {
     /* Cloud first: a second device must adopt the account data. */
-    await pullFromCloud();
+    await pullFromCloud(false, firstSync);
 
     /*
      * Anything still unknown to the cloud (first login, or edits
