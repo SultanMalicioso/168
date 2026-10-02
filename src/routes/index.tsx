@@ -49,6 +49,8 @@ import { DonutChart } from "@/components/time/DonutChart";
 import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
 import { GoalsManager } from "@/components/time/GoalsManager";
+import { activitiesInWeek } from "@/lib/time-stats";
+import { TimeInsights } from "@/components/time/TimeInsights";
 import { DayPlanner } from "@/components/time/DayPlanner";
 import { DayView } from "@/components/time/DayView";
 import { Calendar, CalendarDays } from "lucide-react";
@@ -141,24 +143,10 @@ const weekRef = isCurrentWeek
   ? timers.now
   : new Date(`${store.selectedWeek}T12:00:00`).getTime();
 
-const weekActivities = useMemo(() => {
-  const currentWeek = store.selectedWeek || getWeekKey();
-
-  return store.activities.filter((activity) => {
-    // Las permanentes aparecen en todas las semanas.
-    if (activity.permanent) return true;
-
-    // Las actividades temporales antiguas que todavía
-    // no tienen weekStart se consideran de la semana actual.
-    if (!activity.weekStart) {
-      return currentWeek === getWeekKey();
-    }
-
-    // Las temporales solamente aparecen en la semana
-    // para la que fueron programadas.
-    return activity.weekStart === currentWeek;
-  });
-}, [store.activities, store.selectedWeek]);
+const weekActivities = useMemo(
+  () => activitiesInWeek(store.activities, store.selectedWeek || getWeekKey()),
+  [store.activities, store.selectedWeek],
+);
 
 const filtered = useMemo(
   () =>
@@ -711,6 +699,14 @@ const realTotal = filtered.reduce(
               />
             </div>
           </div>
+
+          <TimeInsights
+            activities={store.activities}
+            timers={timers.data}
+            now={timers.now}
+            weekKey={store.selectedWeek || getWeekKey()}
+            category={filter}
+          />
 
           {/* Task stats */}
           <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
