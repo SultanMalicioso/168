@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +21,7 @@ import {
   type TaskStatus,
   uid,
 } from "@/lib/time-store";
-import { fmtMinutes, shiftISO, todayISO } from "@/lib/task-utils";
+import { fmtMinutes, moveSubtask, shiftISO, statusFromSubtasks, todayISO } from "@/lib/task-utils";
 
 export function TaskEditorSheet({
   open,
@@ -85,9 +85,7 @@ function EditorForm({
   const [t, setT] = useState<Task>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const set = <K extends keyof Task>(k: K, v: Task[K]) => setT((p) => ({ ...p, [k]: v }));
-  const activityLinked = t.activityId
-    ? store.activities.find((a) => a.id === t.activityId)
-    : null;
+  const activityLinked = t.activityId ? store.activities.find((a) => a.id === t.activityId) : null;
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -105,7 +103,14 @@ function EditorForm({
     const subtasks = (t.subtasks ?? [])
       .map((st) => ({ ...st, name: st.name.trim() }))
       .filter((st) => st.name);
-    onSubmit({ ...t, subtasks: subtasks.length ? subtasks : undefined });
+    // Only checklist changes drive the status, so a manual status pick still wins.
+    const doneKey = (list: typeof subtasks) => list.map((st) => `${st.id}:${st.done}`).join("|");
+    const checklistChanged = doneKey(subtasks) !== doneKey(initial.subtasks ?? []);
+    onSubmit({
+      ...t,
+      status: checklistChanged ? statusFromSubtasks(t.status, subtasks) : t.status,
+      subtasks: subtasks.length ? subtasks : undefined,
+    });
   };
 
   useEffect(() => {
@@ -162,7 +167,11 @@ function EditorForm({
                   className="text-xs py-2 rounded-xl border transition"
                   style={
                     active
-                      ? { background: meta.color, borderColor: meta.color, color: "var(--background)" }
+                      ? {
+                          background: meta.color,
+                          borderColor: meta.color,
+                          color: "var(--background)",
+                        }
                       : {
                           background: `color-mix(in oklab, ${meta.color} 10%, transparent)`,
                           borderColor: `color-mix(in oklab, ${meta.color} 35%, transparent)`,
@@ -191,7 +200,9 @@ function EditorForm({
                 // Allow an empty field while typing; saving validates ≥ 1 min.
                 set(
                   "estimatedMinutes",
-                  e.target.value === "" ? undefined : Math.max(0, Math.round(Number(e.target.value))),
+                  e.target.value === ""
+                    ? undefined
+                    : Math.max(0, Math.round(Number(e.target.value))),
                 )
               }
               className="h-10 text-sm w-24"
@@ -208,7 +219,9 @@ function EditorForm({
                 type="button"
                 onClick={() => set("estimatedMinutes", m)}
                 className={`text-xs px-2.5 py-1 rounded-full border transition ${
-                  t.estimatedMinutes === m ? "bg-foreground text-background border-foreground" : "hover:bg-accent"
+                  t.estimatedMinutes === m
+                    ? "bg-foreground text-background border-foreground"
+                    : "hover:bg-accent"
                 }`}
               >
                 {fmtMinutes(m)}
@@ -237,7 +250,9 @@ function EditorForm({
                 type="button"
                 onClick={() => set("dueDate", o.v || undefined)}
                 className={`text-xs px-2.5 py-1 rounded-full border transition ${
-                  (t.dueDate ?? "") === o.v ? "bg-foreground text-background border-foreground" : "hover:bg-accent"
+                  (t.dueDate ?? "") === o.v
+                    ? "bg-foreground text-background border-foreground"
+                    : "hover:bg-accent"
                 }`}
               >
                 {o.l}
@@ -451,8 +466,8 @@ function SubtaskEditor({
       </label>
       {value.length > 0 && (
         <ul className="mt-1 space-y-1">
-          {value.map((st) => (
-            <li key={st.id} className="flex items-center gap-2">
+          {value.map((st, i) => (
+            <li key={st.id} className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => patch(st.id, { done: !st.done })}
@@ -469,6 +484,28 @@ function SubtaskEditor({
                 className={`h-9 text-sm flex-1 min-w-0 ${st.done ? "line-through text-muted-foreground" : ""}`}
                 aria-label="Nombre de la subtarea"
               />
+              {value.length > 1 && (
+                <div className="flex shrink-0 flex-col">
+                  <button
+                    type="button"
+                    onClick={() => onChange(moveSubtask(value, i, -1))}
+                    disabled={i === 0}
+                    aria-label="Subir subtarea"
+                    className="h-[18px] w-7 flex items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-25"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChange(moveSubtask(value, i, 1))}
+                    disabled={i === value.length - 1}
+                    aria-label="Bajar subtarea"
+                    className="h-[18px] w-7 flex items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-25"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               <Button
                 type="button"
                 variant="ghost"

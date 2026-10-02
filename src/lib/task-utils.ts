@@ -2,8 +2,10 @@ import {
   Activity,
   Goal,
   Store,
+  Subtask,
   Task,
   TaskPriority,
+  TaskStatus,
   TASK_PRIORITY_META,
   uid,
 } from "@/lib/time-store";
@@ -69,18 +71,12 @@ export function tasksToday(store: Store): Task[] {
 export function tasksOverdue(store: Store): Task[] {
   const iso = todayISO();
   return allTasks(store).filter(
-    (t) =>
-      !!t.dueDate &&
-      t.dueDate < iso &&
-      t.status !== "completed" &&
-      !t.archived,
+    (t) => !!t.dueDate && t.dueDate < iso && t.status !== "completed" && !t.archived,
   );
 }
 export function tasksUpcoming(store: Store): Task[] {
   const iso = todayISO();
-  return allTasks(store).filter(
-    (t) => !!t.dueDate && t.dueDate > iso && !t.archived,
-  );
+  return allTasks(store).filter((t) => !!t.dueDate && t.dueDate > iso && !t.archived);
 }
 export function tasksCompleted(store: Store): Task[] {
   return allTasks(store)
@@ -250,12 +246,35 @@ export function purgeAllTrashed(store: Store): Store {
   };
 }
 
+/**
+ * Status implied by a checklist: every step done completes the task;
+ * unchecking a step of a completed task reopens it. Otherwise unchanged.
+ */
+export function statusFromSubtasks(
+  status: TaskStatus,
+  subtasks: Subtask[] | undefined,
+): TaskStatus {
+  if (!subtasks?.length) return status;
+  const done = subtasks.filter((st) => st.done).length;
+  if (done === subtasks.length) return "completed";
+  if (status === "completed") return done > 0 ? "in_progress" : "pending";
+  return status;
+}
+
 export function toggleSubtask(store: Store, taskId: string, subId: string): Store {
   const task = allTasksWithTrash(store).find((t) => t.id === taskId);
   if (!task?.subtasks) return store;
-  return updateTask(store, taskId, {
-    subtasks: task.subtasks.map((st) => (st.id === subId ? { ...st, done: !st.done } : st)),
-  });
+  const subtasks = task.subtasks.map((st) => (st.id === subId ? { ...st, done: !st.done } : st));
+  return updateTask(store, taskId, { subtasks, status: statusFromSubtasks(task.status, subtasks) });
+}
+
+/** Moves a subtask one position up (-1) or down (+1). */
+export function moveSubtask<T>(list: T[], index: number, dir: -1 | 1): T[] {
+  const to = index + dir;
+  if (to < 0 || to >= list.length) return list;
+  const next = [...list];
+  [next[index], next[to]] = [next[to], next[index]];
+  return next;
 }
 
 export function duplicateTask(store: Store, id: string): Store {
@@ -332,13 +351,16 @@ function weekKey(d: Date): string {
 
 // ---------- Sorting / grouping ----------
 
-export function sortTasks(tasks: Task[], by: "priority" | "date" | "duration" | "name" | "created") {
+export function sortTasks(
+  tasks: Task[],
+  by: "priority" | "date" | "duration" | "name" | "created",
+) {
   const arr = [...tasks];
   switch (by) {
     case "priority":
       return arr.sort(
         (a, b) =>
-          (TASK_PRIORITY_META[b.priority].weight - TASK_PRIORITY_META[a.priority].weight) ||
+          TASK_PRIORITY_META[b.priority].weight - TASK_PRIORITY_META[a.priority].weight ||
           (a.dueDate ?? "").localeCompare(b.dueDate ?? "") ||
           a.name.localeCompare(b.name),
       );
