@@ -97,7 +97,7 @@ export function WeekGrid({ activities }: Props) {
         {DAYS.map((d, i) => (
           <div key={i} className="text-center leading-tight">
             <div>{d}</div>
-            <span className="block tabular-nums text-muted-foreground/70">
+            <span className="block tabular-nums text-muted-foreground">
               {shortDuration(perDay[i].reduce((s, a) => s + a.hoursPerDay, 0))}
             </span>
           </div>
@@ -139,7 +139,7 @@ export function WeekGrid({ activities }: Props) {
               })}
               {freeHours > 0 && (
                 <div
-                  className="flex items-center justify-center text-[9px] text-muted-foreground/70"
+                  className="flex items-center justify-center text-[9px] text-muted-foreground"
                   style={{ height: `${(freeHours / scale) * 100}%` }}
                   title={`Libre — ${formatDuration(freeHours)}`}
                 >

@@ -63,8 +63,8 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Content-Security-Policy-Report-Only": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' data: https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
     "img-src 'self' data: blob: https:",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://lovable.dev https://*.lovable.dev https://*.lovable.app",
     "frame-src 'self' https://*.lovable.dev https://*.lovable.app",
