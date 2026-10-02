@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth
+Disallow: /todo
+Disallow: /calendar
+
+Sitemap: https://168-theta.vercel.app/sitemap.xml
