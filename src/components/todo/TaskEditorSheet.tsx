@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Trash2, X } from "lucide-react";
+import { Check, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,7 @@ import {
   type Task,
   type TaskPriority,
   type TaskStatus,
+  uid,
 } from "@/lib/time-store";
 import { fmtMinutes, shiftISO, todayISO } from "@/lib/task-utils";
 
@@ -100,7 +101,11 @@ function EditorForm({
   };
 
   const submit = () => {
-    if (validate()) onSubmit(t);
+    if (!validate()) return;
+    const subtasks = (t.subtasks ?? [])
+      .map((st) => ({ ...st, name: st.name.trim() }))
+      .filter((st) => st.name);
+    onSubmit({ ...t, subtasks: subtasks.length ? subtasks : undefined });
   };
 
   useEffect(() => {
@@ -140,6 +145,8 @@ function EditorForm({
             placeholder="Detalles…"
           />
         </div>
+
+        <SubtaskEditor value={t.subtasks ?? []} onChange={(v) => set("subtasks", v)} />
 
         <div>
           <label className="text-xs text-muted-foreground">Prioridad</label>
@@ -411,5 +418,96 @@ function EditorForm({
         </Button>
       </div>
     </>
+  );
+}
+
+function SubtaskEditor({
+  value,
+  onChange,
+}: {
+  value: NonNullable<Task["subtasks"]>;
+  onChange: (v: NonNullable<Task["subtasks"]>) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const done = value.filter((st) => st.done).length;
+  const add = () => {
+    const name = draft.trim();
+    if (!name) return;
+    onChange([...value, { id: uid(), name, done: false }]);
+    setDraft("");
+  };
+  const patch = (id: string, p: Partial<(typeof value)[number]>) =>
+    onChange(value.map((st) => (st.id === id ? { ...st, ...p } : st)));
+
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground">
+        Subtareas
+        {value.length > 0 && (
+          <span className="ml-1.5 tabular-nums">
+            · {done}/{value.length}
+          </span>
+        )}
+      </label>
+      {value.length > 0 && (
+        <ul className="mt-1 space-y-1">
+          {value.map((st) => (
+            <li key={st.id} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => patch(st.id, { done: !st.done })}
+                aria-label={st.done ? "Desmarcar subtarea" : "Completar subtarea"}
+                className={`h-5 w-5 shrink-0 rounded border flex items-center justify-center transition ${
+                  st.done ? "bg-foreground border-foreground" : "border-muted-foreground/40"
+                }`}
+              >
+                {st.done && <Check className="h-3.5 w-3.5 text-background" />}
+              </button>
+              <Input
+                value={st.name}
+                onChange={(e) => patch(st.id, { name: e.target.value })}
+                className={`h-9 text-sm flex-1 min-w-0 ${st.done ? "line-through text-muted-foreground" : ""}`}
+                aria-label="Nombre de la subtarea"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                onClick={() => onChange(value.filter((x) => x.id !== st.id))}
+                aria-label="Quitar subtarea"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-1.5 flex gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder="Agregar subtarea…"
+          className="h-9 text-sm flex-1 min-w-0"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={add}
+          disabled={!draft.trim()}
+          aria-label="Agregar subtarea"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   );
 }

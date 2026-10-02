@@ -78,6 +78,7 @@ import {
   tasksUnassigned,
   tasksUpcoming,
   todayISO,
+  toggleSubtask,
   trashManyTasks,
   trashTask,
   updateManyTasks,
@@ -219,6 +220,7 @@ function TodoPage() {
     onPurge: () => setStore((s) => purgeTask(s, t.id)),
     onPriority: (p: TaskPriority) => setStore((s) => updateTask(s, t.id, { priority: p })),
     onReschedule: (iso?: string) => setStore((s) => updateTask(s, t.id, { dueDate: iso })),
+    onToggleSubtask: (subId: string) => setStore((s) => toggleSubtask(s, t.id, subId)),
   });
 
   // ---- derived ----

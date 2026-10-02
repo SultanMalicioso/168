@@ -100,6 +100,12 @@ export const CATEGORIES: { id: Category; label: string; color: string }[] = [
 export type TaskStatus = "pending" | "in_progress" | "completed";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
+export interface Subtask {
+  id: string;
+  name: string;
+  done: boolean;
+}
+
 export interface Task {
   id: string;
   name: string;
@@ -125,7 +131,9 @@ export interface Task {
   /** Soft-delete (papelera). */
   deletedAt?: number;
   archived?: boolean;
-  // Reserved for future: parentId, rrule, remindAt, attachments, comments
+  /** Checklist of steps inside the task. */
+  subtasks?: Subtask[];
+  // Reserved for future: rrule, remindAt, attachments, comments
 }
 
 export const TASK_PRIORITY_META: Record<

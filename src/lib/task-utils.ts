@@ -250,6 +250,14 @@ export function purgeAllTrashed(store: Store): Store {
   };
 }
 
+export function toggleSubtask(store: Store, taskId: string, subId: string): Store {
+  const task = allTasksWithTrash(store).find((t) => t.id === taskId);
+  if (!task?.subtasks) return store;
+  return updateTask(store, taskId, {
+    subtasks: task.subtasks.map((st) => (st.id === subId ? { ...st, done: !st.done } : st)),
+  });
+}
+
 export function duplicateTask(store: Store, id: string): Store {
   const all = allTasksWithTrash(store);
   const src = all.find((t) => t.id === id);
@@ -262,6 +270,7 @@ export function duplicateTask(store: Store, id: string): Store {
     completedAt: undefined,
     deletedAt: undefined,
     createdAt: Date.now(),
+    subtasks: src.subtasks?.map((st) => ({ ...st, id: uid(), done: false })),
   };
   return createTask(store, copy);
 }

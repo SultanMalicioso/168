@@ -1,8 +1,10 @@
+import { useState } from "react";
 import {
   Archive,
   ArchiveRestore,
   CalendarClock,
   Check,
+  ChevronDown,
   Clock,
   Copy,
   MoreHorizontal,
@@ -46,6 +48,7 @@ export interface TaskRowActions {
   onPurge: () => void;
   onPriority: (p: TaskPriority) => void;
   onReschedule: (iso?: string) => void;
+  onToggleSubtask: (subId: string) => void;
 }
 
 export function TaskRow({
@@ -67,13 +70,14 @@ export function TaskRow({
 }) {
   const done = task.status === "completed";
   const pri = TASK_PRIORITY_META[task.priority];
-  const activity = task.activityId
-    ? store.activities.find((a) => a.id === task.activityId)
-    : null;
+  const activity = task.activityId ? store.activities.find((a) => a.id === task.activityId) : null;
   const goals = (task.goalIds ?? [])
     .map((gid) => store.goals.find((g) => g.id === gid))
     .filter(Boolean);
   const overdue = !!task.dueDate && !done && task.dueDate < todayISO();
+  const subtasks = task.subtasks ?? [];
+  const subDone = subtasks.filter((st) => st.done).length;
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <li
@@ -107,81 +111,121 @@ export function TaskRow({
               ? "bg-foreground border-foreground"
               : "border-muted-foreground/40 hover:border-foreground"
           }`}
-          style={!done ? { borderColor: `color-mix(in oklab, ${pri.color} 70%, transparent)` } : undefined}
+          style={
+            !done
+              ? { borderColor: `color-mix(in oklab, ${pri.color} 70%, transparent)` }
+              : undefined
+          }
         >
           {done && <Check className="h-4 w-4 text-background" />}
         </button>
       )}
 
-      <button
-        onClick={() => (selectMode ? onSelectChange?.(!selected) : actions.onEdit())}
-        className="flex-1 min-w-0 text-left"
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="inline-block h-2 w-2 rounded-full shrink-0"
-            style={{ background: taskColor(task, store) }}
-          />
-          <span
-            className={`text-sm truncate ${
-              done ? "line-through text-muted-foreground" : "font-medium"
-            }`}
-          >
-            {task.name}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1 flex-wrap">
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5"
-            style={{
-              background: `color-mix(in oklab, ${pri.color} 15%, transparent)`,
-              color: pri.color,
-            }}
-          >
-            {pri.label}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Clock className="h-3 w-3" /> {fmtMinutes(taskMinutes(task))}
-          </span>
-          {task.dueDate && (
-            <span className={overdue ? "text-destructive font-medium" : ""}>
-              {dateLabel(task.dueDate)}
-              {task.dueTime ? ` · ${task.dueTime}` : ""}
-            </span>
-          )}
-          {activity && (
-            <span className="inline-flex items-center gap-1">
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: activity.color }}
-              />
-              {activity.name}
-            </span>
-          )}
-          {goals.map((g) => (
+      <div className="flex-1 min-w-0">
+        <button
+          onClick={() => (selectMode ? onSelectChange?.(!selected) : actions.onEdit())}
+          className="w-full text-left"
+        >
+          <div className="flex items-center gap-2">
             <span
-              key={g!.id}
-              className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5"
+              className="inline-block h-2 w-2 rounded-full shrink-0"
+              style={{ background: taskColor(task, store) }}
+            />
+            <span
+              className={`text-sm truncate ${
+                done ? "line-through text-muted-foreground" : "font-medium"
+              }`}
+            >
+              {task.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1 flex-wrap">
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5"
               style={{
-                background: `color-mix(in oklab, ${g!.color} 15%, transparent)`,
-                borderColor: `color-mix(in oklab, ${g!.color} 40%, transparent)`,
+                background: `color-mix(in oklab, ${pri.color} 15%, transparent)`,
+                color: pri.color,
               }}
             >
-              {g!.icon ?? "🎯"} {g!.name}
+              {pri.label}
             </span>
-          ))}
-          {(task.tags ?? []).map((tag) => (
-            <span key={tag} className="rounded-full bg-muted px-1.5 py-0.5">
-              #{tag}
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" /> {fmtMinutes(taskMinutes(task))}
             </span>
-          ))}
-          {task.status === "in_progress" && (
-            <span className="rounded-full bg-muted px-1.5 py-0.5">
-              {TASK_STATUS_META.in_progress.label}
-            </span>
-          )}
-        </div>
-      </button>
+            {task.dueDate && (
+              <span className={overdue ? "text-destructive font-medium" : ""}>
+                {dateLabel(task.dueDate)}
+                {task.dueTime ? ` · ${task.dueTime}` : ""}
+              </span>
+            )}
+            {activity && (
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: activity.color }} />
+                {activity.name}
+              </span>
+            )}
+            {goals.map((g) => (
+              <span
+                key={g!.id}
+                className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5"
+                style={{
+                  background: `color-mix(in oklab, ${g!.color} 15%, transparent)`,
+                  borderColor: `color-mix(in oklab, ${g!.color} 40%, transparent)`,
+                }}
+              >
+                {g!.icon ?? "🎯"} {g!.name}
+              </span>
+            ))}
+            {(task.tags ?? []).map((tag) => (
+              <span key={tag} className="rounded-full bg-muted px-1.5 py-0.5">
+                #{tag}
+              </span>
+            ))}
+            {task.status === "in_progress" && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5">
+                {TASK_STATUS_META.in_progress.label}
+              </span>
+            )}
+          </div>
+        </button>
+        {subtasks.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="mt-1 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent tabular-nums"
+          >
+            <Check className="h-3 w-3" />
+            {subDone}/{subtasks.length}
+            <ChevronDown className={`h-3 w-3 transition ${expanded ? "rotate-180" : ""}`} />
+          </button>
+        )}
+        {expanded && subtasks.length > 0 && (
+          <ul className="mt-1.5 space-y-1">
+            {subtasks.map((st) => (
+              <li key={st.id}>
+                <button
+                  type="button"
+                  disabled={isTrash || selectMode}
+                  onClick={() => actions.onToggleSubtask(st.id)}
+                  className="flex w-full items-center gap-2 text-left text-xs py-0.5 disabled:cursor-default"
+                >
+                  <span
+                    className={`h-4 w-4 shrink-0 rounded border flex items-center justify-center transition ${
+                      st.done ? "bg-foreground border-foreground" : "border-muted-foreground/40"
+                    }`}
+                  >
+                    {st.done && <Check className="h-3 w-3 text-background" />}
+                  </span>
+                  <span className={st.done ? "line-through text-muted-foreground" : ""}>
+                    {st.name}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {!selectMode && (
         <DropdownMenu>
@@ -219,14 +263,10 @@ export function TaskRow({
                     <DropdownMenuItem onClick={() => actions.onReschedule(todayISO())}>
                       Hoy
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => actions.onReschedule(shiftISO(todayISO(), 1))}
-                    >
+                    <DropdownMenuItem onClick={() => actions.onReschedule(shiftISO(todayISO(), 1))}>
                       Mañana
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => actions.onReschedule(shiftISO(todayISO(), 7))}
-                    >
+                    <DropdownMenuItem onClick={() => actions.onReschedule(shiftISO(todayISO(), 7))}>
                       En una semana
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -237,10 +277,7 @@ export function TaskRow({
                 </DropdownMenuSub>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: pri.color }}
-                    />
+                    <span className="h-2 w-2 rounded-full" style={{ background: pri.color }} />
                     Prioridad
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
