@@ -1,5 +1,6 @@
 import {
   activityDays,
+  startTimeOn,
   completionMode,
   getWeekKey,
   type Activity,
@@ -177,7 +178,8 @@ export function planEvents(
   /* ---- 1 + 2 + 6. Activity events ---- */
   if (s.activities) {
     for (const a of acts) {
-      const start = atTime(now, a.startTime);
+      const startTime = startTimeOn(a, dayIndex(now));
+      const start = atTime(now, startTime);
       if (start == null) continue; // activities without a time never nag
 
       const done = completedToday(timers, a.id, key);
@@ -188,14 +190,14 @@ export function planEvents(
         const lead = a.reminderMinutes ?? s.defaultLead;
         if (lead > 0) {
           events.push({
-            key: `rem:${a.id}:${key}:${lead}:${a.startTime}`,
+            key: `rem:${a.id}:${key}:${lead}:${startTime}`,
             at: start - lead * MIN,
             graceMs: 10 * MIN,
             input: {
               kind: "activity",
               title: `${icon(a)} ${a.name} en ${lead >= 60 ? "1 hora" : `${lead} min`}`,
               tag: `rem:${a.id}:${key}`,
-              body: `Empieza a las ${a.startTime}. Tenés ${fmtHours(a.hoursPerDay)} programados.`,
+              body: `Empieza a las ${startTime}. Tenés ${fmtHours(a.hoursPerDay)} programados.`,
               color: a.color,
               activityId: a.id,
               link: "/",
@@ -206,7 +208,7 @@ export function planEvents(
         // "Es hora de…" fires at the exact start unless reminders are off (-1).
         if (lead >= 0)
           events.push({
-            key: `start:${a.id}:${key}:${a.startTime}`,
+            key: `start:${a.id}:${key}:${startTime}`,
             at: start,
             graceMs: 20 * MIN,
             input: {

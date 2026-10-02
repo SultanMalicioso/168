@@ -114,6 +114,12 @@ export function ActivityForm({
     initial ? completionMode(initial) : "timer",
   );
   const [startTime, setStartTime] = useState(initial?.startTime ?? "");
+  const [perDayTimes, setPerDayTimes] = useState(
+    () => Object.keys(initial?.dayStartTimes ?? {}).length > 0,
+  );
+  const [dayTimes, setDayTimes] = useState<Record<string, string>>(
+    () => initial?.dayStartTimes ?? {},
+  );
   const [reminderMinutes, setReminderMinutes] = useState<string>(
     initial?.reminderMinutes === undefined ? "default" : String(initial.reminderMinutes),
   );
@@ -142,6 +148,18 @@ export function ActivityForm({
         ? addWeeks(getWeekKey(), 1)
         : specificWeek || getWeekKey();
 
+  /* Only the selected days whose time differs from the general one are stored. */
+  const dayStartTimes = (() => {
+    if (!perDayTimes) return undefined;
+    const out: Record<string, string> = {};
+    for (const d of dayIndices) {
+      const t = dayTimes[String(d)];
+      if (t && t !== startTime) out[String(d)] = t;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  })();
+  const hasAnyTime = !!startTime || !!dayStartTimes;
+
   const buildDraft = (): Omit<Activity, "id"> => ({
     weekStart,
     name: name.trim(),
@@ -155,6 +173,7 @@ export function ActivityForm({
     goalIds: goalIds.length > 0 ? goalIds : undefined,
     completion,
     startTime: startTime || undefined,
+    dayStartTimes,
     reminderMinutes: reminderMinutes === "default" ? undefined : Number(reminderMinutes),
     tasks,
   });
@@ -166,6 +185,7 @@ export function ActivityForm({
           id: initial?.id ?? "__draft__",
           name: name.trim(),
           startTime: startTime || undefined,
+          dayStartTimes,
           hoursPerDay,
           dayIndices,
           daysPerWeek: dayIndices.length,
@@ -174,7 +194,19 @@ export function ActivityForm({
         },
         activities,
       ),
-    [initial?.id, name, startTime, hoursPerDay, dayIndices, permanent, weekStart, activities],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      initial?.id,
+      name,
+      startTime,
+      perDayTimes,
+      dayTimes,
+      hoursPerDay,
+      dayIndices,
+      permanent,
+      weekStart,
+      activities,
+    ],
   );
 
   const startMin = parseTime(startTime);
@@ -259,7 +291,7 @@ export function ActivityForm({
                 </Button>
               )}
             </div>
-            {!startTime && (
+            {!hasAnyTime && (
               <p className="text-[11px] text-muted-foreground">Sin horario: no envía avisos.</p>
             )}
             {startMin !== null && endMin !== null && hoursPerDay > 0 && (
@@ -274,7 +306,7 @@ export function ActivityForm({
             <Select
               value={reminderMinutes}
               onValueChange={setReminderMinutes}
-              disabled={!startTime}
+              disabled={!hasAnyTime}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -360,6 +392,39 @@ export function ActivityForm({
               );
             })}
           </div>
+          {dayIndices.length > 0 && (
+            <div className="rounded-xl border p-3 space-y-2">
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span>Horario distinto según el día</span>
+                <Switch checked={perDayTimes} onCheckedChange={setPerDayTimes} />
+              </label>
+              {perDayTimes && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {dayIndices.map((d) => (
+                    <div key={d} className="flex items-center gap-2">
+                      <Label htmlFor={`day-time-${d}`} className="w-10 shrink-0 text-xs">
+                        {DAY_SHORT[d]}
+                      </Label>
+                      <Input
+                        id={`day-time-${d}`}
+                        type="time"
+                        className="flex-1 min-w-0"
+                        value={dayTimes[String(d)] ?? ""}
+                        onChange={(e) =>
+                          setDayTimes((prev) => ({ ...prev, [String(d)]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  ))}
+                  <p className="sm:col-span-2 text-[11px] text-muted-foreground">
+                    {startTime
+                      ? `Los días sin hora usan el horario general (${startTime}).`
+                      : "Los días sin hora quedan sin horario."}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           <p className="text-[10px] text-muted-foreground">
             {daysPerWeek === 0
               ? "Elegí al menos un día"

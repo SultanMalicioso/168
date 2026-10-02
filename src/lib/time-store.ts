@@ -181,6 +181,8 @@ export interface Activity {
   completion?: CompletionMode;
   /** Optional daily start time (HH:mm). Drives notifications. */
   startTime?: string;
+  /** Per-day start times (key "0" = Monday … "6" = Sunday) overriding startTime. */
+  dayStartTimes?: Record<string, string>;
   /** Minutes of anticipation for the reminder. undefined = global default. */
   reminderMinutes?: number;
   /** Legacy inline tasks — still supported for backward compatibility. */
@@ -234,6 +236,12 @@ export function formatDuration(hours: number): string {
   if (m === 0) return `${h} h`;
   return `${h} h ${m} min`;
 }
+
+/** Start time of an activity on a given day (0 = Monday): its own or the general one. */
+export const startTimeOn = (
+  a: Pick<Activity, "startTime" | "dayStartTimes">,
+  day: number,
+): string | undefined => a.dayStartTimes?.[String(day)] || a.startTime || undefined;
 
 export function activityDays(a: Activity): Set<number> {
   const days = new Set<number>();

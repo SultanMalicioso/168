@@ -187,3 +187,28 @@ describe("weeks", () => {
     assert.equal(describeConflict(r[0]), "Viejo, el miércoles de 10:30 a 11:00");
   });
 });
+
+describe("per-day start times", () => {
+  it("each day uses its own time: gym Mon 16:30, Wed 18:00", () => {
+    const gym = act(undefined, 1, [MON, WED], {
+      name: "Gym",
+      dayStartTimes: { "0": "16:30", "2": "18:00" },
+    });
+    const r = conflicts(act("17:00", 2, [MON, WED]), [gym]);
+    assert.deepEqual(r.map(describeConflict), [
+      "Gym, el lunes de 17:00 a 17:30",
+      "Gym, el miércoles de 18:00 a 19:00",
+    ]);
+  });
+
+  it("days without their own time fall back to the general one", () => {
+    const a = act("10:00", 1, [MON, WED], { dayStartTimes: { "2": "18:00" }, name: "Mix" });
+    assert.equal(conflicts(act("10:30", 1, [MON]), [a]).length, 1);
+    assert.equal(conflicts(act("10:30", 1, [WED]), [a]).length, 0);
+  });
+
+  it("a day with its own time is schedulable even without a general time", () => {
+    const a = act(undefined, 1, [MON, WED], { dayStartTimes: { "0": "09:00" } });
+    assert.equal(conflicts(act("09:30", 1, [MON, WED]), [a]).length, 1);
+  });
+});

@@ -1,4 +1,4 @@
-import { activityDays, DAY_NAMES, type Activity } from "@/lib/time-store";
+import { activityDays, DAY_NAMES, startTimeOn, type Activity } from "@/lib/time-store";
 import { addWeeks, getWeekKey, weekKeyToDate } from "@/lib/week-utils";
 
 /* ------------------------------------------------------------------ *
@@ -14,6 +14,7 @@ export type SchedulableActivity = Pick<
   | "id"
   | "name"
   | "startTime"
+  | "dayStartTimes"
   | "hoursPerDay"
   | "dayIndices"
   | "daysPerWeek"
@@ -64,12 +65,13 @@ const weeksBetween = (from: string, to: string) =>
 
 /** Occupied intervals, in minutes from the anchor week's Monday 00:00. */
 function intervals(a: SchedulableActivity, weekOffsets: number[]): [number, number][] {
-  const start = parseTime(a.startTime);
   const duration = durationMinutes(a);
-  if (start === null || duration === 0) return [];
+  if (duration === 0) return [];
   const out: [number, number][] = [];
   for (const offset of weekOffsets) {
     for (const day of activityDays(a as Activity)) {
+      const start = parseTime(startTimeOn(a, day));
+      if (start === null) continue;
       const s = offset * WEEK + day * DAY + start;
       out.push([s, s + duration]);
     }

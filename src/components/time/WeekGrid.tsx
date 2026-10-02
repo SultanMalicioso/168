@@ -13,6 +13,7 @@ import {
   DAY_SHORT,
   type Activity,
   formatDuration,
+  startTimeOn,
 } from "@/lib/time-store";
 
 const DAYS = ["L", "M", "M", "J", "V", "S", "D"];
@@ -22,12 +23,14 @@ interface Props {
 }
 
 /** Activities by start time ("07:00" before "19:00"); untimed ones last, by name. */
-function byStartTime(a: Activity, b: Activity): number {
-  if (a.startTime && b.startTime) {
-    return a.startTime.localeCompare(b.startTime) || a.name.localeCompare(b.name);
+function byStartTime(a: Activity, b: Activity, day: number): number {
+  const ta = startTimeOn(a, day);
+  const tb = startTimeOn(b, day);
+  if (ta && tb) {
+    return ta.localeCompare(tb) || a.name.localeCompare(b.name);
   }
-  if (a.startTime) return -1;
-  if (b.startTime) return 1;
+  if (ta) return -1;
+  if (tb) return 1;
   return a.name.localeCompare(b.name);
 }
 
@@ -41,19 +44,21 @@ function shortDuration(hours: number): string {
 }
 
 /** "07:00 – 08:30" (end may roll past midnight). */
-function timeRange(a: Activity): string | null {
-  if (!a.startTime) return null;
-  const [h, m] = a.startTime.split(":").map(Number);
+function timeRange(a: Activity, day: number): string | null {
+  const start = startTimeOn(a, day);
+  if (!start) return null;
+  const [h, m] = start.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
   const end = h * 60 + m + Math.round(a.hoursPerDay * 60);
   const pad = (n: number) => String(n).padStart(2, "0");
   const endLabel = `${pad(Math.floor(end / 60) % 24)}:${pad(end % 60)}`;
-  return `${a.startTime} – ${endLabel}`;
+  return `${start} – ${endLabel}`;
 }
 
-const endsNextDay = (a: Activity) => {
-  if (!a.startTime) return false;
-  const [h, m] = a.startTime.split(":").map(Number);
+const endsNextDay = (a: Activity, day: number) => {
+  const start = startTimeOn(a, day);
+  if (!start) return false;
+  const [h, m] = start.split(":").map(Number);
   return h * 60 + m + Math.round(a.hoursPerDay * 60) >= 24 * 60;
 };
 
@@ -71,7 +76,7 @@ export function WeekGrid({ activities }: Props) {
     const days = activityDays(a);
     for (const d of days) perDay[d].push(a);
   }
-  for (const list of perDay) list.sort(byStartTime);
+  perDay.forEach((list, d) => list.sort((a, b) => byStartTime(a, b, d)));
 
   /** Day opened in the detail dialog (null = closed). */
   const [openDay, setOpenDay] = useState<number | null>(null);
@@ -266,7 +271,7 @@ function WeekDetail({
                 ) : (
                   <ul className="mt-2 space-y-1.5">
                     {list.map((a) => {
-                      const range = timeRange(a);
+                      const range = timeRange(a, d);
                       return (
                         <li key={a.id} className="flex items-center gap-2.5 text-sm">
                           <span
@@ -275,7 +280,7 @@ function WeekDetail({
                           />
                           <span className="w-[6.75rem] shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                             {range ?? "Sin horario"}
-                            {endsNextDay(a) && (
+                            {endsNextDay(a, d) && (
                               <sup className="ml-0.5 text-[9px]" title="Termina al día siguiente">
                                 +1
                               </sup>
