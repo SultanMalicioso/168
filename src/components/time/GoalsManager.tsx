@@ -132,7 +132,7 @@ export function GoalsManager({ goals, activities, onGoalsChange, onActivitiesCha
                       className="text-[10px] font-normal"
                       style={{
                         background: `color-mix(in oklab, ${color} 15%, transparent)`,
-                        color,
+                        color: `color-mix(in oklab, ${color} 55%, var(--foreground))`,
                       }}
                     >
                       {PROGRESS_LABEL[state]}
