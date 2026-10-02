@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarX, Copy, Pencil, Pin, Target, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarX, Clock, Copy, Pencil, Pin, Target, Trash2 } from "lucide-react";
 import {
   activityDays,
   CATEGORIES,
@@ -10,8 +10,15 @@ import {
   usesTimer,
   type Activity,
   type Goal,
-  formatDuration
+  formatDuration,
+  startTimeOn,
 } from "@/lib/time-store";
+import {
+  findScheduleConflicts,
+  formatTime,
+  parseTime,
+  type ScheduleConflict,
+} from "@/lib/schedule-conflicts";
 
 
 interface Props {
@@ -21,6 +28,8 @@ interface Props {
   onEdit?: (a: Activity) => void;
   onDuplicate?: (a: Activity) => void;
   onDelete?: (a: Activity) => void;
+  /** Change the start time of `a` on one weekday only (null = back to its usual time). */
+  onSetDayTime?: (a: Activity, day: number, time: string | null) => void;
 }
 
 function todayIndex() {
@@ -35,6 +44,7 @@ export function DayPlanner({
   onEdit,
   onDuplicate,
   onDelete,
+  onSetDayTime,
 }: Props) {
   const [day, setDay] = useState<number>(todayIndex());
 
@@ -49,6 +59,11 @@ export function DayPlanner({
 
   const dayActivities = useMemo(() => {
     return [...perDay[day]].sort((a, b) => {
+      const sa = startTimeOn(a, day);
+      const sb = startTimeOn(b, day);
+      if (sa && sb && sa !== sb) return sa.localeCompare(sb);
+      if (sa && !sb) return -1;
+      if (sb && !sa) return 1;
       const ta = firstDueTime(a, day);
       const tb = firstDueTime(b, day);
       if (ta && tb) return ta.localeCompare(tb);
@@ -82,6 +97,17 @@ export function DayPlanner({
   }, [dayActivities]);
 
   const isToday = day === todayIndex();
+
+  const conflictsOf = useMemo(() => {
+    const map = new Map<string, ScheduleConflict[]>();
+    for (const a of dayActivities) {
+      const list = findScheduleConflicts(a, activities).filter(
+        (c) => c.dayIndex === day && !c.weekKey,
+      );
+      if (list.length) map.set(a.id, list);
+    }
+    return map;
+  }, [dayActivities, activities, day]);
 
   return (
     <div className="space-y-4">
@@ -201,6 +227,9 @@ export function DayPlanner({
               <DayCard
                 key={a.id}
                 activity={a}
+                day={day}
+                conflicts={conflictsOf.get(a.id) ?? []}
+                onSetTime={onSetDayTime ? (t) => onSetDayTime(a, day, t) : undefined}
                 goals={goals}
                 onEdit={onEdit ? () => onEdit(a) : undefined}
                 onDuplicate={onDuplicate ? () => onDuplicate(a) : undefined}
@@ -235,12 +264,18 @@ function firstDueTime(a: Activity, _day: number): string | null {
 
 function DayCard({
   activity: a,
+  day,
+  conflicts,
+  onSetTime,
   goals,
   onEdit,
   onDuplicate,
   onDelete,
 }: {
   activity: Activity;
+  day: number;
+  conflicts: ScheduleConflict[];
+  onSetTime?: (time: string | null) => void;
   goals: Goal[];
   onEdit?: () => void;
   onDuplicate?: () => void;
@@ -248,6 +283,9 @@ function DayCard({
 }) {
   const tp = taskProgress(a);
   const cat = CATEGORIES.find((c) => c.id === a.category);
+  const time = startTimeOn(a, day) ?? "";
+  const start = parseTime(time);
+  const changedThisDay = !!a.dayStartTimes?.[String(day)] && a.dayStartTimes[String(day)] !== a.startTime;
   return (
     <li
       className="group rounded-2xl border bg-card p-3 shadow-[var(--shadow-soft)] transition hover:border-foreground/20"
@@ -302,6 +340,54 @@ function DayCard({
           </div>
         </div>
       </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+        {onSetTime ? (
+          <input
+            type="time"
+            aria-label={`Horario de ${a.name} los ${DAY_NAMES[day].toLowerCase()}`}
+            value={time}
+            onChange={(e) => e.target.value && onSetTime(e.target.value)}
+            className="h-7 rounded-md border bg-background px-2 tabular-nums"
+          />
+        ) : (
+          <span className="tabular-nums">{time || "Sin horario"}</span>
+        )}
+        {start !== null && (
+          <span className="text-muted-foreground tabular-nums">
+            a {formatTime(start + Math.round(a.hoursPerDay * 60))}
+          </span>
+        )}
+        {changedThisDay && (
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            · Solo los {DAY_NAMES[day].toLowerCase()}
+            {onSetTime && (
+              <button
+                type="button"
+                onClick={() => onSetTime(null)}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {a.startTime ? `Volver a ${a.startTime}` : "Quitar"}
+              </button>
+            )}
+          </span>
+        )}
+      </div>
+
+      {conflicts.length > 0 && (
+        <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs">
+          {conflicts.map((c) => (
+            <p key={`${c.activityId}-${c.startMin}`} className="flex items-start gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px text-amber-700 dark:text-amber-300" />
+              <span>
+                Se superpone con {c.activityName} de {formatTime(c.startMin)} a{" "}
+                {formatTime(c.endMin)}
+              </span>
+            </p>
+          ))}
+        </div>
+      )}
 
       {(onEdit || onDuplicate || onDelete) && (
         <div className="mt-2 flex items-center justify-end gap-1 -mr-1">

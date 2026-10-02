@@ -357,6 +357,18 @@ const realTotal = filtered.reduce(
     setOpen(false);
   };
 
+  /** Moves an activity on one weekday only; null restores its usual time. */
+  const setDayTime = (a: Activity, day: number, time: string | null) => {
+    const next = { ...(a.dayStartTimes ?? {}) };
+    if (time && time !== a.startTime) next[String(day)] = time;
+    else delete next[String(day)];
+    const dayStartTimes = Object.keys(next).length ? next : undefined;
+    setStore({
+      ...store,
+      activities: store.activities.map((x) => (x.id === a.id ? { ...x, dayStartTimes } : x)),
+    });
+  };
+
   const remove = (id: string) => {
     setStore({
       ...store,
@@ -768,6 +780,7 @@ const realTotal = filtered.reduce(
                 }}
                 onDuplicate={(a) => duplicate(a)}
                 onDelete={(a) => setDeleting(a)}
+                onSetDayTime={setDayTime}
               />
             </div>
           </div>
