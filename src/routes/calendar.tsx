@@ -31,13 +31,13 @@ export const Route = createFileRoute("/calendar")({
 
 function CalendarPage() {
   const { store } = useTimeStore();
-  const timers = useTimerStore();
+  const timers = useTimerStore({ tickMs: 15_000 });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <TimerBar activities={store.activities} />
 
-      <header className="border-b border-border/60 backdrop-blur-xl bg-background/85 sticky top-0 z-30">
+      <header className="border-b border-border/60 bg-background sticky top-0 z-30">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-2.5 flex items-center gap-2">
           <Link
             to="/"

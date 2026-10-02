@@ -130,7 +130,17 @@
   * {
     border-color: var(--color-border);
   }
+  html {
+    /* No rubber-band of the whole app (it drags the fixed bars around in
+       the iOS PWA); inner scroll areas keep their own momentum. */
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    /* Taps react instantly (no double-tap-to-zoom wait). */
+    touch-action: manipulation;
+  }
   body {
+    overscroll-behavior-y: none;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
@@ -156,4 +166,13 @@
 
 @utility animate-fade-in {
   animation: fade-in 180ms ease-out both;
+}
+
+/* Scrolling inside a dialog, sheet or list never drags the page behind it. */
+@layer base {
+  .overflow-y-auto,
+  .overflow-auto {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }

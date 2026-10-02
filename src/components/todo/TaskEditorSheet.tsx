@@ -453,7 +453,7 @@ function EditorForm({
         </div>
       </div>
 
-      <div className="border-t p-4 flex items-center gap-2 bg-background/95 backdrop-blur sticky bottom-0">
+      <div className="border-t p-4 flex items-center gap-2 bg-background/95 sticky bottom-0">
         {onDelete && (
           <Button variant="ghost" size="icon" onClick={onDelete} aria-label="Eliminar tarea">
             <Trash2 className="h-4 w-4 text-destructive" />

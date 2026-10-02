@@ -336,7 +336,12 @@ export function dayCompletion(
 
 /* ---------------- hook ---------------- */
 
-export function useTimerStore(opts?: { tickFor?: string | null }) {
+/**
+ * `tickMs`: how often `now` refreshes while a timer runs. Clocks need
+ * 250 ms; whole pages only need it for slowly growing totals, and
+ * re-rendering a page 4×/s makes scrolling stutter on phones.
+ */
+export function useTimerStore(opts?: { tickFor?: string | null; tickMs?: number }) {
   const [data, setData] = useState<TimerData>(() =>
     typeof window === "undefined" ? DEFAULT : load(),
   );
@@ -359,17 +364,18 @@ export function useTimerStore(opts?: { tickFor?: string | null }) {
   const running =
     data.active?.status === "running" &&
     (tickFor === undefined || tickFor === null || data.active.activityId === tickFor);
+  const tickMs = opts?.tickMs ?? 250;
   useEffect(() => {
     if (!running) return;
     setNow(Date.now());
-    const id = window.setInterval(() => setNow(Date.now()), 250);
+    const id = window.setInterval(() => setNow(Date.now()), tickMs);
     const onVis = () => setNow(Date.now());
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [running]);
+  }, [running, tickMs]);
 
   const update = useCallback((fn: (d: TimerData) => TimerData) => {
     commit(fn(memory));

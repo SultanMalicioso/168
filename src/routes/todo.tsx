@@ -404,7 +404,7 @@ function TodoPage() {
         }}
       />
 
-      <header className="border-b border-border/60 backdrop-blur-xl bg-background/85 sticky top-0 z-30">
+      <header className="border-b border-border/60 bg-background sticky top-0 z-30">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-2.5 flex items-center gap-2">
           <Link
             to="/"
@@ -735,7 +735,7 @@ function TodoPage() {
 
       {/* Bulk bar */}
       {selectMode && selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur px-3 py-2.5 animate-fade-in">
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 px-3 py-2.5 animate-fade-in">
           <div className="mx-auto max-w-[1400px] flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium">{selected.size} seleccionadas</span>
             <div className="ml-auto flex items-center gap-1.5 flex-wrap">

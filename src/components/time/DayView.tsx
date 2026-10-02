@@ -42,7 +42,7 @@ export function DayView({
 }: Props) {
   const today = ((new Date().getDay() + 6) % 7) as number;
   const [day, setDay] = useState<number>(today);
-  const timers = useTimerStore();
+  const timers = useTimerStore({ tickMs: 15_000 });
 
   // Selected day → yyyy-mm-dd inside the week being viewed, used to scope timer data.
   const dayKey = useMemo(() => {
