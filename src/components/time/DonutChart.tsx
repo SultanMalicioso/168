@@ -93,6 +93,10 @@ export function DonutChart({
   return (
     <div className="relative flex items-center justify-center">
       <svg
+        role="img"
+        aria-label={`Distribución de la semana: ${segments
+          .map((s) => `${s.name} ${s.hours.toFixed(1)} h`)
+          .join(", ")}`}
         viewBox={`0 0 ${size} ${size}`}
         className="w-full max-w-[520px] h-auto drop-shadow-[0_10px_40px_rgba(0,0,0,0.06)]"
       >

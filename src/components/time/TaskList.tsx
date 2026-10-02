@@ -97,7 +97,17 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
     const from = dragId.current;
     dragId.current = null;
     setOverId(null);
-    if (!from || from === id) return;
+    if (from) moveTo(from, id);
+  };
+  const onMoveKey = (id: string) => (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const idx = sorted.findIndex((t) => t.id === id);
+    const target = sorted[e.key === "ArrowUp" ? idx - 1 : idx + 1];
+    if (target) moveTo(id, target.id);
+  };
+  const moveTo = (from: string, id: string) => {
+    if (from === id) return;
     const arr = [...tasks];
     const fromIdx = arr.findIndex((t) => t.id === from);
     const toIdx = arr.findIndex((t) => t.id === id);
@@ -157,7 +167,8 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
                 <button
                   type="button"
                   className="cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground p-1"
-                  aria-label="Arrastrar"
+                  aria-label="Mover tarea (flechas arriba y abajo)"
+                  onKeyDown={onMoveKey(t.id)}
                 >
                   <GripVertical className="h-3.5 w-3.5" />
                 </button>

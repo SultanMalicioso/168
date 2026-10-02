@@ -1,3 +1,4 @@
+import { SiteFooter } from "@/components/legal/SiteFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, CheckSquare } from "lucide-react";
 import { CalendarModule } from "@/components/calendar/CalendarModule";
@@ -74,6 +75,7 @@ function CalendarPage() {
           now={timers.now}
         />
       </main>
+      <SiteFooter />
     </div>
   );
 }

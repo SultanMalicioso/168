@@ -18,7 +18,6 @@ interface SubscriptionInput {
   p256dh: string;
   auth: string;
   timeZone: string;
-  userAgent?: string;
 }
 
 const B64URL = /^[A-Za-z0-9_-]+$/;
@@ -28,7 +27,7 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 /** Rejects (never truncates) malformed or oversized input. */
 const validate = (input: unknown): SubscriptionInput => {
   if (!isObject(input)) throw new Error("Datos inválidos");
-  const { endpoint, p256dh, auth, timeZone, userAgent } = input;
+  const { endpoint, p256dh, auth, timeZone } = input;
 
   if (typeof endpoint !== "string" || endpoint.length > 1000) {
     throw new Error("Endpoint inválido");
@@ -65,13 +64,6 @@ const validate = (input: unknown): SubscriptionInput => {
     p256dh,
     auth,
     timeZone: tz,
-    userAgent:
-      typeof userAgent === "string"
-        ? Array.from(userAgent)
-            .filter((c) => c >= " " && c !== "\u007f")
-            .join("")
-            .slice(0, 300)
-        : undefined,
   };
 };
 
@@ -95,7 +87,7 @@ export const savePushSubscription = createServerFn({ method: "POST" })
         p256dh: data.p256dh,
         auth: data.auth,
         time_zone: data.timeZone,
-        user_agent: data.userAgent ?? null,
+        user_agent: null,
         enabled: true,
       },
       { onConflict: "endpoint" },

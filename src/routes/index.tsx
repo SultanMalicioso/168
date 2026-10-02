@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster } from "@/components/ui/sonner";
+import { SiteFooter } from "@/components/legal/SiteFooter";
 import { SyncBadge } from "@/components/sync/SyncBadge";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { toast } from "sonner";
@@ -977,9 +978,7 @@ const realTotal = filtered.reduce(
         </aside>
       </main>
 
-      <footer className="mx-auto max-w-[1400px] px-6 py-8 text-xs text-muted-foreground">
-        Los datos se guardan automáticamente en tu navegador.
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -220,7 +220,6 @@ export async function enableDevicePush(): Promise<PushState> {
       p256dh: keyOf(sub, "p256dh"),
       auth: keyOf(sub, "auth"),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      userAgent: navigator.userAgent,
     },
   });
 

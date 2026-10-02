@@ -109,6 +109,8 @@ let started = false;
 let bootstrapping = false;
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+/** Set while the account is being deleted: nothing may sync back up. */
+let deleting = false;
 
 let pushInFlight: Promise<void> | null = null;
 let pullInFlight: Promise<void> | null = null;
@@ -132,7 +134,7 @@ function setStatus(next: SyncStatus) {
  * --------------------------------------------------------- */
 
 async function pushDirty(): Promise<void> {
-  if (!currentUser || dirty.size === 0) return;
+  if (deleting || !currentUser || dirty.size === 0) return;
 
   if (pushInFlight) {
     return pushInFlight;
@@ -232,6 +234,7 @@ function schedulePush(key: string) {
 
 /** `quiet` skips the "syncing" badge for background checks. */
 async function pullFromCloud(quiet = false): Promise<void> {
+  if (deleting) return;
   if (!currentUser) return;
 
   if (pullInFlight) {
@@ -461,13 +464,36 @@ export function useCloudSync() {
     await pullFromCloud();
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    deleting = true;
+    if (pushTimer) clearTimeout(pushTimer);
+    dirty.clear();
+    try {
+      const { deleteAccount: deleteOnServer } = await import("@/lib/account.functions");
+      await deleteOnServer();
+    } catch (error) {
+      deleting = false;
+      throw error;
+    }
+    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    clearDeviceData();
+  }, []);
+
   return {
     user: currentUser,
     status,
     signOut,
+    deleteAccount,
     syncNow: refresh,
     refresh,
   };
+}
+
+/** Removes every piece of 168 data stored in this browser. */
+export function clearDeviceData() {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith("week168")) localStorage.removeItem(key);
+  }
 }
 
 /* -----------------------------------------------------------

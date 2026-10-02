@@ -42,6 +42,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Toaster } from "@/components/ui/sonner";
+import { SiteFooter } from "@/components/legal/SiteFooter";
 import { toast } from "sonner";
 import { TimerBar } from "@/components/time/TimerBar";
 import {
@@ -95,17 +96,17 @@ import { WeekStrip } from "@/components/todo/WeekStrip";
 export const Route = createFileRoute("/todo")({
   head: () => ({
     meta: [
-      { title: "To-Do · 168 · Gestión profesional de tareas" },
+      { title: "To-Do · 168 · Tus tareas" },
       {
         name: "description",
         content:
-          "Módulo To-Do integrado con actividades, objetivos y calendario: prioridades, duración estimada, filtros avanzados y sincronización con los círculos de 168h.",
+          "Tareas conectadas con tus actividades, objetivos y calendario: prioridades, duración estimada y filtros.",
       },
-      { property: "og:title", content: "To-Do · 168 · Gestión profesional de tareas" },
+      { property: "og:title", content: "To-Do · 168 · Tus tareas" },
       {
         property: "og:description",
         content:
-          "Sistema completo de tareas con prioridades, duración, drag & drop, papelera y estadísticas — totalmente integrado con las actividades.",
+          "Tareas con prioridades, duración estimada, papelera y estadísticas, conectadas con tus actividades.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -813,6 +814,7 @@ function TodoPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <SiteFooter />
     </div>
   );
 }
