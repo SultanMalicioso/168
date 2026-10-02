@@ -15,6 +15,8 @@ import {
   weekKeysEndingAt,
 } from "@/lib/time-stats";
 import { addWeeks, weekKeyToDate } from "@/lib/week-utils";
+import { usePlan } from "@/lib/use-plan";
+import { ProGate } from "@/components/plan/ProGate";
 
 interface Props {
   activities: Activity[];
@@ -41,6 +43,7 @@ const shortWeek = (key: string) =>
   weekKeyToDate(key).toLocaleDateString("es-AR", { day: "numeric", month: "numeric" });
 
 export function TimeInsights({ activities, timers, now, weekKey, category }: Props) {
+  const advanced = usePlan().can("stats.advanced");
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>(4);
   const [activityId, setActivityId] = useState<string>("all");
 
@@ -87,35 +90,40 @@ export function TimeInsights({ activities, timers, now, weekKey, category }: Pro
 
   return (
     <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)] space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2">
-          <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as 4 | 8 | 12)}>
-            <SelectTrigger className="h-8 w-[9.5rem] text-xs" aria-label="Período">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PERIODS.map((p) => (
-                <SelectItem key={p} value={String(p)}>
-                  Últimas {p} semanas
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={activeActivity} onValueChange={setActivityId}>
-            <SelectTrigger className="h-8 w-[10rem] text-xs" aria-label="Actividad">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las actividades</SelectItem>
-              {weekOptions.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {advanced && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Select
+              value={String(period)}
+              onValueChange={(v) => setPeriod(Number(v) as 4 | 8 | 12)}
+            >
+              <SelectTrigger className="h-8 w-[9.5rem] text-xs" aria-label="Período">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIODS.map((p) => (
+                  <SelectItem key={p} value={String(p)}>
+                    Últimas {p} semanas
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeActivity} onValueChange={setActivityId}>
+              <SelectTrigger className="h-8 w-[10rem] text-xs" aria-label="Actividad">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las actividades</SelectItem>
+                {weekOptions.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Weekly report */}
       <section aria-labelledby="ti-summary">
@@ -153,168 +161,180 @@ export function TimeInsights({ activities, timers, now, weekKey, category }: Pro
         </div>
       </section>
 
-      {/* Planned vs real by category */}
-      <section aria-labelledby="ti-categories">
-        <h3
-          id="ti-categories"
-          className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
-        >
-          Planificado vs real por categoría
-        </h3>
-        {week.categories.length === 0 ? (
-          <Empty>No hay actividades en esta semana.</Empty>
-        ) : (
-          <CompareTable
-            columns={["Plan", "Real", "Dif."]}
-            rows={week.categories.map((c) => ({
-              key: c.category,
-              label: c.label,
-              color: c.color,
-              values: [
-                formatDuration(c.planned),
-                formatDuration(c.real),
-                signed(c.real - c.planned),
-              ],
-              lastClass: diffClass(c.real - c.planned),
-            }))}
-          />
-        )}
-      </section>
-
-      {/* Real distribution */}
-      <section aria-labelledby="ti-dist">
-        <h3
-          id="ti-dist"
-          className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
-        >
-          Distribución del tiempo registrado
-        </h3>
-        {week.real <= 0 ? (
-          <Empty>Todavía no hay tiempo registrado en esta semana.</Empty>
-        ) : (
-          <div className="space-y-4">
-            <Bars
-              rows={week.categories
-                .filter((c) => c.real > 0)
-                .map((c) => ({ key: c.category, label: c.label, color: c.color, hours: c.real }))}
-              total={week.real}
-            />
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5">Por actividad</p>
-              <Bars
-                rows={week.activities
-                  .filter((a) => a.real > 0)
-                  .map((a) => ({ key: a.id, label: a.name, color: a.color, hours: a.real }))}
-                total={week.real}
-              />
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Week comparison */}
-      <section aria-labelledby="ti-compare">
-        <h3
-          id="ti-compare"
-          className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
-        >
-          Comparación con semanas anteriores
-        </h3>
-        {prev.real <= 0 && !average ? (
-          <Empty>Todavía no hay suficientes datos para comparar semanas.</Empty>
-        ) : (
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <Tile
-                label={`vs semana del ${shortWeek(addWeeks(weekKey, -1))}`}
-                value={prev.real > 0 ? signed(week.real - prev.real) : "Sin datos"}
-                sub={prev.real > 0 ? `antes ${formatDuration(prev.real)}` : undefined}
-                className={
-                  prev.real > 0 ? diffClass(week.real - prev.real) : "text-muted-foreground"
-                }
-              />
-              <Tile
-                label={average ? `vs promedio (${average.weeks} sem.)` : "vs promedio"}
-                value={average ? signed(week.real - average.real) : "Sin datos"}
-                sub={average ? `promedio ${formatDuration(average.real)}` : undefined}
-                className={average ? diffClass(week.real - average.real) : "text-muted-foreground"}
-              />
-            </div>
-            {compareRows.length > 0 && (
+      <ProGate feature="stats.advanced">
+        <div className="space-y-6">
+          {/* Planned vs real by category */}
+          <section aria-labelledby="ti-categories">
+            <h3
+              id="ti-categories"
+              className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
+            >
+              Planificado vs real por categoría
+            </h3>
+            {week.categories.length === 0 ? (
+              <Empty>No hay actividades en esta semana.</Empty>
+            ) : (
               <CompareTable
-                columns={["Esta", "Anterior", "Dif."]}
-                rows={compareRows.map((r) => ({
-                  key: r.id,
-                  label: r.label,
-                  color: r.color,
+                columns={["Plan", "Real", "Dif."]}
+                rows={week.categories.map((c) => ({
+                  key: c.category,
+                  label: c.label,
+                  color: c.color,
                   values: [
-                    formatDuration(r.now),
-                    prev.real > 0 ? formatDuration(r.before) : "—",
-                    prev.real > 0 ? signed(r.now - r.before) : "—",
+                    formatDuration(c.planned),
+                    formatDuration(c.real),
+                    signed(c.real - c.planned),
                   ],
-                  lastClass: prev.real > 0 ? diffClass(r.now - r.before) : "text-muted-foreground",
+                  lastClass: diffClass(c.real - c.planned),
                 }))}
               />
             )}
-          </div>
-        )}
-      </section>
+          </section>
 
-      {/* Evolution */}
-      <section aria-labelledby="ti-evolution">
-        <h3
-          id="ti-evolution"
-          className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
-        >
-          Evolución semanal
-        </h3>
-        {weeksWithData < 2 ? (
-          <Empty>
-            Todavía no hay suficientes semanas con tiempo registrado para ver la evolución.
-          </Empty>
-        ) : (
-          <div>
-            <div
-              className="flex items-end gap-1.5 h-40"
-              role="img"
-              aria-label="Horas planificadas y registradas por semana"
+          {/* Real distribution */}
+          <section aria-labelledby="ti-dist">
+            <h3
+              id="ti-dist"
+              className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
             >
-              {shown.map((w) => (
+              Distribución del tiempo registrado
+            </h3>
+            {week.real <= 0 ? (
+              <Empty>Todavía no hay tiempo registrado en esta semana.</Empty>
+            ) : (
+              <div className="space-y-4">
+                <Bars
+                  rows={week.categories
+                    .filter((c) => c.real > 0)
+                    .map((c) => ({
+                      key: c.category,
+                      label: c.label,
+                      color: c.color,
+                      hours: c.real,
+                    }))}
+                  total={week.real}
+                />
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">Por actividad</p>
+                  <Bars
+                    rows={week.activities
+                      .filter((a) => a.real > 0)
+                      .map((a) => ({ key: a.id, label: a.name, color: a.color, hours: a.real }))}
+                    total={week.real}
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Week comparison */}
+          <section aria-labelledby="ti-compare">
+            <h3
+              id="ti-compare"
+              className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
+            >
+              Comparación con semanas anteriores
+            </h3>
+            {prev.real <= 0 && !average ? (
+              <Empty>Todavía no hay suficientes datos para comparar semanas.</Empty>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Tile
+                    label={`vs semana del ${shortWeek(addWeeks(weekKey, -1))}`}
+                    value={prev.real > 0 ? signed(week.real - prev.real) : "Sin datos"}
+                    sub={prev.real > 0 ? `antes ${formatDuration(prev.real)}` : undefined}
+                    className={
+                      prev.real > 0 ? diffClass(week.real - prev.real) : "text-muted-foreground"
+                    }
+                  />
+                  <Tile
+                    label={average ? `vs promedio (${average.weeks} sem.)` : "vs promedio"}
+                    value={average ? signed(week.real - average.real) : "Sin datos"}
+                    sub={average ? `promedio ${formatDuration(average.real)}` : undefined}
+                    className={
+                      average ? diffClass(week.real - average.real) : "text-muted-foreground"
+                    }
+                  />
+                </div>
+                {compareRows.length > 0 && (
+                  <CompareTable
+                    columns={["Esta", "Anterior", "Dif."]}
+                    rows={compareRows.map((r) => ({
+                      key: r.id,
+                      label: r.label,
+                      color: r.color,
+                      values: [
+                        formatDuration(r.now),
+                        prev.real > 0 ? formatDuration(r.before) : "—",
+                        prev.real > 0 ? signed(r.now - r.before) : "—",
+                      ],
+                      lastClass:
+                        prev.real > 0 ? diffClass(r.now - r.before) : "text-muted-foreground",
+                    }))}
+                  />
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* Evolution */}
+          <section aria-labelledby="ti-evolution">
+            <h3
+              id="ti-evolution"
+              className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
+            >
+              Evolución semanal
+            </h3>
+            {weeksWithData < 2 ? (
+              <Empty>
+                Todavía no hay suficientes semanas con tiempo registrado para ver la evolución.
+              </Empty>
+            ) : (
+              <div>
                 <div
-                  key={w.weekKey}
-                  className="flex-1 min-w-0 flex flex-col items-center gap-1 h-full justify-end"
+                  className="flex items-end gap-1.5 h-40"
+                  role="img"
+                  aria-label="Horas planificadas y registradas por semana"
                 >
-                  <div className="relative w-full flex-1 flex items-end justify-center gap-0.5">
+                  {shown.map((w) => (
                     <div
-                      className="w-1/2 max-w-4 rounded-t bg-muted-foreground/25"
-                      style={{ height: `${(w.planned / maxBar) * 100}%` }}
-                      title={`Planificado: ${formatDuration(w.planned)}`}
-                    />
-                    <div
-                      className={`w-1/2 max-w-4 rounded-t ${w.weekKey === weekKey ? "bg-foreground" : "bg-foreground/60"}`}
-                      style={{ height: `${(w.real / maxBar) * 100}%` }}
-                      title={`Registrado: ${formatDuration(w.real)}`}
-                    />
-                  </div>
-                  <span
-                    className={`text-[9px] tabular-nums ${w.weekKey === weekKey ? "font-semibold text-foreground" : "text-muted-foreground"}`}
-                  >
-                    {shortWeek(w.weekKey)}
+                      key={w.weekKey}
+                      className="flex-1 min-w-0 flex flex-col items-center gap-1 h-full justify-end"
+                    >
+                      <div className="relative w-full flex-1 flex items-end justify-center gap-0.5">
+                        <div
+                          className="w-1/2 max-w-4 rounded-t bg-muted-foreground/25"
+                          style={{ height: `${(w.planned / maxBar) * 100}%` }}
+                          title={`Planificado: ${formatDuration(w.planned)}`}
+                        />
+                        <div
+                          className={`w-1/2 max-w-4 rounded-t ${w.weekKey === weekKey ? "bg-foreground" : "bg-foreground/60"}`}
+                          style={{ height: `${(w.real / maxBar) * 100}%` }}
+                          title={`Registrado: ${formatDuration(w.real)}`}
+                        />
+                      </div>
+                      <span
+                        className={`text-[9px] tabular-nums ${w.weekKey === weekKey ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                      >
+                        {shortWeek(w.weekKey)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex gap-4 text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-muted-foreground/25" /> Planificado
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-foreground" /> Registrado
                   </span>
                 </div>
-              ))}
-            </div>
-            <div className="mt-2 flex gap-4 text-[11px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-muted-foreground/25" /> Planificado
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-foreground" /> Registrado
-              </span>
-            </div>
-          </div>
-        )}
-      </section>
+              </div>
+            )}
+          </section>
+        </div>
+      </ProGate>
     </div>
   );
 }

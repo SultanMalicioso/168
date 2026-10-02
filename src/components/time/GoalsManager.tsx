@@ -20,6 +20,8 @@ import {
   weeklyHours,
 } from "@/lib/time-store";
 import { GoalForm } from "./GoalForm";
+import { ProLocked } from "@/components/plan/ProGate";
+import { usePlan } from "@/lib/use-plan";
 
 interface Props {
   goals: Goal[];
@@ -44,6 +46,8 @@ export function GoalsManager({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Goal | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const { can, loading } = usePlan();
+  const advanced = can("goals.advanced");
 
   const save = (g: Omit<Goal, "id" | "createdAt">) => {
     if (editing) {
@@ -200,28 +204,30 @@ export function GoalsManager({
                 )}
               </div>
 
-              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px]">
-                <MiniStat label="Planificado" value={formatDuration(planned)} />
-                <MiniStat label="Realizado" value={formatDuration(done)} />
-                <MiniStat
-                  label="Cumplimiento"
-                  value={g.targetHours > 0 ? `${Math.round(pct)} %` : "—"}
-                />
-                <MiniStat
-                  label="Restante"
-                  value={
-                    g.targetHours <= 0
-                      ? "—"
-                      : remaining > 0
-                        ? formatDuration(remaining)
-                        : "Objetivo cumplido"
-                  }
-                />
-                <MiniStat
-                  label="Diferencia"
-                  value={`${diff < 0 ? "-" : diff > 0 ? "+" : ""}${formatDuration(Math.abs(diff))}`}
-                />
-              </div>
+              {advanced && (
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px]">
+                  <MiniStat label="Planificado" value={formatDuration(planned)} />
+                  <MiniStat label="Realizado" value={formatDuration(done)} />
+                  <MiniStat
+                    label="Cumplimiento"
+                    value={g.targetHours > 0 ? `${Math.round(pct)} %` : "—"}
+                  />
+                  <MiniStat
+                    label="Restante"
+                    value={
+                      g.targetHours <= 0
+                        ? "—"
+                        : remaining > 0
+                          ? formatDuration(remaining)
+                          : "Objetivo cumplido"
+                    }
+                  />
+                  <MiniStat
+                    label="Diferencia"
+                    value={`${diff < 0 ? "-" : diff > 0 ? "+" : ""}${formatDuration(Math.abs(diff))}`}
+                  />
+                </div>
+              )}
 
               {isOpen && (
                 <div className="mt-3 space-y-2 border-t pt-3">
@@ -239,8 +245,10 @@ export function GoalsManager({
                             className="h-1.5 w-1.5 rounded-full"
                             style={{ background: a.color }}
                           />
-                          {a.name} · {formatDuration(realHours(a))} /{" "}
-                          {formatDuration(weeklyHours(a))}
+                          {a.name} ·{" "}
+                          {advanced
+                            ? `${formatDuration(realHours(a))} / ${formatDuration(weeklyHours(a))}`
+                            : formatDuration(weeklyHours(a))}
                         </span>
                       ))}
                     </div>
@@ -280,6 +288,8 @@ export function GoalsManager({
           );
         })}
       </div>
+
+      {goals.length > 0 && !loading && !advanced && <ProLocked feature="goals.advanced" compact />}
     </div>
   );
 }

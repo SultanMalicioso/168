@@ -110,6 +110,8 @@ function matchesCloud(key: string): boolean {
 }
 
 let currentUser: User | null = null;
+/** True once the stored session (if any) has been read. */
+let authChecked = false;
 let status: SyncStatus = "offline";
 
 let started = false;
@@ -410,6 +412,7 @@ export function startCloudSync() {
 
   void supabase.auth.getSession().then(({ data }) => {
     currentUser = data.session?.user ?? null;
+    authChecked = true;
 
     emit();
 
@@ -421,6 +424,7 @@ export function startCloudSync() {
   supabase.auth.onAuthStateChange((event, session) => {
     const nextUser = session?.user ?? null;
     const changed = nextUser?.id !== currentUser?.id;
+    authChecked = true;
 
     currentUser = nextUser;
 
@@ -547,6 +551,7 @@ export function useCloudSync() {
 
   return {
     user: currentUser,
+    authChecked,
     status,
     signOut,
     deleteAccount,

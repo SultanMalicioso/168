@@ -23,6 +23,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { clearDeviceData, STATUS_LABEL, SYNC_KEYS, useCloudSync } from "@/lib/cloud-sync";
 import { consentMetadata, LEGAL } from "@/lib/legal";
+import { PLAN_LABEL } from "@/lib/plan";
+import { usePlan } from "@/lib/use-plan";
+import { DevPlanSwitch } from "@/components/plan/DevPlanSwitch";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -143,6 +146,7 @@ function AuthPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Sesión iniciada como</p>
                 <p className="font-medium break-all">{user.email}</p>
+                <PlanLine />
               </div>
               <p className="text-sm text-muted-foreground">
                 Tus actividades, tareas, temporizadores e historial se guardan en la nube y aparecen
@@ -278,6 +282,8 @@ function AuthPage() {
             </div>
           )}
 
+          <DevPlanSwitch />
+
           <YourData signedIn={!!user} email={user?.email ?? null} onDeleteAccount={deleteAccount} />
         </div>
       </main>
@@ -388,5 +394,19 @@ function YourData({
         </AlertDialogContent>
       </AlertDialog>
     </section>
+  );
+}
+
+function PlanLine() {
+  const { plan, loading, simulated } = usePlan();
+  if (loading) return null;
+  return (
+    <p className="mt-1 text-sm text-muted-foreground">
+      Plan:{" "}
+      <span className="rounded-full bg-foreground px-2 py-0.5 text-[11px] font-medium text-background">
+        {PLAN_LABEL[plan]}
+      </span>
+      {simulated && <span className="ml-1.5 text-[11px]">(simulado)</span>}
+    </p>
   );
 }
