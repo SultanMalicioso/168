@@ -11,7 +11,14 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
   const link = (event.notification.data && event.notification.data.link) || "/";
-  const target = new URL(link, self.location.origin).href;
+  let url;
+  try {
+    url = new URL(link, self.location.origin);
+  } catch {
+    url = new URL("/", self.location.origin);
+  }
+  /* Notifications only ever open pages of this site. */
+  const target = url.origin === self.location.origin ? url.href : self.location.origin + "/";
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isAllowedPushEndpoint } from "@/lib/push-endpoint";
 
 /* Server functions backing device push registration. */
 
@@ -32,13 +33,7 @@ const validate = (input: unknown): SubscriptionInput => {
   if (typeof endpoint !== "string" || endpoint.length > 1000) {
     throw new Error("Endpoint inválido");
   }
-  let url: URL;
-  try {
-    url = new URL(endpoint);
-  } catch {
-    throw new Error("Endpoint inválido");
-  }
-  if (url.protocol !== "https:" || url.username || url.password) {
+  if (!isAllowedPushEndpoint(endpoint)) {
     throw new Error("Endpoint inválido");
   }
 
@@ -146,9 +141,10 @@ export const sendTestPush = createServerFn({ method: "POST" })
       .eq("enabled", true);
 
     if (subsError) {
+      console.error("[push-test] subscriptions read failed", subsError.message);
       return {
         sent: 0,
-        error: subsError.message,
+        error: "No pudimos leer tus dispositivos",
       };
     }
 
@@ -186,14 +182,12 @@ export const sendTestPush = createServerFn({ method: "POST" })
             .eq("user_id", context.userId);
           errors.push(`${res.status}: suscripción vencida, volvé a activar los avisos`);
         } else {
-          errors.push(
-            `${res.status ?? "error"}: ${res.body ?? "El proveedor rechazó la notificación"}`,
-          );
+          /* Never relay the remote response: only the status code. */
+          console.error(`[push-test] push service ${res.status}: ${res.body ?? ""}`);
+          errors.push(`${res.status ?? "error"}: el servicio de avisos rechazó la notificación`);
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-
-        errors.push(`EXCEPCIÓN PUSH: ${message}`);
+        errors.push("No pudimos contactar al servicio de avisos");
         console.error("[push-test] sendWebPush exception", error);
       }
     }

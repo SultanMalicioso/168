@@ -3,6 +3,7 @@
  * so it runs inside the edge runtime that serves this app.
  * ------------------------------------------------------------------ */
 
+import { isAllowedPushEndpoint } from "@/lib/push-endpoint";
 import {
   base64UrlToBytes,
   bytesToBase64Url,
@@ -154,6 +155,11 @@ export async function sendWebPush(
   vapid: VapidKeys,
   options: { ttl?: number; urgency?: "very-low" | "low" | "normal" | "high" } = {},
 ): Promise<PushSendResult> {
+  /* Only real push services: a stored endpoint must never reach other hosts. */
+  if (!isAllowedPushEndpoint(sub.endpoint)) {
+    return { ok: false, status: 400, expired: true, body: "endpoint not allowed" };
+  }
+
   const body = await encryptPayload(sub, enc(JSON.stringify(payload)));
   const audience = new URL(sub.endpoint).origin;
   const token = await vapidToken(audience, vapid);
@@ -168,13 +174,15 @@ export async function sendWebPush(
       Authorization: `vapid t=${token}, k=${vapid.publicKey}`,
     },
     body: body as unknown as BodyInit,
+    // Push services answer directly; a redirect could lead anywhere.
+    redirect: "manual",
   });
 
   return {
     ok: res.ok,
     status: res.status,
     expired: res.status === 404 || res.status === 410,
-    body: res.ok ? undefined : await res.text().catch(() => undefined),
+    body: res.ok ? undefined : (await res.text().catch(() => "")).slice(0, 300),
   };
 }
 

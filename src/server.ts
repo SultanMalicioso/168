@@ -45,36 +45,47 @@ function isH3SwallowedErrorBody(body: string): boolean {
 }
 
 /*
- * Security headers on every response. The enforced CSP only covers
- * directives that can't break the app (framing, plugins, <base>); the full
- * policy runs in report-only mode so a missed origin (OAuth, Supabase,
- * fonts) shows up in the console instead of breaking sign-in.
+ * Security headers on every response. On the Vercel deployment the full
+ * Content-Security-Policy is enforced: scripts, connections and frames are
+ * limited to this site, Supabase and the Lovable sign-in. Inline scripts stay
+ * allowed because the router streams its state in them. Elsewhere (the
+ * Lovable editor preview injects its own scripts) it only reports.
  */
 const FRAME_ANCESTORS =
   "frame-ancestors 'self' https://lovable.dev https://*.lovable.dev https://*.lovable.app";
 
+const FULL_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://lovable.dev https://*.lovable.dev https://*.lovable.app",
+  "frame-src 'self' https://*.lovable.dev https://*.lovable.app",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  FRAME_ANCESTORS,
+  "upgrade-insecure-requests",
+].join("; ");
+
+const ENFORCE_CSP = process.env["VERCEL"] === "1";
+
 const SECURITY_HEADERS: Record<string, string> = {
-  "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  "Permissions-Policy":
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), serial=(), hid=()",
   "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
-  "Content-Security-Policy": `${FRAME_ANCESTORS}; object-src 'none'; base-uri 'self'`,
-  "Content-Security-Policy-Report-Only": [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self' data:",
-    "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://lovable.dev https://*.lovable.dev https://*.lovable.app",
-    "frame-src 'self' https://*.lovable.dev https://*.lovable.app",
-    "worker-src 'self'",
-    "manifest-src 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    FRAME_ANCESTORS,
-  ].join("; "),
+  ...(ENFORCE_CSP
+    ? { "Content-Security-Policy": FULL_CSP, "X-Frame-Options": "SAMEORIGIN" }
+    : {
+        "Content-Security-Policy": `${FRAME_ANCESTORS}; object-src 'none'; base-uri 'self'`,
+        "Content-Security-Policy-Report-Only": FULL_CSP,
+      }),
 };
 
 function withSecurityHeaders(response: Response): Response {

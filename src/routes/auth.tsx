@@ -203,10 +203,17 @@ function AuthPage() {
                     type="password"
                     autoComplete={mode === "signin" ? "current-password" : "new-password"}
                     required
-                    minLength={6}
+                    minLength={mode === "signup" ? 8 : 6}
+                    maxLength={128}
+                    aria-describedby={mode === "signup" ? "password-hint" : undefined}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  {mode === "signup" && (
+                    <p id="password-hint" className="text-[11px] text-muted-foreground">
+                      Mínimo 8 caracteres. Evitá contraseñas que uses en otros sitios.
+                    </p>
+                  )}
                 </div>
                 {mode === "signup" && (
                   <div className="space-y-2.5 rounded-xl border p-3 text-sm">
