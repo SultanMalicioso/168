@@ -26,6 +26,42 @@ export const DAY_STATUS_META: Record<DayStatus, { label: string; dot: string; co
   incomplete: { label: "Incompleto", dot: "🔴", color: "oklch(0.63 0.21 25)" },
 };
 
+/* What the calendar shows for a day: a message and color by % completed. */
+export interface DayLook {
+  label: string;
+  dot: string;
+  color: string;
+}
+
+export const DAY_TIERS = {
+  zero: { label: "Día en blanco", dot: "🔴", color: "oklch(0.62 0.21 25)" },
+  low: { label: "Buen comienzo", dot: "🟠", color: "oklch(0.7 0.18 50)" },
+  high: { label: "¡Casi completo!", dot: "🟡", color: "oklch(0.82 0.16 90)" },
+  full: { label: "¡Día perfecto!", dot: "🟢", color: "oklch(0.64 0.17 155)" },
+} satisfies Record<string, DayLook>;
+
+const NEUTRAL: Record<"empty" | "upcoming" | "not_started", DayLook> = {
+  empty: { label: "Sin actividades", dot: "⚪", color: "oklch(0.9 0.005 250)" },
+  upcoming: { label: "Próximamente", dot: "⚪", color: "oklch(0.93 0.004 250)" },
+  not_started: { label: "Sin comenzar", dot: "⚪", color: "oklch(0.88 0.01 250)" },
+};
+
+/** 0% red, 1–49% orange, 50–99% yellow, 100% green. */
+export function tierFor(pct: number): DayLook {
+  if (pct >= 100) return DAY_TIERS.full;
+  if (pct >= 50) return DAY_TIERS.high;
+  if (pct > 0) return DAY_TIERS.low;
+  return DAY_TIERS.zero;
+}
+
+export function dayLook(d: DaySnapshot, now = Date.now()): DayLook {
+  if (d.status === "empty") return d.pct >= 100 ? DAY_TIERS.full : NEUTRAL.empty;
+  if (isFutureKey(d.dateKey, now)) return NEUTRAL.upcoming;
+  // Today still has time ahead: 0% is "not started" until the day is over.
+  if (!isPastKey(d.dateKey, now) && d.pct <= 0) return NEUTRAL.not_started;
+  return tierFor(d.pct);
+}
+
 export interface DayActivityRecord {
   id: string;
   name: string;
