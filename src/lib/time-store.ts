@@ -445,6 +445,12 @@ export function useTimeStore() {
     [],
   );
 
+  /* Expired completed/trashed tasks must go even if the app stays open untouched. */
+  useEffect(() => {
+    const id = window.setInterval(() => setStoreRolled((s) => s), 10 * 60_000);
+    return () => window.clearInterval(id);
+  }, [setStoreRolled]);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);

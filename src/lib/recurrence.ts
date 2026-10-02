@@ -54,6 +54,10 @@ function nextOccurrence(base: string, repeat: TaskRepeat, today: string): string
 }
 
 /** Creates the next occurrence of every completed repeating task (idempotent). */
+/** Completed tasks and trashed tasks are deleted for good after these delays. */
+export const COMPLETED_TTL_MS = 24 * 60 * 60_000;
+export const TRASH_TTL_MS = 12 * 60 * 60_000;
+
 export function rollRecurring(store: Store, now = new Date()): Store {
   const today = iso(now);
   const ids = new Set<string>();
@@ -96,9 +100,22 @@ export function rollRecurring(store: Store, now = new Date()): Store {
     return out;
   };
 
-  const tasks = roll(store.tasks ?? []);
+  const nowMs = now.getTime();
+  const expired = (t: Task) =>
+    (t.deletedAt != null && nowMs - t.deletedAt >= TRASH_TTL_MS) ||
+    (t.status === "completed" &&
+      !t.deletedAt &&
+      nowMs - (t.completedAt ?? t.updatedAt ?? t.createdAt) >= COMPLETED_TTL_MS);
+  const process = (list: Task[]) => {
+    const rolled = roll(list);
+    const kept = rolled.filter((t) => !expired(t));
+    if (kept.length !== rolled.length) changed = true;
+    return kept;
+  };
+
+  const tasks = process(store.tasks ?? []);
   const activities = (store.activities ?? []).map((a) =>
-    a.tasks?.length ? { ...a, tasks: roll(a.tasks) } : a,
+    a.tasks?.length ? { ...a, tasks: process(a.tasks) } : a,
   );
   return changed ? { ...store, tasks, activities } : store;
 }
