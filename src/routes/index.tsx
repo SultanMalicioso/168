@@ -449,6 +449,19 @@ const realTotal = filtered.reduce(
 </div>
       <Toaster position="top-center" />
       <TimerBar activities={store.activities} onCompleteTasks={completeTasks} />
+      <Button
+        aria-label="Nueva actividad"
+        onClick={() => {
+          setEditing(null);
+          setOpen(true);
+        }}
+        className={`lg:hidden fixed right-4 z-40 h-14 rounded-full px-5 shadow-lg transition-[bottom] ${
+          timers.data.active ? "bottom-36" : "bottom-5"
+        }`}
+        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <Plus className="h-5 w-5 mr-1" /> Nueva actividad
+      </Button>
 
       {/* Header */}
       <header className="border-b border-border/60 bg-background sticky top-0 z-30">
