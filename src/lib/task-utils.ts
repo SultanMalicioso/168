@@ -290,6 +290,8 @@ export function duplicateTask(store: Store, id: string): Store {
     deletedAt: undefined,
     createdAt: Date.now(),
     subtasks: src.subtasks?.map((st) => ({ ...st, id: uid(), done: false })),
+    seriesId: undefined,
+    repeatDone: undefined,
   };
   return createTask(store, copy);
 }

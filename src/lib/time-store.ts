@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type SetStateAction } from "react";
+import { rollRecurring } from "@/lib/recurrence";
 import {
   CLOUD_UPDATED_EVENT,
   LOCAL_DATA_CHANGED_EVENT,
@@ -98,6 +99,7 @@ export const CATEGORIES: { id: Category; label: string; color: string }[] = [
 ];
 
 export type TaskStatus = "pending" | "in_progress" | "completed";
+export type TaskRepeat = "daily" | "weekdays" | "weekly" | "monthly";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export interface Subtask {
@@ -133,6 +135,12 @@ export interface Task {
   archived?: boolean;
   /** Checklist of steps inside the task. */
   subtasks?: Subtask[];
+  /** Repeat rule: completing the task creates its next occurrence. */
+  repeat?: TaskRepeat;
+  /** Shared by every occurrence of a repeating task. */
+  seriesId?: string;
+  /** This occurrence already created the next one. */
+  repeatDone?: boolean;
   // Reserved for future: rrule, remindAt, attachments, comments
 }
 
@@ -406,7 +414,7 @@ function repairTaskIds(store: Store): Store {
 }
 
 function normalize(store: Store): Store {
-  return repairTaskIds({
+  return rollRecurring(repairTaskIds({
     ...store,
     selectedWeek:
       typeof store.selectedWeek === "string"
@@ -420,12 +428,20 @@ function normalize(store: Store): Store {
       tasks: Array.isArray(a.tasks) ? a.tasks : [],
     }))
   : [],
-  });
+  }));
 }
 
 export function useTimeStore() {
   const [store, setStore] = useState<Store>(defaultStore);
   const [hydrated, setHydrated] = useState(false);
+
+  /* Every change goes through rollRecurring, so completing a repeating
+     task anywhere in the app creates its next occurrence. */
+  const setStoreRolled = useCallback(
+    (update: SetStateAction<Store>) =>
+      setStore((s) => rollRecurring(typeof update === "function" ? update(s) : update)),
+    [],
+  );
 
   useEffect(() => {
     try {
@@ -558,7 +574,7 @@ const goToCurrentWeek = () => {
 
 return {
   store,
-  setStore,
+  setStore: setStoreRolled,
   hydrated,
   goToPreviousWeek,
   goToNextWeek,

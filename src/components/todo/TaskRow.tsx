@@ -9,8 +9,10 @@ import {
   Copy,
   MoreHorizontal,
   Pencil,
+  Repeat,
   Trash2,
 } from "lucide-react";
+import { repeatLabel } from "@/lib/recurrence";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -156,6 +158,11 @@ export function TaskRow({
               <span className={overdue ? "text-destructive font-medium" : ""}>
                 {dateLabel(task.dueDate)}
                 {task.dueTime ? ` · ${task.dueTime}` : ""}
+              </span>
+            )}
+            {task.repeat && (
+              <span className="inline-flex items-center gap-1" title={repeatLabel(task.repeat)}>
+                <Repeat className="h-3 w-3" /> {repeatLabel(task.repeat)}
               </span>
             )}
             {activity && (

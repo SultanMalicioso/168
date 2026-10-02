@@ -18,9 +18,11 @@ import {
   type Store,
   type Task,
   type TaskPriority,
+  type TaskRepeat,
   type TaskStatus,
   uid,
 } from "@/lib/time-store";
+import { REPEAT_OPTIONS } from "@/lib/recurrence";
 import { fmtMinutes, moveSubtask, shiftISO, statusFromSubtasks, todayISO } from "@/lib/task-utils";
 
 export function TaskEditorSheet({
@@ -296,6 +298,38 @@ function EditorForm({
             ))}
           </div>
           {errors.dueTime && <p className="text-[11px] text-destructive mt-1">{errors.dueTime}</p>}
+          <div className="mt-2">
+            <label className="text-[11px] text-muted-foreground">Repetir</label>
+            <Select
+              value={t.repeat ?? "none"}
+              onValueChange={(v) => {
+                const repeat = v === "none" ? undefined : (v as TaskRepeat);
+                setT((cur) => ({
+                  ...cur,
+                  repeat,
+                  // A new rule starts a fresh cycle; repeating needs a starting day.
+                  repeatDone: undefined,
+                  dueDate: repeat && !cur.dueDate ? todayISO() : cur.dueDate,
+                }));
+              }}
+            >
+              <SelectTrigger className="h-10 text-sm" aria-label="Repetir">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REPEAT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {t.repeat && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Al completarla se crea la próxima automáticamente.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
