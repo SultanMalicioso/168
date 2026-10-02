@@ -3,7 +3,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, Flame, Settings2, Sparkles } f
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  DAY_STATUS_META,
+  DAY_TIERS,
+  dayLook,
   computeStats,
   dayIndexOfKey,
   isFutureKey,
@@ -11,7 +12,6 @@ import {
   parseKey,
   useHistoryStore,
   type DaySnapshot,
-  type DayStatus,
 } from "@/lib/history-store";
 import { DAY_NAMES, DAY_SHORT, type Activity, type Goal, type Task } from "@/lib/time-store";
 import { dateKeyOf, weekStart, type TimerData } from "@/lib/timer-store";
@@ -41,16 +41,8 @@ const MONTHS = [
   "Diciembre",
 ];
 
-/** Heat color by completion percentage — shared by every view. */
-function heatColor(d: DaySnapshot): string {
-  if (d.status === "empty") return "oklch(0.9 0.005 250)";
-  if (isFutureKey(d.dateKey)) return "oklch(0.93 0.004 250)";
-  if (d.status === "completed" || d.pct >= 100) return "oklch(0.58 0.17 155)";
-  if (d.pct >= 80) return "oklch(0.72 0.15 155)";
-  if (d.pct >= 50) return "oklch(0.8 0.15 90)";
-  if (d.pct > 0) return "oklch(0.68 0.19 30)";
-  return "oklch(0.88 0.01 250)";
-}
+/** Color by completion percentage — shared by every view. */
+const heatColor = (d: DaySnapshot) => dayLook(d).color;
 
 export function CalendarModule({ activities, goals, tasks, timers, now }: Props) {
   const [view, setView] = useState<View>("week");
@@ -283,7 +275,7 @@ function WeekView({ days, onSelect }: { days: DaySnapshot[]; onSelect: (k: strin
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
       {days.map((d) => {
-        const meta = DAY_STATUS_META[d.status];
+        const meta = dayLook(d);
         return (
           <button
             key={d.dateKey}
@@ -352,7 +344,7 @@ function MonthView({
           <button
             key={d.dateKey}
             onClick={() => onSelect(d.dateKey)}
-            title={`${DAY_STATUS_META[d.status].label} · ${d.pct.toFixed(0)}%`}
+            title={`${dayLook(d).label} · ${d.pct.toFixed(0)}%`}
             className={`aspect-square rounded-xl border p-1 flex flex-col items-center justify-center transition hover:scale-[1.04] ${
               d.dateKey === todayKey ? "border-foreground" : "border-transparent"
             }`}
@@ -399,7 +391,7 @@ function YearView({ days, onSelect }: { days: DaySnapshot[]; onSelect: (k: strin
                 <button
                   key={d.dateKey}
                   onClick={() => onSelect(d.dateKey)}
-                  title={`${d.dateKey} · ${DAY_STATUS_META[d.status].label} · ${d.pct.toFixed(0)}%`}
+                  title={`${d.dateKey} · ${dayLook(d).label} · ${d.pct.toFixed(0)}%`}
                   className="h-[11px] w-[11px] rounded-[3px] transition hover:ring-2 hover:ring-foreground/40"
                   style={{ background: heatColor(d) }}
                 />
@@ -415,21 +407,18 @@ function YearView({ days, onSelect }: { days: DaySnapshot[]; onSelect: (k: strin
 }
 
 function Legend() {
-  const items: { status: DayStatus; label: string }[] = [
-    { status: "completed", label: "Completado" },
-    { status: "in_progress", label: "En progreso" },
-    { status: "incomplete", label: "Incompleto" },
-    { status: "empty", label: "Sin actividades" },
+  const items = [
+    { ...DAY_TIERS.full, range: "100%" },
+    { ...DAY_TIERS.high, range: "50–99%" },
+    { ...DAY_TIERS.low, range: "1–49%" },
+    { ...DAY_TIERS.zero, range: "0%" },
   ];
   return (
     <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
       {items.map((i) => (
-        <span key={i.status} className="inline-flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-2.5 rounded-[3px]"
-            style={{ background: DAY_STATUS_META[i.status].color }}
-          />
-          {i.label}
+        <span key={i.label} className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: i.color }} />
+          {i.label} <span className="tabular-nums opacity-70">{i.range}</span>
         </span>
       ))}
     </div>
@@ -441,7 +430,7 @@ function Legend() {
 function DayDetail({ day, onClose }: { day: DaySnapshot | null; onClose: () => void }) {
   if (!day) return null;
   const date = parseKey(day.dateKey);
-  const meta = DAY_STATUS_META[day.status];
+  const meta = dayLook(day);
   const pending = day.activities.filter((a) => !a.done);
   const done = day.activities.filter((a) => a.done);
 
