@@ -1,83 +1,105 @@
 import type { Activity } from "./time-store";
 import { weeklyHours } from "./time-store";
 
-export function exportCSV(activities: Activity[]) {
-  const header = "Nombre,Categoría,Horas/día,Días/semana,Horas semanales,Color\n";
-  const rows = activities
-    .map((a) =>
-      [a.name, a.category, a.hoursPerDay, a.daysPerWeek, weeklyHours(a), a.color]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(","),
-    )
-    .join("\n");
-  download("semana.csv", "text/csv", header + rows);
-}
-
-export async function exportPNG(svgEl: SVGSVGElement | null) {
-  if (!svgEl) return;
-  const xml = new XMLSerializer().serializeToString(svgEl);
-  const svg64 = btoa(unescape(encodeURIComponent(xml)));
-  const image64 = "data:image/svg+xml;base64," + svg64;
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  await new Promise((res, rej) => {
-    img.onload = res;
-    img.onerror = rej;
-    img.src = image64;
-  });
+/** Draws a shareable card of the week and opens the system share sheet (or downloads it). */
+export async function shareWeek(activities: Activity[]) {
+  const W = 1080;
+  const H = 1350;
   const canvas = document.createElement("canvas");
-  const size = 1200;
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = W;
+  canvas.height = H;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = getComputedStyle(document.body).backgroundColor;
-  ctx.fillRect(0, 0, size, size);
-  ctx.drawImage(img, 0, 0, size, size);
-  const url = canvas.toDataURL("image/png");
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "semana.png";
-  a.click();
-}
+  await document.fonts?.ready;
 
-export function exportPDF(activities: Activity[]) {
-  // Lightweight: open printable window
-  const total = activities.reduce((s, a) => s + weeklyHours(a), 0);
-  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Mi semana</title>
-    <style>
-      body{font-family:Inter,system-ui,sans-serif;padding:40px;color:#111}
-      h1{font-family:Georgia,serif;font-weight:400;font-size:32px;margin:0 0 8px}
-      .muted{color:#666}
-      table{width:100%;border-collapse:collapse;margin-top:24px}
-      th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #eee;font-size:14px}
-      th{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#888}
-      .chip{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;vertical-align:middle}
-    </style></head><body>
-    <h1>Mi semana en 168 horas</h1>
-    <div class="muted">${total.toFixed(1)}h ocupadas · ${(168 - total).toFixed(1)}h libres</div>
-    <table><thead><tr><th>Actividad</th><th>Categoría</th><th>h/día</th><th>días</th><th>h/sem</th></tr></thead>
-    <tbody>${activities
-      .map(
-        (a) =>
-          `<tr><td><span class="chip" style="background:${a.color}"></span>${a.name}</td>
-          <td>${a.category}</td><td>${a.hoursPerDay}</td><td>${a.daysPerWeek}</td><td>${weeklyHours(a).toFixed(1)}</td></tr>`,
-      )
-      .join("")}</tbody></table>
-    <script>window.onload=()=>window.print()</script>
-    </body></html>`;
-  const w = window.open("", "_blank");
-  if (w) {
-    w.document.write(html);
-    w.document.close();
+  const probe = document.createElement("span");
+  document.body.appendChild(probe);
+  const resolve = (c: string) => {
+    probe.style.color = c;
+    return getComputedStyle(probe).color;
+  };
+  const items = activities
+    .map((a) => ({ name: a.name, color: resolve(a.color), h: weeklyHours(a) }))
+    .filter((a) => a.h > 0)
+    .sort((x, y) => y.h - x.h);
+  probe.remove();
+  const used = items.reduce((t, a) => t + a.h, 0);
+  const free = Math.max(0, 168 - used);
+
+  ctx.fillStyle = "#faf9f7";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#111";
+  ctx.font = "400 72px 'Instrument Serif', Georgia, serif";
+  ctx.fillText("Mi semana en 168 horas", 80, 150);
+  ctx.fillStyle = "#666";
+  ctx.font = "500 34px Inter, system-ui, sans-serif";
+  ctx.fillText(`${used.toFixed(1)}h planificadas · ${free.toFixed(1)}h libres`, 80, 210);
+
+  const cx = W / 2;
+  const cy = 560;
+  const r = 250;
+  ctx.lineWidth = 90;
+  let start = -Math.PI / 2;
+  for (const seg of [...items, { name: "", color: "#e7e5e1", h: free }]) {
+    if (seg.h <= 0) continue;
+    const end = start + (Math.min(seg.h, 168) / 168) * Math.PI * 2;
+    ctx.strokeStyle = seg.color;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, start, end);
+    ctx.stroke();
+    start = end;
   }
-}
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#111";
+  ctx.font = "400 120px 'Instrument Serif', Georgia, serif";
+  ctx.fillText(`${Math.round((used / 168) * 100)}%`, cx, cy + 30);
+  ctx.fillStyle = "#666";
+  ctx.font = "500 28px Inter, system-ui, sans-serif";
+  ctx.fillText("de la semana", cx, cy + 80);
+  ctx.textAlign = "left";
 
-function download(name: string, type: string, content: string) {
-  const blob = new Blob([content], { type });
+  const shown = items.slice(0, 6);
+  shown.forEach((a, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = 80 + col * 470;
+    const y = 960 + row * 80;
+    ctx.fillStyle = a.color;
+    ctx.beginPath();
+    ctx.arc(x + 14, y - 12, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#111";
+    ctx.font = "600 32px Inter, system-ui, sans-serif";
+    const label = a.name.length > 14 ? a.name.slice(0, 13) + "…" : a.name;
+    ctx.fillText(label, x + 44, y);
+    ctx.fillStyle = "#666";
+    ctx.font = "500 32px Inter, system-ui, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(`${a.h.toFixed(1)}h`, x + 420, y);
+    ctx.textAlign = "left";
+  });
+
+  ctx.fillStyle = "#999";
+  ctx.font = "500 26px Inter, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("168-theta.vercel.app", cx, H - 70);
+
+  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
+  if (!blob) return;
+  const file = new File([blob], "mi-semana-168.png", { type: "image/png" });
+
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: "Mi semana en 168 horas" });
+      return;
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = name;
+  a.download = file.name;
   a.click();
   URL.revokeObjectURL(url);
 }

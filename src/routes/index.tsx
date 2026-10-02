@@ -1,23 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import {
   Copy,
-  Download,
-  FileImage,
-  FileText,
   LayoutGrid,
   Moon,
   Pencil,
   Pin,
   PinOff,
   Plus,
+  Share2,
   RotateCcw,
   Sun,
   CheckSquare,
   ListChecks,
   Layers,
-  Table2,
   Target,
   Timer,
   Trash2,
@@ -42,12 +39,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster } from "@/components/ui/sonner";
 import { SyncBadge } from "@/components/sync/SyncBadge";
@@ -92,7 +83,7 @@ import {
   type TimerData,
 } from "@/lib/timer-store";
 
-import { exportCSV, exportPDF, exportPNG } from "@/lib/time-export";
+import { shareWeek } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -131,7 +122,6 @@ function Index() {
   const [deleting, setDeleting] = useState<Activity | null>(null);
   const [filter, setFilter] = useState<Category | "all">("all");
   const [scope, setScope] = useState<"week" | "day">("week");
-  const chartRef = useRef<HTMLDivElement>(null);
 
 
 
@@ -504,29 +494,15 @@ const realTotal = filtered.reduce(
 
             
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" aria-label="Exportar">
-                    <Download className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Exportar</span>
-                  </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportPDF(store.activities)}>
-                  <FileText className="h-4 w-4 mr-2" /> PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    exportPNG(chartRef.current?.querySelector("svg") as SVGSVGElement | null)
-                  }
-                >
-                  <FileImage className="h-4 w-4 mr-2" /> PNG
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportCSV(store.activities)}>
-                  <Table2 className="h-4 w-4 mr-2" /> CSV
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Compartir mi semana"
+              onClick={() => void shareWeek(store.activities)}
+            >
+              <Share2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Compartir</span>
+            </Button>
 
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Cambiar tema">
               {store.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -641,7 +617,7 @@ const realTotal = filtered.reduce(
                 ))}
               </div>
             </div>
-            <div ref={chartRef}>
+            <div>
               <DonutChart
                 activities={chartActivities}
                 subSegments={chartView === "combined" ? subSegments : undefined}
