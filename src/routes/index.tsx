@@ -820,6 +820,7 @@ const realTotal = filtered.reduce(
                   </DialogHeader>
                   <ActivityForm
                     initial={editing ?? undefined}
+                    activities={store.activities}
                     defaultColor={nextColor(store.activities)}
                     goals={store.goals}
                     onCreateGoal={createGoal}

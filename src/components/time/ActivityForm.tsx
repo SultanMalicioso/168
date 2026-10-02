@@ -1,11 +1,21 @@
-import { useEffect, useState } from "react";
-import { Check, Pin, Plus, Target } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Check, Pin, Plus, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -27,6 +37,12 @@ import {
   type Task,
 } from "@/lib/time-store";
 import { LEAD_OPTIONS, leadLabel } from "@/lib/notify-store";
+import {
+  describeConflict,
+  findScheduleConflicts,
+  formatTime,
+  parseTime,
+} from "@/lib/schedule-conflicts";
 import { GoalForm } from "./GoalForm";
 
 type DurationUnit = "min" | "h";
@@ -45,6 +61,8 @@ const PALETTE = [
 
 interface Props {
   initial?: Activity;
+  /** Saved activities, to warn about schedule overlaps. */
+  activities: Activity[];
   defaultColor: string;
   goals: Goal[];
   onCreateGoal: (g: Omit<Goal, "id" | "createdAt">) => Goal;
@@ -54,6 +72,7 @@ interface Props {
 
 export function ActivityForm({
   initial,
+  activities,
   defaultColor,
   goals,
   onCreateGoal,
@@ -99,6 +118,8 @@ export function ActivityForm({
     initial?.reminderMinutes === undefined ? "default" : String(initial.reminderMinutes),
   );
   const [showGoalForm, setShowGoalForm] = useState(false);
+  const [confirmConflicts, setConfirmConflicts] = useState(false);
+  const startTimeRef = useRef<HTMLInputElement>(null);
 
   const daysPerWeek = dayIndices.length;
   const toggleDay = (d: number) =>
@@ -114,6 +135,53 @@ export function ActivityForm({
   const toggleGoal = (id: string) =>
     setGoalIds((prev) => (prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]));
 
+  const weekStart =
+    weekOption === "current"
+      ? getWeekKey()
+      : weekOption === "next"
+        ? addWeeks(getWeekKey(), 1)
+        : specificWeek || getWeekKey();
+
+  const buildDraft = (): Omit<Activity, "id"> => ({
+    weekStart,
+    name: name.trim(),
+    hoursPerDay,
+    daysPerWeek,
+    dayIndices: dayIndices.length > 0 ? [...dayIndices].sort((a, b) => a - b) : undefined,
+    color,
+    category,
+    permanent,
+    notes: notes.trim() || undefined,
+    goalIds: goalIds.length > 0 ? goalIds : undefined,
+    completion,
+    startTime: startTime || undefined,
+    reminderMinutes: reminderMinutes === "default" ? undefined : Number(reminderMinutes),
+    tasks,
+  });
+
+  const conflicts = useMemo(
+    () =>
+      findScheduleConflicts(
+        {
+          id: initial?.id ?? "__draft__",
+          name: name.trim(),
+          startTime: startTime || undefined,
+          hoursPerDay,
+          dayIndices,
+          daysPerWeek: dayIndices.length,
+          permanent,
+          weekStart,
+        },
+        activities,
+      ),
+    [initial?.id, name, startTime, hoursPerDay, dayIndices, permanent, weekStart, activities],
+  );
+
+  const startMin = parseTime(startTime);
+  const endMin = startMin === null ? null : startMin + Math.round(hoursPerDay * 60);
+
+  const save = () => onSubmit(buildDraft());
+
   return (
     <>
       <form
@@ -121,27 +189,11 @@ export function ActivityForm({
           e.preventDefault();
 
           if (!name.trim()) return;
-          onSubmit({
-            weekStart:
-              weekOption === "current"
-                ? getWeekKey()
-                : weekOption === "next"
-                  ? addWeeks(getWeekKey(), 1)
-                  : specificWeek || getWeekKey(),
-            name: name.trim(),
-            hoursPerDay,
-            daysPerWeek,
-            dayIndices: dayIndices.length > 0 ? [...dayIndices].sort((a, b) => a - b) : undefined,
-            color,
-            category,
-            permanent,
-            notes: notes.trim() || undefined,
-            goalIds: goalIds.length > 0 ? goalIds : undefined,
-            completion,
-            startTime: startTime || undefined,
-            reminderMinutes: reminderMinutes === "default" ? undefined : Number(reminderMinutes),
-            tasks,
-          });
+          if (conflicts.length > 0) {
+            setConfirmConflicts(true);
+            return;
+          }
+          save();
         }}
 
         className="space-y-4"
@@ -189,6 +241,7 @@ export function ActivityForm({
             <Label htmlFor="start-time">Horario (opcional)</Label>
             <div className="flex gap-2">
               <Input
+                ref={startTimeRef}
                 id="start-time"
                 type="time"
                 className="flex-1 min-w-0"
@@ -208,6 +261,12 @@ export function ActivityForm({
             </div>
             {!startTime && (
               <p className="text-[11px] text-muted-foreground">Sin horario: no envía avisos.</p>
+            )}
+            {startMin !== null && endMin !== null && hoursPerDay > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                De {startTime} a {formatTime(endMin)}
+                {endMin > 24 * 60 ? " del día siguiente" : ""}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -230,6 +289,27 @@ export function ActivityForm({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div aria-live="polite">
+          {conflicts.length > 0 && (
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+            >
+              <p className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Conflicto de horario
+              </p>
+              <ul className="mt-1.5 space-y-1 text-foreground">
+                {conflicts.map((c) => (
+                  <li key={`${c.activityId}-${c.weekKey}-${c.dayIndex}-${c.startMin}`}>
+                    Esta actividad se superpone con {describeConflict(c)}.
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -493,6 +573,48 @@ export function ActivityForm({
           <Button type="submit">{initial ? "Guardar" : "Agregar"}</Button>
         </div>
       </form>
+
+      <AlertDialog open={confirmConflicts} onOpenChange={setConfirmConflicts}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conflicto de horario</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  {conflicts.length === 1
+                    ? "Esta actividad se superpone con otra:"
+                    : `Esta actividad se superpone con ${conflicts.length} horarios:`}
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-foreground">
+                  {conflicts.map((c) => (
+                    <li key={`${c.activityId}-${c.weekKey}-${c.dayIndex}-${c.startMin}`}>
+                      {describeConflict(c)}
+                    </li>
+                  ))}
+                </ul>
+                <p>Podés corregir el horario o guardarla igual.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setTimeout(() => startTimeRef.current?.focus(), 0);
+              }}
+            >
+              Revisar horario
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmConflicts(false);
+                save();
+              }}
+            >
+              Guardar igual
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={showGoalForm} onOpenChange={setShowGoalForm}>
         <DialogContent>
