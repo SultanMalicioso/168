@@ -259,11 +259,28 @@ export const DAY_NAMES = [
 ];
 export const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-export const goalProgress = (goal: Goal, activities: Activity[]) => {
+/**
+ * A goal's progress over one week: `activities` are that week's activities and
+ * `realHours` gives the hours actually done in that week (timer or manual check).
+ */
+export const goalProgress = (
+  goal: Goal,
+  activities: Activity[],
+  realHours: (a: Activity) => number,
+) => {
   const linked = activities.filter((a) => a.goalIds?.includes(goal.id));
-  const hours = linked.reduce((s, a) => s + weeklyHours(a), 0);
-  const pct = goal.targetHours > 0 ? (hours / goal.targetHours) * 100 : 0;
-  return { hours, linked, pct, remaining: Math.max(0, goal.targetHours - hours) };
+  const planned = linked.reduce((s, a) => s + weeklyHours(a), 0);
+  const done = linked.reduce((s, a) => s + realHours(a), 0);
+  const pct = goal.targetHours > 0 ? (done / goal.targetHours) * 100 : 0;
+  return {
+    linked,
+    planned,
+    done,
+    pct,
+    remaining: Math.max(0, goal.targetHours - done),
+    /** Done minus planned: negative when behind the plan. */
+    diff: done - planned,
+  };
 };
 
 export type ProgressState = "exceeded" | "completed" | "near" | "behind" | "empty";

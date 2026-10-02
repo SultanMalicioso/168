@@ -972,6 +972,8 @@ const realTotal = filtered.reduce(
             <GoalsManager
               goals={store.goals}
               activities={store.activities}
+              weekActivities={weekActivities}
+              realHours={(a) => realHoursForWeek(timers.data, a, weekRef)}
               onGoalsChange={(goals) => setStore({ ...store, goals })}
               onActivitiesChange={(activities) => setStore({ ...store, activities })}
             />
