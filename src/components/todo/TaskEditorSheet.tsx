@@ -132,7 +132,6 @@ function EditorForm({
         <div>
           <label className="text-xs text-muted-foreground">Nombre</label>
           <Input
-            autoFocus
             value={t.name}
             onChange={(e) => set("name", e.target.value)}
             placeholder="Estudiar Biología…"

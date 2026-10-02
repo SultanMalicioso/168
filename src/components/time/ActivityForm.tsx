@@ -153,7 +153,6 @@ export function ActivityForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Dormir, Trabajo, Gimnasio…"
-            autoFocus
           />
         </div>
 

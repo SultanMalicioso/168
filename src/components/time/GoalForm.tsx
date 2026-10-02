@@ -55,7 +55,6 @@ export function GoalForm({ initial, existing, onCancel, onSubmit }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Salud, Estudio, Trabajo…"
-          autoFocus
         />
       </div>
 
