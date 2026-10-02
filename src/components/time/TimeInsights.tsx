@@ -87,15 +87,7 @@ export function TimeInsights({ activities, timers, now, weekKey, category }: Pro
 
   return (
     <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)] space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg">Análisis del tiempo</h2>
-          <p className="text-xs text-muted-foreground">
-            Semana del {shortWeek(weekKey)}
-            {category !== "all" &&
-              ` · ${CATEGORIES.find((c) => c.id === category)?.label ?? category}`}
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-2">
           <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as 4 | 8 | 12)}>
             <SelectTrigger className="h-8 w-[9.5rem] text-xs" aria-label="Período">

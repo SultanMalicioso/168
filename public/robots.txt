@@ -4,5 +4,6 @@ Disallow: /api/
 Disallow: /auth
 Disallow: /todo
 Disallow: /calendar
+Disallow: /estadisticas
 
 Sitemap: https://168-theta.vercel.app/sitemap.xml

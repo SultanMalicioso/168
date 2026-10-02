@@ -9,7 +9,6 @@ import {
   Pin,
   PinOff,
   Plus,
-  Share2,
   RotateCcw,
   Sun,
   CheckSquare,
@@ -50,10 +49,9 @@ import { ActivityForm } from "@/components/time/ActivityForm";
 import { WeekGrid } from "@/components/time/WeekGrid";
 import { GoalsManager } from "@/components/time/GoalsManager";
 import { activitiesInWeek } from "@/lib/time-stats";
-import { TimeInsights } from "@/components/time/TimeInsights";
 import { DayPlanner } from "@/components/time/DayPlanner";
 import { DayView } from "@/components/time/DayView";
-import { Calendar, CalendarDays } from "lucide-react";
+import { BarChart3, Calendar, CalendarDays } from "lucide-react";
 
 import {
   CATEGORIES,
@@ -86,7 +84,6 @@ import {
   type TimerData,
 } from "@/lib/timer-store";
 
-import { shareWeek } from "@/lib/time-export";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -495,15 +492,14 @@ const realTotal = filtered.reduce(
 
             
 
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="Compartir mi semana"
-              onClick={() => void shareWeek(store.activities)}
+            <Link
+              to="/estadisticas"
+              aria-label="Análisis del tiempo"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm border hover:bg-accent transition"
             >
-              <Share2 className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Compartir</span>
-            </Button>
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Análisis</span>
+            </Link>
 
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Cambiar tema">
               {store.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -699,14 +695,6 @@ const realTotal = filtered.reduce(
               />
             </div>
           </div>
-
-          <TimeInsights
-            activities={store.activities}
-            timers={timers.data}
-            now={timers.now}
-            weekKey={store.selectedWeek || getWeekKey()}
-            category={filter}
-          />
 
           {/* Task stats */}
           <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
