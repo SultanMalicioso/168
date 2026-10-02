@@ -6,6 +6,7 @@ import {
   type Goal,
   type Task,
 } from "@/lib/time-store";
+import { getWeekKey } from "@/lib/week-utils";
 import { dateKeyOf, isCompletedToday, realHoursForDay, type TimerData } from "@/lib/timer-store";
 
 /* ------------------------------------------------------------------ *
@@ -126,6 +127,35 @@ export function keysBetween(from: Date, to: Date): string[] {
   return out;
 }
 export const isPastKey = (k: string, now = Date.now()) => k < dateKeyOf(new Date(now));
+
+/** Whether an activity was on the schedule for `dateKey`. */
+function scheduledOn(a: Activity, dateKey: string): boolean {
+  const date = parseKey(dateKey);
+  if (!activityDays(a).has(dayIndexOfKey(dateKey))) return false;
+  if (!a.permanent && a.weekStart && a.weekStart !== getWeekKey(date)) return false;
+  if (a.createdAt && a.createdAt >= date.getTime() + 86_400_000) return false;
+  return true;
+}
+
+/** A finished activity counts its planned time even if the timer wasn't used. */
+const creditedHours = (real: number, planned: number, done: boolean) =>
+  done ? Math.max(real, planned) : real;
+
+function goalsFor(
+  records: DayActivityRecord[],
+  activities: Activity[],
+  goals: Goal[],
+): DaySnapshot["goals"] {
+  const hours = new Map<string, number>();
+  for (const rec of records) {
+    if (rec.realHours <= 0) continue;
+    const a = activities.find((x) => x.id === rec.id);
+    for (const gid of a?.goalIds ?? []) hours.set(gid, (hours.get(gid) ?? 0) + rec.realHours);
+  }
+  return goals
+    .filter((g) => (hours.get(g.id) ?? 0) > 0)
+    .map((g) => ({ id: g.id, name: g.name, color: g.color, icon: g.icon, hours: hours.get(g.id)! }));
+}
 export const isFutureKey = (k: string, now = Date.now()) => k > dateKeyOf(new Date(now));
 
 /* ---------------- pure computation ---------------- */
@@ -159,14 +189,22 @@ function dayPct(total: number, done: number, emptyDayMode: EmptyDayMode): number
  */
 function refreshFrozen(
   snap: DaySnapshot,
+  current: Activity[],
+  goals: Goal[],
   timers: TimerData,
   emptyDayMode: EmptyDayMode,
 ): DaySnapshot {
-  if (!(snap.dateKey in timers.completions)) return snap;
-  const activities = snap.activities.map((a) => ({
-    ...a,
-    done: isCompletedToday(timers, a.id, snap.dateKey),
-  }));
+  const hasCompletions = snap.dateKey in timers.completions;
+  const activities = snap.activities
+    .filter((rec) => {
+      // Drop records that were frozen in by mistake (other week / created later).
+      const a = current.find((x) => x.id === rec.id);
+      return !a || scheduledOn(a, snap.dateKey);
+    })
+    .map((rec) => {
+      const done = hasCompletions ? isCompletedToday(timers, rec.id, snap.dateKey) : rec.done;
+      return { ...rec, done, realHours: creditedHours(rec.realHours, rec.plannedHours, done) };
+    });
   const total = activities.length;
   const done = activities.filter((a) => a.done).length;
   const status: DayStatus =
@@ -177,7 +215,17 @@ function refreshFrozen(
       : done === total
         ? "completed"
         : "incomplete";
-  return { ...snap, activities, total, done, pct: dayPct(total, done, emptyDayMode), status };
+  return {
+    ...snap,
+    activities,
+    total,
+    done,
+    pct: dayPct(total, done, emptyDayMode),
+    status,
+    plannedHours: activities.reduce((t, a) => t + a.plannedHours, 0),
+    realHours: activities.reduce((t, a) => t + a.realHours, 0),
+    goals: goalsFor(activities, current, goals),
+  };
 }
 
 /** Live computation of a day from the current data. */
@@ -191,17 +239,24 @@ export function computeDay(
   now = Date.now(),
 ): DaySnapshot {
   const dayIndex = dayIndexOfKey(dateKey);
-  const scheduled = activities.filter((a) => activityDays(a).has(dayIndex));
+  const scheduled = activities.filter((a) => scheduledOn(a, dateKey));
 
-  const records: DayActivityRecord[] = scheduled.map((a) => ({
-    id: a.id,
-    name: a.name,
-    color: a.color,
-    mode: completionMode(a),
-    plannedHours: a.hoursPerDay,
-    realHours: realHoursForDay(timers, a, dateKey, a.hoursPerDay, now),
-    done: isCompletedToday(timers, a.id, dateKey),
-  }));
+  const records: DayActivityRecord[] = scheduled.map((a) => {
+    const done = isCompletedToday(timers, a.id, dateKey);
+    return {
+      id: a.id,
+      name: a.name,
+      color: a.color,
+      mode: completionMode(a),
+      plannedHours: a.hoursPerDay,
+      realHours: creditedHours(
+        realHoursForDay(timers, a, dateKey, a.hoursPerDay, now),
+        a.hoursPerDay,
+        done,
+      ),
+      done,
+    };
+  });
 
   const total = records.length;
   const done = records.filter((r) => r.done).length;
@@ -209,21 +264,7 @@ export function computeDay(
   const realHours = records.reduce((s, r) => s + r.realHours, 0);
   const pct = dayPct(total, done, emptyDayMode);
 
-  const goalHours = new Map<string, number>();
-  for (const a of scheduled) {
-    const rec = records.find((r) => r.id === a.id)!;
-    for (const gid of a.goalIds ?? [])
-      goalHours.set(gid, (goalHours.get(gid) ?? 0) + rec.realHours);
-  }
-  const goalList = goals
-    .filter((g) => goalHours.has(g.id))
-    .map((g) => ({
-      id: g.id,
-      name: g.name,
-      color: g.color,
-      icon: g.icon,
-      hours: goalHours.get(g.id) ?? 0,
-    }));
+  const goalList = goalsFor(records, activities, goals);
 
   const daySessions = timers.sessions.filter((s) => s.dateKey === dateKey);
   const t = taskCountsFor(dateKey, activities, tasks);
@@ -428,7 +469,7 @@ export function useHistoryStore(source: DaySource) {
     (dateKey: string): DaySnapshot => {
       const frozen = data.days[dateKey];
       if (frozen && isPastKey(dateKey, now))
-        return refreshFrozen(frozen, source.timers, emptyDayMode);
+        return refreshFrozen(frozen, source.activities, source.goals, source.timers, emptyDayMode);
       return computeDay(
         dateKey,
         source.activities,

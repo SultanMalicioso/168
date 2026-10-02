@@ -173,6 +173,8 @@ export interface Activity {
   category: Category;
   permanent?: boolean;
   weekStart?: string;
+  /** Epoch ms; absent on activities created before it was tracked. */
+  createdAt?: number;
   notes?: string;
   goalIds?: string[];
   /** "timer" (default, back-compat) or "manual" completion. */

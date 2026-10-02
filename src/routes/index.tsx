@@ -348,7 +348,7 @@ const realTotal = filtered.reduce(
       }
       setStore({
         ...store,
-        activities: [...store.activities, { id: uid(), ...data }],
+        activities: [...store.activities, { id: uid(), ...data, createdAt: Date.now() }],
       });
       toast.success("Actividad agregada");
     }
@@ -368,7 +368,7 @@ const realTotal = filtered.reduce(
   const duplicate = (a: Activity) =>
     setStore({
       ...store,
-      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false }],
+      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false, createdAt: Date.now() }],
     });
 
   const togglePermanent = (id: string) =>
