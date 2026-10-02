@@ -87,7 +87,7 @@ export function TimerBar({ activities, onCompleteTasks }: Props) {
       {/* Floating running bar */}
       {active && activity && (
         <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3 pointer-events-none">
-          <div className="pointer-events-auto mx-auto max-w-[720px] rounded-2xl border bg-background/90 backdrop-blur-xl shadow-lg overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          <div className="pointer-events-auto mx-auto max-w-[720px] rounded-2xl border bg-background/95 shadow-lg overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
             <div
               className="h-1 transition-[width] duration-300 ease-linear"
               style={{ width: `${timerPct(active, now)}%`, background: activity.color }}
@@ -164,7 +164,7 @@ export function TimerBar({ activities, onCompleteTasks }: Props) {
       {/* Completion celebration */}
       {celebrate && (
         <div className="fixed inset-0 z-[60] pointer-events-none flex items-center justify-center">
-          <div className="rounded-3xl border bg-background/95 backdrop-blur-xl px-8 py-6 text-center shadow-2xl animate-in zoom-in-95 fade-in duration-300">
+          <div className="rounded-3xl border bg-background px-8 py-6 text-center shadow-2xl animate-in zoom-in-95 fade-in duration-300">
             <div
               className="mx-auto h-14 w-14 rounded-full flex items-center justify-center text-2xl"
               style={{ background: `color-mix(in oklab, ${celebrate.color} 25%, transparent)` }}

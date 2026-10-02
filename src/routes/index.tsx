@@ -135,7 +135,7 @@ function Index() {
 
 
 
-  const timers = useTimerStore();
+  const timers = useTimerStore({ tickMs: 15_000 });
   const realMode = timers.progressMode === "real";
 
   const chartView: ChartView = store.chartView ?? "activities";
@@ -451,7 +451,7 @@ const realTotal = filtered.reduce(
       <TimerBar activities={store.activities} onCompleteTasks={completeTasks} />
 
       {/* Header */}
-      <header className="border-b border-border/60 backdrop-blur-xl bg-background/80 sticky top-0 z-30">
+      <header className="border-b border-border/60 bg-background sticky top-0 z-30">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="h-9 w-9 shrink-0 rounded-xl bg-foreground text-background flex items-center justify-center font-display text-lg">
