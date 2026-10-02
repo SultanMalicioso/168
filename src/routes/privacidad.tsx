@@ -25,14 +25,13 @@ function PrivacyPage() {
     <LegalPage title="Política de Privacidad">
       <p>
         Esta política explica qué datos personales trata 168 ({LEGAL.site}), para qué y cuáles son
-        tus derechos. Se rige por la Ley 25.326 de Protección de Datos Personales de la República
-        Argentina y su normativa complementaria.
+        tus derechos, de acuerdo con la normativa de protección de datos personales aplicable.
       </p>
 
       <h2>1. Responsable</h2>
       <p>
-        El responsable de los datos es {LEGAL.owner}, con domicilio en {LEGAL.country}. Podés
-        escribir por cualquier consulta sobre privacidad a {mail}.
+        El responsable de los datos es {LEGAL.owner}. Podés escribir por cualquier consulta sobre
+        privacidad a {mail}.
       </p>
 
       <h2>2. Qué datos tratamos</h2>
@@ -102,8 +101,7 @@ function PrivacyPage() {
       </ul>
       <p>
         Algunos de estos proveedores están en Estados Unidos u otros países. Al aceptar esta
-        política consentís esa transferencia internacional, conforme al artículo 12 de la Ley
-        25.326. También podemos revelar datos si lo exige una autoridad competente según la ley.
+        política consentís esa transferencia internacional. También podemos revelar datos si lo exige una autoridad competente según la ley.
       </p>
 
       <h2 id="cookies">5. Cookies y almacenamiento local</h2>
@@ -137,16 +135,8 @@ function PrivacyPage() {
         tu consentimiento. Podés hacerlo directamente en <Link to="/auth">Tus datos y cuenta</Link>{" "}
         con “Descargar mis datos” y “Eliminar mi cuenta”, o escribiendo a {mail}. Respondemos los
         pedidos de acceso dentro de los 10 días corridos y los de rectificación o supresión dentro
-        de los 5 días hábiles, como fija la ley.
-      </p>
-      <p className="rounded-xl border p-3 text-xs text-muted-foreground">
-        El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los
-        mismos en forma gratuita a intervalos no inferiores a seis meses, salvo que se acredite un
-        interés legítimo al efecto conforme lo establecido en el artículo 14, inciso 3 de la Ley Nº
-        25.326. La AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA, en su carácter de Órgano de Control
-        de la Ley Nº 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan
-        quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en
-        materia de protección de datos personales.
+        de los 5 días hábiles. El acceso a tus datos es gratuito. Si creés que no respetamos tus
+        derechos, también podés reclamar ante la autoridad de protección de datos de tu país.
       </p>
 
       <h2>8. Menores de edad</h2>
@@ -172,7 +162,7 @@ function PrivacyPage() {
 
       <h2>11. Contacto</h2>
       <p>
-        {LEGAL.owner} · {LEGAL.country} · {mail}
+        {LEGAL.owner} · {mail}
       </p>
     </LegalPage>
   );

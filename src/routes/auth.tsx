@@ -275,19 +275,6 @@ function AuthPage() {
                 Sin cuenta la app sigue funcionando, pero los datos quedan solo en este dispositivo.
               </p>
 
-              {mode === "signup" && (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Responsable de los datos: {LEGAL.owner} ({LEGAL.email}). El titular de los datos
-                  personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma
-                  gratuita a intervalos no inferiores a seis meses, salvo que se acredite un interés
-                  legítimo al efecto conforme lo establecido en el artículo 14, inciso 3 de la Ley Nº
-                  25.326. La AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA, en su carácter de Órgano de
-                  Control de la Ley Nº 25.326, tiene la atribución de atender las denuncias y
-                  reclamos que interpongan quienes resulten afectados en sus derechos por
-                  incumplimiento de las normas vigentes en materia de protección de datos
-                  personales.
-                </p>
-              )}
             </div>
           )}
 

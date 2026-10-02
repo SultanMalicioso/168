@@ -6,7 +6,7 @@ export function SiteFooter() {
     <footer className="border-t border-border/60 mt-10">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-6 pb-28 lg:pb-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-xs text-muted-foreground">
         <p>
-          © 2026 {LEGAL.owner} · {LEGAL.country}
+          © 2026 {LEGAL.owner}
         </p>
         <nav aria-label="Información legal" className="flex flex-wrap gap-x-4 gap-y-2">
           <Link

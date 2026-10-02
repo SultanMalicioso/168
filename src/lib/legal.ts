@@ -1,7 +1,6 @@
 export const LEGAL = {
-  owner: "Máximo Fernández Cremona",
+  owner: "168",
   email: "168webapp@gmail.com",
-  country: "Argentina",
   site: "https://168-theta.vercel.app",
   updated: "2 de octubre de 2026",
   minAge: 13,

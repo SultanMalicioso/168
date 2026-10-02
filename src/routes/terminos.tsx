@@ -23,8 +23,7 @@ function TermsPage() {
   return (
     <LegalPage title="Términos y Condiciones">
       <p>
-        Estos términos regulan el uso de 168 ({LEGAL.site}), una app ofrecida por {LEGAL.owner} (
-        {LEGAL.country}). Al usar la app o crear una cuenta aceptás estos términos y la{" "}
+        Estos términos regulan el uso de 168 ({LEGAL.site}), una app ofrecida por {LEGAL.owner}. Al usar la app o crear una cuenta aceptás estos términos y la{" "}
         <Link to="/privacidad">Política de Privacidad</Link>.
       </p>
 
@@ -86,13 +85,13 @@ function TermsPage() {
         Hacemos lo posible para que 168 funcione bien, pero se ofrece “tal como está”: puede tener
         errores, cambiar o interrumpirse. Te recomendamos guardar una copia con “Descargar mis
         datos”. En la medida en que la ley lo permita, no somos responsables por daños indirectos
-        derivados del uso de la app. Nada de esto limita los derechos que te da la Ley 24.240 de
-        Defensa del Consumidor.
+        derivados del uso de la app. Nada de esto limita los derechos que te da la ley de defensa
+        del consumidor que corresponda.
       </p>
 
       <h2>9. Propiedad intelectual y licencias</h2>
       <p>
-        El nombre, el diseño y el código de 168 pertenecen a {LEGAL.owner}. La app usa recursos de
+        El nombre, el diseño y el código de 168 pertenecen a sus creadores. La app usa recursos de
         terceros con licencias que permiten este uso:
       </p>
       <ul>
@@ -121,13 +120,13 @@ function TermsPage() {
 
       <h2>11. Ley aplicable</h2>
       <p>
-        Estos términos se rigen por las leyes de la República Argentina. Cualquier conflicto se
-        resolverá ante los tribunales competentes según la normativa de defensa del consumidor.
+        Cualquier conflicto se resolverá ante los tribunales competentes según la normativa de
+        defensa del consumidor aplicable.
       </p>
 
       <h2>12. Contacto</h2>
       <p>
-        {LEGAL.owner} · {LEGAL.country} · {mail}
+        {LEGAL.owner} · {mail}
       </p>
     </LegalPage>
   );
