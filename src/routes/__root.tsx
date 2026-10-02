@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { startCloudSync } from "../lib/cloud-sync";
 import { startNotifyEngine } from "../lib/notify-engine";
+import { startActivityAutoComplete } from "../lib/activity-autocomplete";
 
 function NotFoundComponent() {
   return (
@@ -139,6 +140,7 @@ function RootComponent() {
   useEffect(() => {
     startCloudSync();
     startNotifyEngine();
+    startActivityAutoComplete();
   }, []);
 
   return (

@@ -175,6 +175,14 @@ if (typeof window !== "undefined") {
 
 /* ---------------- selectors ---------------- */
 
+/** Marks an activity completed on `dateKey` (no-op if it already is). */
+export function markActivityCompleted(activityId: string, dateKey = dateKeyOf()) {
+  const d = load();
+  const list = d.completions[dateKey] ?? [];
+  if (list.includes(activityId)) return;
+  commit({ ...d, completions: { ...d.completions, [dateKey]: [...list, activityId] } });
+}
+
 export function elapsedMs(t: ActiveTimer | null, now = Date.now()): number {
   if (!t) return 0;
   // Wall-clock based: survives reloads, tab switches and throttled intervals.
