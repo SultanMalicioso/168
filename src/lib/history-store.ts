@@ -37,9 +37,9 @@ export interface DayLook {
 
 export const DAY_TIERS = {
   zero: { label: "Día en blanco", dot: "🔴", color: "oklch(0.62 0.21 25)" },
-  low: { label: "Buen comienzo", dot: "🟠", color: "oklch(0.7 0.18 50)" },
-  high: { label: "¡Casi completo!", dot: "🟡", color: "oklch(0.82 0.16 90)" },
-  great: { label: "¡Muy cerca!", dot: "✨", color: "oklch(0.76 0.17 128)" },
+  low: { label: "Menos de la mitad", dot: "🟠", color: "oklch(0.7 0.18 50)" },
+  high: { label: "Buen avance", dot: "🟡", color: "oklch(0.82 0.16 90)" },
+  great: { label: "¡Casi completo!", dot: "✨", color: "oklch(0.76 0.17 128)" },
   full: { label: "¡Día perfecto!", dot: "🟢", color: "oklch(0.64 0.17 155)" },
 } satisfies Record<string, DayLook>;
 
