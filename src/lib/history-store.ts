@@ -39,6 +39,7 @@ export const DAY_TIERS = {
   zero: { label: "Día en blanco", dot: "🔴", color: "oklch(0.62 0.21 25)" },
   low: { label: "Buen comienzo", dot: "🟠", color: "oklch(0.7 0.18 50)" },
   high: { label: "¡Casi completo!", dot: "🟡", color: "oklch(0.82 0.16 90)" },
+  great: { label: "¡Muy cerca!", dot: "✨", color: "oklch(0.76 0.17 128)" },
   full: { label: "¡Día perfecto!", dot: "🟢", color: "oklch(0.64 0.17 155)" },
 } satisfies Record<string, DayLook>;
 
@@ -48,9 +49,10 @@ const NEUTRAL: Record<"empty" | "upcoming" | "not_started", DayLook> = {
   not_started: { label: "Sin comenzar", dot: "⚪", color: "oklch(0.88 0.01 250)" },
 };
 
-/** 0% red, 1–49% orange, 50–99% yellow, 100% green. */
+/** 0% red, 1–49% orange, 50–74% yellow, 75–99% lime, 100% green. */
 export function tierFor(pct: number): DayLook {
   if (pct >= 100) return DAY_TIERS.full;
+  if (pct >= 75) return DAY_TIERS.great;
   if (pct >= 50) return DAY_TIERS.high;
   if (pct > 0) return DAY_TIERS.low;
   return DAY_TIERS.zero;

@@ -409,7 +409,8 @@ function YearView({ days, onSelect }: { days: DaySnapshot[]; onSelect: (k: strin
 function Legend() {
   const items = [
     { ...DAY_TIERS.full, range: "100%" },
-    { ...DAY_TIERS.high, range: "50–99%" },
+    { ...DAY_TIERS.great, range: "75–99%" },
+    { ...DAY_TIERS.high, range: "50–74%" },
     { ...DAY_TIERS.low, range: "1–49%" },
     { ...DAY_TIERS.zero, range: "0%" },
   ];
