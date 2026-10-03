@@ -302,14 +302,14 @@ export function TimeInsights({ activities, timers, now, weekKey, category }: Pro
               id="ti-hours"
               className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2"
             >
-              Tus horarios reales
+              ¿Cuándo hacés tus actividades?
             </h3>
             {hourly.total < 1 / 60 ? (
               <Empty>
                 Usá el temporizador para ver en qué días y horarios hacés realmente tus actividades.
               </Empty>
             ) : (
-              <HourHeatmap data={hourly} weeks={period} />
+              <WhenChart data={hourly} weeks={period} />
             )}
           </section>
 
@@ -476,77 +476,63 @@ function Bars({
   );
 }
 
-const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const DAY_LONG = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DAY_PLURAL = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"];
+const PARTS = [
+  { label: "Mañana", range: "6 a 12 h", from: 6, to: 12, phrase: "a la mañana" },
+  { label: "Tarde", range: "12 a 18 h", from: 12, to: 18, phrase: "a la tarde" },
+  { label: "Noche", range: "18 a 24 h", from: 18, to: 24, phrase: "a la noche" },
+  { label: "Madrugada", range: "0 a 6 h", from: 0, to: 6, phrase: "de madrugada" },
+];
 
-/** Weekday × hour grid of tracked time; darker = more hours. */
-function HourHeatmap({ data, weeks }: { data: HourlyActivity; weeks: number }) {
-  const { cells } = data;
-  // Only the hours that have any tracked time (plus one on each side).
-  const used = Array.from({ length: 24 }, (_, h) => cells.some((row) => row[h] > 0));
-  const first = Math.max(0, used.indexOf(true) - 1);
-  const last = Math.min(23, used.lastIndexOf(true) + 1);
-  const hours = Array.from({ length: last - first + 1 }, (_, i) => first + i);
-  const max = Math.max(...cells.flat());
+const TOP = "var(--foreground)";
+const REST = "color-mix(in oklab, var(--muted-foreground) 45%, transparent)";
 
-  let peak = { day: 0, hour: 0, v: 0 };
-  cells.forEach((row, d) =>
-    row.forEach((v, h) => {
-      if (v > peak.v) peak = { day: d, hour: h, v };
-    }),
+/** Tracked time by weekday and by part of the day, as weekly averages. */
+function WhenChart({ data, weeks }: { data: HourlyActivity; weeks: number }) {
+  const perDay = data.cells.map((row) => row.reduce((a, b) => a + b, 0) / weeks);
+  const perPart = PARTS.map(
+    (p) =>
+      data.cells.reduce((sum, row) => sum + row.slice(p.from, p.to).reduce((a, b) => a + b, 0), 0) /
+      weeks,
   );
-  const perDay = cells.map((row) => row.reduce((a, b) => a + b, 0));
+  const total = data.total / weeks;
   const topDay = perDay.indexOf(Math.max(...perDay));
-  const freeDay = perDay.indexOf(Math.min(...perDay));
+  const topPart = perPart.indexOf(Math.max(...perPart));
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <Tile
-          label="Franja más activa"
-          value={`${DAY_SHORT[peak.day]} ${peak.hour}–${peak.hour + 1} h`}
-          sub={`${formatDuration(peak.v / weeks)} por semana`}
-        />
-        <Tile
-          label="Día con más tiempo"
-          value={DAY_SHORT[topDay]}
-          sub={`${formatDuration(perDay[topDay] / weeks)} por semana`}
+    <div className="space-y-4">
+      <p className="rounded-2xl bg-muted/50 px-4 py-3 text-sm">
+        Hacés más los <strong>{DAY_PLURAL[topDay]}</strong> y, en general,{" "}
+        <strong>{PARTS[topPart].phrase}</strong>.
+      </p>
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5">Por día</p>
+        <Bars
+          rows={DAYS.map((label, i) => ({
+            key: label,
+            label,
+            color: i === topDay ? TOP : REST,
+            hours: perDay[i],
+          }))}
+          total={total}
         />
       </div>
-      <div
-        role="img"
-        aria-label={`Horas registradas por día y hora en las últimas ${weeks} semanas. La franja más activa es el ${DAY_LONG[peak.day]} de ${peak.hour} a ${peak.hour + 1} h.`}
-        className="grid gap-[2px]"
-        style={{ gridTemplateColumns: `2rem repeat(${hours.length}, minmax(0, 1fr))` }}
-      >
-        {cells.map((row, d) => (
-          <div key={d} className="contents">
-            <span className="pr-1 text-[10px] leading-none text-muted-foreground self-center">
-              {DAY_SHORT[d]}
-            </span>
-            {hours.map((h) => {
-              const v = row[h];
-              return (
-                <div
-                  key={h}
-                  className={`aspect-square max-h-6 rounded-[3px] ${v > 0 ? "bg-foreground" : "bg-muted"}`}
-                  style={v > 0 ? { opacity: 0.15 + 0.85 * (v / max) } : undefined}
-                  title={`${DAY_LONG[d]} ${h}–${h + 1} h · ${formatDuration(v / weeks)} por semana`}
-                />
-              );
-            })}
-          </div>
-        ))}
-        <span />
-        {hours.map((h) => (
-          <span key={h} className="text-center text-[9px] tabular-nums text-muted-foreground">
-            {h % 3 === 0 ? h : ""}
-          </span>
-        ))}
+      <div>
+        <p className="text-xs text-muted-foreground mb-1.5">Por momento del día</p>
+        <Bars
+          rows={PARTS.map((p, i) => ({
+            key: p.label,
+            label: `${p.label} (${p.range})`,
+            color: i === topPart ? TOP : REST,
+            hours: perPart[i],
+          })).filter((r) => r.hours > 0 || r.key !== "Madrugada")}
+          total={total}
+        />
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Promedio de las últimas {weeks} semanas, con el tiempo del temporizador. El día con menos
-        tiempo registrado es el {DAY_LONG[freeDay]}.
+        Promedio por semana de las últimas {weeks} semanas. Solo cuenta el tiempo medido con el
+        temporizador.
       </p>
     </div>
   );
