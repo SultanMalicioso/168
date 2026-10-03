@@ -1,5 +1,5 @@
 import { CATEGORIES, weeklyHours, type Activity, type Category } from "@/lib/time-store";
-import { realHoursForWeek, type TimerData } from "@/lib/timer-store";
+import { realHoursForWeek, type TimerData, type TimerSession } from "@/lib/timer-store";
 import { addWeeks, getWeekKey } from "@/lib/week-utils";
 
 /* ------------------------------------------------------------------ *
@@ -130,4 +130,50 @@ export function averageOfWeeks(weeks: WeekStats[]): {
     real: withData.reduce((s, w) => s + w.real, 0) / withData.length,
     byCategory,
   };
+}
+
+/* ---------------- when time is actually tracked ---------------- */
+
+export interface HourlyActivity {
+  /** Hours tracked per [weekday 0 = Monday][hour of day 0–23]. */
+  cells: number[][];
+  total: number;
+}
+
+/**
+ * Timer hours spread over weekday × hour of day, for sessions inside the
+ * given weeks. Paused time is spread evenly across each session.
+ * `activityIds` limits it to those activities (null = all).
+ */
+export function hourlyActivity(
+  sessions: TimerSession[],
+  weekKeys: string[],
+  activityIds: Set<string> | null,
+): HourlyActivity {
+  const cells = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+  let total = 0;
+  if (weekKeys.length === 0) return { cells, total };
+  const from = new Date(`${weekKeys[0]}T00:00:00`).getTime();
+  const to = new Date(`${addWeeks(weekKeys[weekKeys.length - 1], 1)}T00:00:00`).getTime();
+
+  for (const s of sessions) {
+    if (activityIds && !activityIds.has(s.activityId)) continue;
+    const span = s.endedAt - s.startedAt;
+    if (span <= 0 || s.durationMs <= 0) continue;
+    const ratio = Math.min(1, s.durationMs / span);
+    let t = Math.max(s.startedAt, from);
+    const end = Math.min(s.endedAt, to);
+    while (t < end) {
+      const d = new Date(t);
+      const next = Math.min(
+        end,
+        new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours() + 1).getTime(),
+      );
+      const h = ((next - t) * ratio) / 3_600_000;
+      cells[(d.getDay() + 6) % 7][d.getHours()] += h;
+      total += h;
+      t = next;
+    }
+  }
+  return { cells, total };
 }
