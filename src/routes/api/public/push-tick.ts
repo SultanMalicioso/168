@@ -7,6 +7,7 @@ import {
 } from "@/lib/notify-plan";
 import type { Json } from "@/integrations/supabase/types";
 import type { NotifySettings } from "@/lib/notify-store";
+import { DEFAULT_NOTIFY_SETTINGS } from "@/lib/notify-defaults";
 import type { Store } from "@/lib/time-store";
 
 /* ------------------------------------------------------------------ *
@@ -16,21 +17,7 @@ import type { Store } from "@/lib/time-store";
  * own time zone, and pushes whatever became due — once, ever.
  * ------------------------------------------------------------------ */
 
-const DEFAULT_SETTINGS: NotifySettings = {
-  enabled: true,
-  morning: true,
-  morningTime: "08:00",
-  night: true,
-  nightTime: "21:30",
-  activities: true,
-  tasks: true,
-  pendingTasks: true,
-  completions: false,
-  quietEnabled: true,
-  quietFrom: "23:00",
-  quietTo: "07:00",
-  defaultLead: 10,
-};
+const DEFAULT_SETTINGS = DEFAULT_NOTIFY_SETTINGS;
 
 const hhmmToMin = (v: string) => {
   const [h, m] = String(v)
