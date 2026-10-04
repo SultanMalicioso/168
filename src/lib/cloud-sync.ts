@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { merge3 } from "@/lib/sync-merge";
+import { retryDelay } from "@/lib/sync-retry";
 
 export const SYNC_KEYS = [
   "week168.v2",
@@ -123,6 +124,10 @@ let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let deleting = false;
 
 let pushInFlight: Promise<void> | null = null;
+/** Pending retry for keys that are still dirty after a push. */
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+/** Failed pushes in a row, for the retry backoff. */
+let failedPushes = 0;
 let pullInFlight: Promise<void> | null = null;
 
 /** Changes made on THIS device that have not yet been uploaded. */
@@ -143,6 +148,30 @@ function setStatus(next: SyncStatus) {
  * PUSH
  * --------------------------------------------------------- */
 
+function cancelRetry() {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+}
+
+/**
+ * Keys can stay dirty after a push: it failed, or they were edited while it
+ * ran. Try again later so nothing is left waiting for the next edit.
+ */
+function scheduleRetry(succeeded: boolean) {
+  if (succeeded) failedPushes = 0;
+  cancelRetry();
+  if (deleting || !currentUser || dirty.size === 0) return;
+
+  const delay = retryDelay(succeeded ? 0 : failedPushes);
+  if (!succeeded) failedPushes++;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    void pushDirty();
+  }, delay);
+}
+
 async function pushDirty(): Promise<void> {
   if (deleting || !currentUser || dirty.size === 0) return;
 
@@ -150,97 +179,114 @@ async function pushDirty(): Promise<void> {
     return pushInFlight;
   }
 
+  cancelRetry();
   const keys = [...dirty];
 
-  pushInFlight = (async () => {
-    setStatus("syncing");
-
-    const rows: { user_id: string; key: string; value: Json }[] = [];
-    const uploadedValues = new Map<string, string>();
-
-    /*
-     * Another device may have saved since this one last synced: merge both
-     * edits instead of overwriting theirs with ours.
-     */
-    const { data: remoteRows, error: readError } = await supabase
-      .from("user_data")
-      .select("key,value")
-      .eq("user_id", currentUser!.id)
-      .in("key", keys);
-    if (readError) {
-      console.error("Cloud read before push failed:", readError);
-      setStatus("error");
-      return;
-    }
-    const meta = readMeta();
-    let mergedLocally = false;
-
-    for (const key of keys) {
-      let raw = localStorage.getItem(key);
-      if (raw == null) continue;
-
-      const remote = remoteRows?.find((r) => r.key === key);
-      if (remote) {
-        const remoteRaw = JSON.stringify(remote.value);
-        if (hash(canonical(remoteRaw)) !== meta.cloudHash[key]) {
-          try {
-            const base = meta.cloudBase[key] ? JSON.parse(meta.cloudBase[key]) : undefined;
-            const merged = JSON.stringify(merge3(base, JSON.parse(raw), remote.value));
-            if (merged !== raw) {
-              localStorage.setItem(key, merged);
-              raw = merged;
-              mergedLocally = true;
-            }
-          } catch {
-            /* Malformed data: keep the local copy */
-          }
-        }
-      }
-
-      try {
-        rows.push({
-          user_id: currentUser!.id,
-          key,
-          value: JSON.parse(raw) as Json,
-        });
-        uploadedValues.set(key, raw);
-      } catch {
-        /* Ignore malformed local data */
-      }
-    }
-
-    if (rows.length === 0) {
-      setStatus("synced");
-      return;
-    }
-
-    const { error } = await supabase.from("user_data").upsert(rows, { onConflict: "user_id,key" });
-
-    if (error) {
+  pushInFlight = uploadKeys(keys, currentUser.id)
+    .catch((error) => {
       console.error("Cloud push error:", error);
       setStatus("error");
-      return;
+      return false;
+    })
+    .then((succeeded) => {
+      pushInFlight = null;
+      scheduleRetry(succeeded);
+    });
+
+  return pushInFlight;
+}
+
+/** Uploads `keys`; resolves to false when the cloud couldn't be updated. */
+async function uploadKeys(keys: string[], userId: string): Promise<boolean> {
+  setStatus("syncing");
+
+  const rows: { user_id: string; key: string; value: Json }[] = [];
+  const uploadedValues = new Map<string, string>();
+
+  /*
+   * Another device may have saved since this one last synced: merge both
+   * edits instead of overwriting theirs with ours.
+   */
+  const { data: remoteRows, error: readError } = await supabase
+    .from("user_data")
+    .select("key,value")
+    .eq("user_id", userId)
+    .in("key", keys);
+  if (readError) {
+    console.error("Cloud read before push failed:", readError);
+    setStatus("error");
+    return false;
+  }
+  const meta = readMeta();
+  let mergedLocally = false;
+
+  for (const key of keys) {
+    let raw = localStorage.getItem(key);
+    if (raw == null) {
+      /* Nothing left to upload (e.g. cleared): stop retrying it. */
+      dirty.delete(key);
+      continue;
     }
 
-    for (const key of keys) {
-      const uploadedValue = uploadedValues.get(key);
-      if (uploadedValue === undefined) continue;
-
-      rememberCloudValue(key, uploadedValue, new Date().toISOString());
-
-      if (localStorage.getItem(key) === uploadedValue) {
-        dirty.delete(key);
+    const remote = remoteRows?.find((r) => r.key === key);
+    if (remote) {
+      const remoteRaw = JSON.stringify(remote.value);
+      if (hash(canonical(remoteRaw)) !== meta.cloudHash[key]) {
+        try {
+          const base = meta.cloudBase[key] ? JSON.parse(meta.cloudBase[key]) : undefined;
+          const merged = JSON.stringify(merge3(base, JSON.parse(raw), remote.value));
+          if (merged !== raw) {
+            localStorage.setItem(key, merged);
+            raw = merged;
+            mergedLocally = true;
+          }
+        } catch {
+          /* Malformed data: keep the local copy */
+        }
       }
     }
 
-    if (mergedLocally) window.dispatchEvent(new Event(CLOUD_UPDATED_EVENT));
+    try {
+      rows.push({
+        user_id: userId,
+        key,
+        value: JSON.parse(raw) as Json,
+      });
+      uploadedValues.set(key, raw);
+    } catch {
+      /* Malformed local data can never upload: don't keep retrying it. */
+      dirty.delete(key);
+    }
+  }
 
-    setStatus(dirty.size === 0 ? "synced" : "syncing");
-  })().finally(() => {
-    pushInFlight = null;
-  });
+  if (rows.length === 0) {
+    setStatus("synced");
+    return true;
+  }
 
-  return pushInFlight;
+  const { error } = await supabase.from("user_data").upsert(rows, { onConflict: "user_id,key" });
+
+  if (error) {
+    console.error("Cloud push error:", error);
+    setStatus("error");
+    return false;
+  }
+
+  for (const key of keys) {
+    const uploadedValue = uploadedValues.get(key);
+    if (uploadedValue === undefined) continue;
+
+    rememberCloudValue(key, uploadedValue, new Date().toISOString());
+
+    if (localStorage.getItem(key) === uploadedValue) {
+      dirty.delete(key);
+    }
+  }
+
+  if (mergedLocally) window.dispatchEvent(new Event(CLOUD_UPDATED_EVENT));
+
+  setStatus(dirty.size === 0 ? "synced" : "syncing");
+  return true;
 }
 
 /* -----------------------------------------------------------
@@ -487,7 +533,12 @@ export function startCloudSync() {
   /* While the app is visible, keep up with other devices (e.g. a timer started elsewhere). */
   window.setInterval(() => {
     if (!currentUser || bootstrapping || document.visibilityState !== "visible") return;
-    if (dirty.size > 0 || pushInFlight) return;
+    if (pushInFlight) return;
+    /* Pending local edits go up first; the cloud is checked on a later tick. */
+    if (dirty.size > 0) {
+      void pushDirty();
+      return;
+    }
     void pullFromCloud(true);
   }, 15_000);
 }
