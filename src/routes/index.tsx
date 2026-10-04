@@ -57,9 +57,6 @@ import { BarChart3, Calendar, CalendarDays } from "lucide-react";
 import {
   CATEGORIES,
   completionIcon,
-  getWeekKey,
-  addWeeks,
-  formatWeekRange,
   nextColor,
   taskProgress,
   uid,
@@ -74,6 +71,7 @@ import {
   formatDuration,
   activityDays,
 } from "@/lib/time-store";
+import { getWeekKey, addWeeks, formatWeekRange } from "@/lib/week-utils";
 import { allTasks, taskColor, taskMinutes, tasksInWeek } from "@/lib/task-utils";
 import { TimerBar } from "@/components/time/TimerBar";
 import { ActivityTimer } from "@/components/time/ActivityTimer";

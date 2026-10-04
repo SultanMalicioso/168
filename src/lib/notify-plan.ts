@@ -2,12 +2,12 @@ import {
   activityDays,
   startTimeOn,
   completionMode,
-  getWeekKey,
   type Activity,
   type Store,
   type Task,
   type TaskPriority,
 } from "@/lib/time-store";
+import { getWeekKey } from "@/lib/week-utils";
 import type { NotifyInput, NotifySettings } from "@/lib/notify-store";
 
 /* ------------------------------------------------------------------ *

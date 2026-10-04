@@ -7,9 +7,9 @@ import { SyncBadge } from "@/components/sync/SyncBadge";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { TimerBar } from "@/components/time/TimerBar";
 import { TimeInsights } from "@/components/time/TimeInsights";
-import { CATEGORIES, getWeekKey, useTimeStore, type Category } from "@/lib/time-store";
+import { CATEGORIES, useTimeStore, type Category } from "@/lib/time-store";
 import { useTimerStore } from "@/lib/timer-store";
-import { formatWeekRange } from "@/lib/week-utils";
+import { formatWeekRange, getWeekKey } from "@/lib/week-utils";
 
 export const Route = createFileRoute("/estadisticas")({
   head: () => ({
