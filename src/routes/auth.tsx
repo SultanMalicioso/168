@@ -67,7 +67,9 @@ function AuthPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "signup" && !consentOk) {
-      toast.error(`Para crear la cuenta confirmá que tenés ${LEGAL.minAge} años o más y aceptá los términos.`);
+      toast.error(
+        `Para crear la cuenta confirmá que tenés ${LEGAL.minAge} años o más y aceptá los términos.`,
+      );
       return;
     }
     setBusy(true);
@@ -109,7 +111,9 @@ function AuthPage() {
       });
       if (error) {
         setBusy(false);
-        toast.error("No pudimos iniciar sesión con Google. Probá de nuevo o usá email y contraseña.");
+        toast.error(
+          "No pudimos iniciar sesión con Google. Probá de nuevo o usá email y contraseña.",
+        );
       }
     } catch {
       setBusy(false);
@@ -183,7 +187,8 @@ function AuthPage() {
               </Button>
 
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />o<span className="h-px flex-1 bg-border" />
+                <span className="h-px flex-1 bg-border" />o
+                <span className="h-px flex-1 bg-border" />
               </div>
 
               <form className="space-y-3" onSubmit={submit}>
@@ -235,11 +240,19 @@ function AuthPage() {
                       />
                       <span>
                         Leí y acepto los{" "}
-                        <Link to="/terminos" target="_blank" className="underline underline-offset-4">
+                        <Link
+                          to="/terminos"
+                          target="_blank"
+                          className="underline underline-offset-4"
+                        >
                           Términos y Condiciones
                         </Link>{" "}
                         y la{" "}
-                        <Link to="/privacidad" target="_blank" className="underline underline-offset-4">
+                        <Link
+                          to="/privacidad"
+                          target="_blank"
+                          className="underline underline-offset-4"
+                        >
                           Política de Privacidad
                         </Link>
                         .
@@ -276,7 +289,6 @@ function AuthPage() {
               <p className="text-xs text-muted-foreground">
                 Sin cuenta la app sigue funcionando, pero los datos quedan solo en este dispositivo.
               </p>
-
             </div>
           )}
 
@@ -367,7 +379,9 @@ function YourData({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {signedIn ? "¿Eliminar tu cuenta para siempre?" : "¿Borrar los datos de este dispositivo?"}
+              {signedIn
+                ? "¿Eliminar tu cuenta para siempre?"
+                : "¿Borrar los datos de este dispositivo?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {signedIn

@@ -161,7 +161,13 @@ function goalsFor(
   }
   return goals
     .filter((g) => (hours.get(g.id) ?? 0) > 0)
-    .map((g) => ({ id: g.id, name: g.name, color: g.color, icon: g.icon, hours: hours.get(g.id)! }));
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      color: g.color,
+      icon: g.icon,
+      hours: hours.get(g.id)!,
+    }));
 }
 export const isFutureKey = (k: string, now = Date.now()) => k > dateKeyOf(new Date(now));
 

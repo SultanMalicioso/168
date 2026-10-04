@@ -23,7 +23,8 @@ function TermsPage() {
   return (
     <LegalPage title="Términos y Condiciones">
       <p>
-        Estos términos regulan el uso de 168 ({LEGAL.site}), una app ofrecida por {LEGAL.owner}. Al usar la app o crear una cuenta aceptás estos términos y la{" "}
+        Estos términos regulan el uso de 168 ({LEGAL.site}), una app ofrecida por {LEGAL.owner}. Al
+        usar la app o crear una cuenta aceptás estos términos y la{" "}
         <Link to="/privacidad">Política de Privacidad</Link>.
       </p>
 

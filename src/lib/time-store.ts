@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
 import { rollRecurring } from "@/lib/recurrence";
 import { merge3 } from "@/lib/sync-merge";
-import {
-  CLOUD_UPDATED_EVENT,
-  LOCAL_DATA_CHANGED_EVENT,
-} from "@/lib/cloud-sync";
+import { CLOUD_UPDATED_EVENT, LOCAL_DATA_CHANGED_EVENT } from "@/lib/cloud-sync";
 
 export type WeekKey = string;
 
@@ -30,10 +27,7 @@ export function getWeekKey(date: Date = new Date()): WeekKey {
   return `${year}-${month}-${day}`;
 }
 
-export function addWeeks(
-  week: WeekKey,
-  amount: number
-): WeekKey {
+export function addWeeks(week: WeekKey, amount: number): WeekKey {
   const date = new Date(`${week}T12:00:00`);
 
   date.setDate(date.getDate() + amount * 7);
@@ -79,14 +73,7 @@ const initialState = {
 };
 
 export type Category =
-  | "salud"
-  | "trabajo"
-  | "estudio"
-  | "deporte"
-  | "ocio"
-  | "social"
-  | "transporte"
-  | "otro";
+  "salud" | "trabajo" | "estudio" | "deporte" | "ocio" | "social" | "transporte" | "otro";
 
 export const CATEGORIES: { id: Category; label: string; color: string }[] = [
   { id: "salud", label: "Salud", color: "var(--chart-2)" },
@@ -196,7 +183,6 @@ export const completionMode = (a: Activity): CompletionMode =>
 export const usesTimer = (a: Activity) => completionMode(a) === "timer";
 export const completionIcon = (a: Activity) => (usesTimer(a) ? "⏱" : "✅");
 
-
 export interface Goal {
   id: string;
   name: string;
@@ -219,7 +205,24 @@ const PALETTE = [
   "var(--chart-8)",
 ];
 
-export const GOAL_ICONS = ["💪", "📚", "💼", "🎮", "🧘", "❤️", "🎯", "🏃", "🌱", "🎨", "🍽️", "😴", "👨‍👩‍👧", "✈️", "💰", "⭐"];
+export const GOAL_ICONS = [
+  "💪",
+  "📚",
+  "💼",
+  "🎮",
+  "🧘",
+  "❤️",
+  "🎯",
+  "🏃",
+  "🌱",
+  "🎨",
+  "🍽️",
+  "😴",
+  "👨‍👩‍👧",
+  "✈️",
+  "💰",
+  "⭐",
+];
 
 export function nextColor(existing: { color: string }[]): string {
   const used = new Set(existing.map((a) => a.color));
@@ -257,15 +260,7 @@ export function activityDays(a: Activity): Set<number> {
   return days;
 }
 
-export const DAY_NAMES = [
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-  "Domingo",
-];
+export const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 export const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 /**
@@ -345,9 +340,33 @@ export interface TimeStore {
 }
 
 const seedGoals: Goal[] = [
-  { id: "gs-salud", name: "Salud", color: PALETTE[1], icon: "💪", targetHours: 70, active: true, createdAt: Date.now() },
-  { id: "gs-trabajo", name: "Trabajo", color: PALETTE[0], icon: "💼", targetHours: 40, active: true, createdAt: Date.now() },
-  { id: "gs-ocio", name: "Ocio", color: PALETTE[2], icon: "🎮", targetHours: 12, active: true, createdAt: Date.now() },
+  {
+    id: "gs-salud",
+    name: "Salud",
+    color: PALETTE[1],
+    icon: "💪",
+    targetHours: 70,
+    active: true,
+    createdAt: Date.now(),
+  },
+  {
+    id: "gs-trabajo",
+    name: "Trabajo",
+    color: PALETTE[0],
+    icon: "💼",
+    targetHours: 40,
+    active: true,
+    createdAt: Date.now(),
+  },
+  {
+    id: "gs-ocio",
+    name: "Ocio",
+    color: PALETTE[2],
+    icon: "🎮",
+    targetHours: 12,
+    active: true,
+    createdAt: Date.now(),
+  },
 ];
 
 export interface Store {
@@ -361,28 +380,75 @@ export interface Store {
 
 const defaultStore: Store = {
   activities: [
-    { id: "seed-1", name: "Dormir", hoursPerDay: 8, daysPerWeek: 7, color: PALETTE[0], category: "salud", permanent: true, goalIds: ["gs-salud"] },
-    { id: "seed-2", name: "Trabajo", hoursPerDay: 8, daysPerWeek: 5, color: PALETTE[1], category: "trabajo", permanent: true, goalIds: ["gs-trabajo"] },
-    { id: "seed-3", name: "Comer", hoursPerDay: 1.5, daysPerWeek: 7, color: PALETTE[2], category: "salud", permanent: true, goalIds: ["gs-salud"] },
-    { id: "seed-4", name: "Gimnasio", hoursPerDay: 1, daysPerWeek: 4, color: PALETTE[3], category: "deporte", permanent: true, goalIds: ["gs-salud"] },
-    { id: "seed-5", name: "Ocio", hoursPerDay: 2, daysPerWeek: 7, color: PALETTE[4], category: "ocio", goalIds: ["gs-ocio"] },
+    {
+      id: "seed-1",
+      name: "Dormir",
+      hoursPerDay: 8,
+      daysPerWeek: 7,
+      color: PALETTE[0],
+      category: "salud",
+      permanent: true,
+      goalIds: ["gs-salud"],
+    },
+    {
+      id: "seed-2",
+      name: "Trabajo",
+      hoursPerDay: 8,
+      daysPerWeek: 5,
+      color: PALETTE[1],
+      category: "trabajo",
+      permanent: true,
+      goalIds: ["gs-trabajo"],
+    },
+    {
+      id: "seed-3",
+      name: "Comer",
+      hoursPerDay: 1.5,
+      daysPerWeek: 7,
+      color: PALETTE[2],
+      category: "salud",
+      permanent: true,
+      goalIds: ["gs-salud"],
+    },
+    {
+      id: "seed-4",
+      name: "Gimnasio",
+      hoursPerDay: 1,
+      daysPerWeek: 4,
+      color: PALETTE[3],
+      category: "deporte",
+      permanent: true,
+      goalIds: ["gs-salud"],
+    },
+    {
+      id: "seed-5",
+      name: "Ocio",
+      hoursPerDay: 2,
+      daysPerWeek: 7,
+      color: PALETTE[4],
+      category: "ocio",
+      goalIds: ["gs-ocio"],
+    },
   ],
   goals: seedGoals,
   tasks: [],
-    theme: "light",
+  theme: "light",
   chartView: "activities",
   selectedWeek: getWeekKey(),
 };
 
-
 function migrate(raw: any): Store {
   if (!raw || typeof raw !== "object") return defaultStore;
-  const activities: Activity[] = Array.isArray(raw.activities) ? raw.activities : defaultStore.activities;
+  const activities: Activity[] = Array.isArray(raw.activities)
+    ? raw.activities
+    : defaultStore.activities;
   let goals: Goal[] = [];
   if (Array.isArray(raw.goals)) {
     goals = raw.goals.map((g: any, i: number): Goal => {
       if (g && typeof g === "object" && "targetHours" in g) return g as Goal;
-      const match = activities.find((a) => a.name.toLowerCase() === String(g?.activityName ?? "").toLowerCase());
+      const match = activities.find(
+        (a) => a.name.toLowerCase() === String(g?.activityName ?? "").toLowerCase(),
+      );
       const id = g?.id ?? Math.random().toString(36).slice(2, 10);
       const color = match?.color ?? PALETTE[i % PALETTE.length];
       if (match) {
@@ -399,21 +465,16 @@ function migrate(raw: any): Store {
     });
   }
   return {
-  activities,
-  goals,
-  tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
-  theme: raw.theme === "dark" ? "dark" : "light",
-  chartView:
-    raw.chartView === "goals" ||
-    raw.chartView === "tasks" ||
-    raw.chartView === "combined"
-      ? raw.chartView
-      : "activities",
-  selectedWeek:
-    typeof raw.selectedWeek === "string"
-      ? raw.selectedWeek
-      : getWeekKey(),
-};
+    activities,
+    goals,
+    tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
+    theme: raw.theme === "dark" ? "dark" : "light",
+    chartView:
+      raw.chartView === "goals" || raw.chartView === "tasks" || raw.chartView === "combined"
+        ? raw.chartView
+        : "activities",
+    selectedWeek: typeof raw.selectedWeek === "string" ? raw.selectedWeek : getWeekKey(),
+  };
 }
 
 /**
@@ -450,18 +511,20 @@ export function mondayKeyOf(value: string | undefined): string {
 
 /** The viewed week is per device and per visit: it always opens on the current week. */
 function normalize(store: Store): Store {
-  return rollRecurring(repairTaskIds({
-    ...store,
-    selectedWeek: getWeekKey(),
-    tasks: Array.isArray(store.tasks) ? store.tasks : [],
-    activities: Array.isArray(store.activities)
-  ? store.activities.map((a) => ({
-      ...a,
-      weekStart: mondayKeyOf(a.weekStart),
-      tasks: Array.isArray(a.tasks) ? a.tasks : [],
-    }))
-  : [],
-  }));
+  return rollRecurring(
+    repairTaskIds({
+      ...store,
+      selectedWeek: getWeekKey(),
+      tasks: Array.isArray(store.tasks) ? store.tasks : [],
+      activities: Array.isArray(store.activities)
+        ? store.activities.map((a) => ({
+            ...a,
+            weekStart: mondayKeyOf(a.weekStart),
+            tasks: Array.isArray(a.tasks) ? a.tasks : [],
+          }))
+        : [],
+    }),
+  );
 }
 
 /** What gets stored and synced: everything except the device's viewed week. */
@@ -517,42 +580,46 @@ export function useTimeStore() {
     setHydrated(true);
   }, []);
 
-useEffect(() => {
-  if (!hydrated) return;
+  useEffect(() => {
+    if (!hydrated) return;
 
-  try {
-    let value = persistable(store);
-    /* Unchanged data (a reload echo, or only the viewed week changed): nothing to save. */
-    if (value === savedRef.current) return;
+    try {
+      let value = persistable(store);
+      /* Unchanged data (a reload echo, or only the viewed week changed): nothing to save. */
+      if (value === savedRef.current) return;
 
-    /* Storage changed behind our back (cloud or another tab): merge, never overwrite. */
-    const onDisk = localStorage.getItem(KEY);
-    if (onDisk != null && savedRef.current != null && onDisk !== savedRef.current) {
-      try {
-        const merged = merge3(JSON.parse(savedRef.current), JSON.parse(value), JSON.parse(onDisk));
-        value = JSON.stringify(merged);
-        const next = normalize({ ...defaultStore, ...(merged as Partial<Store>) });
-        setStore((current) => ({ ...next, selectedWeek: current.selectedWeek }));
-      } catch {
-        /* Malformed data on disk: keep ours */
+      /* Storage changed behind our back (cloud or another tab): merge, never overwrite. */
+      const onDisk = localStorage.getItem(KEY);
+      if (onDisk != null && savedRef.current != null && onDisk !== savedRef.current) {
+        try {
+          const merged = merge3(
+            JSON.parse(savedRef.current),
+            JSON.parse(value),
+            JSON.parse(onDisk),
+          );
+          value = JSON.stringify(merged);
+          const next = normalize({ ...defaultStore, ...(merged as Partial<Store>) });
+          setStore((current) => ({ ...next, selectedWeek: current.selectedWeek }));
+        } catch {
+          /* Malformed data on disk: keep ours */
+        }
       }
+      savedRef.current = value;
+
+      localStorage.setItem(KEY, value);
+
+      /*
+       * Tell cloud-sync that the calendar was actually changed.
+       */
+      window.dispatchEvent(
+        new CustomEvent(LOCAL_DATA_CHANGED_EVENT, {
+          detail: { key: KEY },
+        }),
+      );
+    } catch {
+      /* Ignore localStorage errors */
     }
-    savedRef.current = value;
-
-    localStorage.setItem(KEY, value);
-
-    /*
-     * Tell cloud-sync that the calendar was actually changed.
-     */
-    window.dispatchEvent(
-      new CustomEvent(LOCAL_DATA_CHANGED_EVENT, {
-        detail: { key: KEY },
-      })
-    );
-  } catch {
-    /* Ignore localStorage errors */
-  }
-}, [store, hydrated]);
+  }, [store, hydrated]);
   /*
    * When cloud-sync downloads a newer version from Supabase,
    * reload the calendar from localStorage so the React state
@@ -585,88 +652,82 @@ useEffect(() => {
     window.addEventListener("storage", handleStorage);
 
     return () => {
-      window.removeEventListener(
-        CLOUD_UPDATED_EVENT,
-        handleCloudUpdate
-      );
+      window.removeEventListener(CLOUD_UPDATED_EVENT, handleCloudUpdate);
       window.removeEventListener("storage", handleStorage);
     };
   }, []);
-  
-useEffect(() => {
-  if (!hydrated) return;
 
-  document.documentElement.classList.toggle(
-    "dark",
-    store.theme === "dark"
-  );
-}, [store.theme, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
 
-// Cambio automático de semana
-useEffect(() => {
-  if (!hydrated) return;
+    document.documentElement.classList.toggle("dark", store.theme === "dark");
+  }, [store.theme, hydrated]);
 
-  let lastCurrentWeek = getWeekKey();
+  // Cambio automático de semana
+  useEffect(() => {
+    if (!hydrated) return;
 
-  const checkWeekChange = () => {
-    const currentWeek = getWeekKey();
+    let lastCurrentWeek = getWeekKey();
 
-    if (currentWeek === lastCurrentWeek) return;
+    const checkWeekChange = () => {
+      const currentWeek = getWeekKey();
 
-    setStore((current) => {
-      if (current.selectedWeek === lastCurrentWeek) {
-        return {
-          ...current,
-          selectedWeek: currentWeek,
-        };
-      }
+      if (currentWeek === lastCurrentWeek) return;
 
-      return current;
-    });
+      setStore((current) => {
+        if (current.selectedWeek === lastCurrentWeek) {
+          return {
+            ...current,
+            selectedWeek: currentWeek,
+          };
+        }
 
-    lastCurrentWeek = currentWeek;
+        return current;
+      });
+
+      lastCurrentWeek = currentWeek;
+    };
+
+    // Comprobar al cargar la aplicación
+    checkWeekChange();
+
+    // Comprobar periódicamente mientras está abierta
+    const interval = window.setInterval(checkWeekChange, 30_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [hydrated]);
+
+  const goToPreviousWeek = () => {
+    setStore((current) => ({
+      ...current,
+      selectedWeek: addWeeks(current.selectedWeek, -1),
+    }));
   };
 
-  // Comprobar al cargar la aplicación
-  checkWeekChange();
-
-  // Comprobar periódicamente mientras está abierta
-  const interval = window.setInterval(checkWeekChange, 30_000);
-
-  return () => {
-    window.clearInterval(interval);
+  const goToNextWeek = () => {
+    setStore((current) => ({
+      ...current,
+      selectedWeek: addWeeks(current.selectedWeek, 1),
+    }));
   };
-}, [hydrated]);
 
-const goToPreviousWeek = () => {
-  setStore((current) => ({
-    ...current,
-    selectedWeek: addWeeks(current.selectedWeek, -1),
-  }));
-};
+  const goToCurrentWeek = () => {
+    setStore((current) => ({
+      ...current,
+      selectedWeek: getWeekKey(),
+    }));
+  };
 
-const goToNextWeek = () => {
-  setStore((current) => ({
-    ...current,
-    selectedWeek: addWeeks(current.selectedWeek, 1),
-  }));
-};
-
-const goToCurrentWeek = () => {
-  setStore((current) => ({
-    ...current,
-    selectedWeek: getWeekKey(),
-  }));
-};
-
-return {
-  store,
-  setStore: setStoreRolled,
-  hydrated,
-  goToPreviousWeek,
-  goToNextWeek,
-  goToCurrentWeek,
-};
+  return {
+    store,
+    setStore: setStoreRolled,
+    hydrated,
+    goToPreviousWeek,
+    goToNextWeek,
+    goToCurrentWeek,
+  };
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);

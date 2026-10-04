@@ -75,11 +75,7 @@ function addDays(n: number): string {
  * Natural-language quick add:
  *  "Estudiar bio #Estudio @Salud !alta ~90m mañana 18:00 +examen"
  */
-export function parseQuickTask(
-  input: string,
-  activities: Activity[],
-  goals: Goal[],
-): ParsedTask {
+export function parseQuickTask(input: string, activities: Activity[], goals: Goal[]): ParsedTask {
   const out: ParsedTask = { name: "", tags: [], goalIds: [] };
   const words = input.split(/\s+/).filter(Boolean);
   const rest: string[] = [];
@@ -102,10 +98,7 @@ export function parseQuickTask(
       if (m) {
         const n = parseFloat(m[1].replace(",", "."));
         const unit = m[2] ?? "m";
-        out.estimatedMinutes = Math.max(
-          1,
-          Math.round(unit.startsWith("h") ? n * 60 : n),
-        );
+        out.estimatedMinutes = Math.max(1, Math.round(unit.startsWith("h") ? n * 60 : n));
         continue;
       }
     }
@@ -124,8 +117,7 @@ export function parseQuickTask(
     if (w.startsWith("@") && w.length > 1) {
       const q = norm(w.slice(1));
       const g =
-        goals.find((x) => norm(x.name) === q) ??
-        goals.find((x) => norm(x.name).startsWith(q));
+        goals.find((x) => norm(x.name) === q) ?? goals.find((x) => norm(x.name).startsWith(q));
       if (g) {
         out.goalIds = Array.from(new Set([...(out.goalIds ?? []), g.id]));
         continue;
@@ -146,9 +138,7 @@ export function parseQuickTask(
     const dm = /^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/.exec(w);
     if (dm) {
       const now = new Date();
-      const year = dm[3]
-        ? Number(dm[3].length === 2 ? `20${dm[3]}` : dm[3])
-        : now.getFullYear();
+      const year = dm[3] ? Number(dm[3].length === 2 ? `20${dm[3]}` : dm[3]) : now.getFullYear();
       const d = new Date(year, Number(dm[2]) - 1, Number(dm[1]));
       if (!isNaN(d.getTime())) {
         out.dueDate = isoFrom(d);
@@ -183,11 +173,7 @@ export function parseQuickTask(
 }
 
 /** Human summary of what the parser detected, for the live hint. */
-export function describeParsed(
-  p: ParsedTask,
-  activities: Activity[],
-  goals: Goal[],
-): string[] {
+export function describeParsed(p: ParsedTask, activities: Activity[], goals: Goal[]): string[] {
   const chips: string[] = [];
   if (p.priority) chips.push(`prioridad: ${p.priority}`);
   if (p.estimatedMinutes) chips.push(`${p.estimatedMinutes} min`);

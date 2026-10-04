@@ -10,12 +10,14 @@ export const Route = createFileRoute("/auth_/callback")({
       { title: "Conectando tu cuenta · 168" },
       {
         name: "description",
-        content: "Estamos terminando de conectar tu cuenta para sincronizar tus datos entre dispositivos.",
+        content:
+          "Estamos terminando de conectar tu cuenta para sincronizar tus datos entre dispositivos.",
       },
       { property: "og:title", content: "Conectando tu cuenta · 168" },
       {
         property: "og:description",
-        content: "Estamos terminando de conectar tu cuenta para sincronizar tus datos entre dispositivos.",
+        content:
+          "Estamos terminando de conectar tu cuenta para sincronizar tus datos entre dispositivos.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -64,7 +66,9 @@ function AuthCallback() {
           </>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground">No pudimos completar el inicio de sesión.</p>
+            <p className="text-sm text-muted-foreground">
+              No pudimos completar el inicio de sesión.
+            </p>
             <button
               className="text-sm underline underline-offset-4"
               onClick={() => navigate({ to: "/auth", replace: true })}

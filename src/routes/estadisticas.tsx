@@ -28,7 +28,8 @@ export const Route = createFileRoute("/estadisticas")({
 });
 
 function StatsPage() {
-  const { store, setStore, hydrated, goToPreviousWeek, goToNextWeek, goToCurrentWeek } = useTimeStore();
+  const { store, setStore, hydrated, goToPreviousWeek, goToNextWeek, goToCurrentWeek } =
+    useTimeStore();
   const timers = useTimerStore({ tickMs: 15_000 });
   const [category, setCategory] = useState<Category | "all">("all");
 
