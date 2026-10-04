@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { merge3 } from "@/lib/sync-merge";
 import { retryDelay } from "@/lib/sync-retry";
+import { changedSince } from "@/lib/sync-poll";
 import { toast } from "sonner";
 
 export const SYNC_KEYS = [
@@ -267,7 +268,10 @@ async function uploadKeys(keys: string[], userId: string): Promise<boolean> {
     return true;
   }
 
-  const { error } = await supabase.from("user_data").upsert(rows, { onConflict: "user_id,key" });
+  const { data: saved, error } = await supabase
+    .from("user_data")
+    .upsert(rows, { onConflict: "user_id,key" })
+    .select("key,updated_at");
 
   if (error) {
     console.error("Cloud push error:", error);
@@ -279,7 +283,9 @@ async function uploadKeys(keys: string[], userId: string): Promise<boolean> {
     const uploadedValue = uploadedValues.get(key);
     if (uploadedValue === undefined) continue;
 
-    rememberCloudValue(key, uploadedValue, new Date().toISOString());
+    /* The server's timestamp: background checks compare against it. */
+    const savedAt = saved?.find((r) => r.key === key)?.updated_at;
+    rememberCloudValue(key, uploadedValue, savedAt ?? new Date().toISOString());
 
     if (localStorage.getItem(key) === uploadedValue) {
       dirty.delete(key);
@@ -344,18 +350,57 @@ async function pullFromCloud(quiet = false, adopt = false): Promise<Set<string> 
   pullInFlight = (async () => {
     if (!quiet) setStatus("syncing");
 
-    const { data, error } = await supabase
-      .from("user_data")
-      .select("key,value,updated_at")
-      .eq("user_id", currentUser!.id);
+    const userId = currentUser!.id;
+    let rows: { key: string; value: Json; updated_at: string }[];
+    let cloudKeys: Set<string>;
 
-    if (error) {
-      console.error("Cloud pull error:", error);
-      setStatus("error");
-      return null;
+    if (quiet && !adopt) {
+      /*
+       * Background check: compare timestamps first and download only the
+       * keys that changed since this device last saw them.
+       */
+      const { data: stamps, error } = await supabase
+        .from("user_data")
+        .select("key,updated_at")
+        .eq("user_id", userId);
+      if (error) {
+        console.error("Cloud pull error:", error);
+        setStatus("error");
+        return null;
+      }
+
+      cloudKeys = new Set((stamps ?? []).map((r) => r.key));
+      const changedKeys = changedSince(stamps ?? [], readMeta().localAt, SYNC_KEYS);
+      rows = [];
+      if (changedKeys.length > 0) {
+        const { data, error: valuesError } = await supabase
+          .from("user_data")
+          .select("key,value,updated_at")
+          .eq("user_id", userId)
+          .in("key", changedKeys);
+        if (valuesError) {
+          console.error("Cloud pull error:", valuesError);
+          setStatus("error");
+          return null;
+        }
+        rows = data ?? [];
+      }
+    } else {
+      const { data, error } = await supabase
+        .from("user_data")
+        .select("key,value,updated_at")
+        .eq("user_id", userId);
+
+      if (error) {
+        console.error("Cloud pull error:", error);
+        setStatus("error");
+        return null;
+      }
+      rows = data ?? [];
+      cloudKeys = new Set(rows.map((r) => r.key));
     }
 
-    const remote = new Map((data ?? []).map((row) => [row.key as string, row]));
+    const remote = new Map(rows.map((row) => [row.key, row]));
 
     let changed = false;
 
@@ -377,7 +422,7 @@ async function pullFromCloud(quiet = false, adopt = false): Promise<Set<string> 
         changed = true;
       }
 
-      rememberCloudValue(key, remoteValue, row.updated_at as string);
+      rememberCloudValue(key, remoteValue, row.updated_at);
     }
 
     if (changed) {
@@ -385,7 +430,7 @@ async function pullFromCloud(quiet = false, adopt = false): Promise<Set<string> 
     }
 
     setStatus(dirty.size === 0 ? "synced" : "syncing");
-    return new Set(remote.keys());
+    return cloudKeys;
   })().finally(() => {
     pullInFlight = null;
   });
