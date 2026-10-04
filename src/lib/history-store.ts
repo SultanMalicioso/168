@@ -69,8 +69,10 @@ export function dayLook(d: DaySnapshot, now = Date.now()): DayLook {
 export interface DayActivityRecord {
   id: string;
   name: string;
-  color: string;
-  mode: "timer" | "manual";
+  /** Absent on days compacted after a year. */
+  color?: string;
+  /** Absent on days compacted after a year. */
+  mode?: "timer" | "manual";
   plannedHours: number;
   realHours: number;
   done: boolean;
@@ -93,6 +95,8 @@ export interface DaySnapshot {
   status: DayStatus;
   /** Epoch ms when the day was frozen into history (absent = live value). */
   frozenAt?: number;
+  /** Set once the day was slimmed down after a year (see compactHistoryDays). */
+  compact?: true;
 }
 
 export type EmptyDayMode = "complete" | "ignore";
@@ -421,7 +425,44 @@ function load(): HistoryData {
   return memory;
 }
 
+const COMPACT_AFTER_DAYS = 365;
+
+/**
+ * Days older than a year are slimmed down so the synced history stops
+ * growing forever: per-activity colors and modes and the day's goal list
+ * are dropped. Everything the calendar, the streaks and the statistics use
+ * (status, pct, totals, hours and each activity's name and completion)
+ * stays, so they read exactly the same. Older app versions can still read
+ * the result.
+ */
+export function compactHistoryDays(
+  days: Record<string, DaySnapshot>,
+  now = Date.now(),
+): Record<string, DaySnapshot> {
+  const cutoff = dateKeyOf(new Date(now - COMPACT_AFTER_DAYS * 86_400_000));
+  let out: Record<string, DaySnapshot> | null = null;
+  for (const [key, day] of Object.entries(days)) {
+    if (key >= cutoff || day.compact) continue;
+    out ??= { ...days };
+    out[key] = {
+      ...day,
+      goals: [],
+      activities: (day.activities ?? []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        plannedHours: a.plannedHours,
+        realHours: a.realHours,
+        done: a.done,
+      })),
+      compact: true,
+    };
+  }
+  return out ?? days;
+}
+
 function commit(next: HistoryData) {
+  const days = compactHistoryDays(next.days);
+  if (days !== next.days) next = { ...next, days };
   memory = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));

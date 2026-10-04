@@ -89,10 +89,19 @@ function writeMeta(meta: Meta) {
   }
 }
 
+/**
+ * Values above this size keep only their hash: storing a second full copy
+ * as merge base would eat the browser's storage quota. Without a base, a
+ * merge treats both sides' items as additions (deletions made on another
+ * device can come back for those keys).
+ */
+const MAX_BASE_CHARS = 100_000;
+
 function rememberCloudValue(key: string, value: string, updatedAt?: string) {
   const meta = readMeta();
   meta.cloudHash[key] = hash(canonical(value));
-  meta.cloudBase[key] = value;
+  if (value.length > MAX_BASE_CHARS) delete meta.cloudBase[key];
+  else meta.cloudBase[key] = value;
 
   if (updatedAt) {
     const timestamp = Date.parse(updatedAt);
