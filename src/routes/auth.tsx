@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SiteFooter } from "@/components/legal/SiteFooter";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { clearDeviceData, STATUS_LABEL, SYNC_KEYS, useCloudSync } from "@/lib/cloud-sync";
 import { consentMetadata, LEGAL } from "@/lib/legal";
 import { PLAN_LABEL } from "@/lib/plan";
@@ -103,16 +102,15 @@ function AuthPage() {
   const google = async () => {
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth/callback`,
+      // Supabase redirects to Google and back to /auth/callback, which picks up the session.
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
       });
-      if (result.error) {
+      if (error) {
         setBusy(false);
         toast.error("No pudimos iniciar sesión con Google. Probá de nuevo o usá email y contraseña.");
-        return;
       }
-      if (result.redirected) return;
-      navigate({ to: "/" });
     } catch {
       setBusy(false);
       toast.error("No pudimos iniciar sesión con Google. Probá de nuevo o usá email y contraseña.");
