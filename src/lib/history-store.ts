@@ -186,11 +186,12 @@ function dayPct(total: number, done: number, emptyDayMode: EmptyDayMode): number
 }
 
 /**
- * A frozen day keeps the activities that were scheduled then, but its
- * completions always come from the current timer data: a completion that
- * synced from another device after the day was frozen still counts.
+ * A frozen day keeps the activities that were scheduled then, even if the
+ * activity's days were edited later: history is never rewritten. Its
+ * completions always come from the current timer data, so a completion
+ * that synced from another device after the day was frozen still counts.
  */
-function refreshFrozen(
+export function refreshFrozen(
   snap: DaySnapshot,
   current: Activity[],
   goals: Goal[],
@@ -199,16 +200,16 @@ function refreshFrozen(
 ): DaySnapshot {
   const hasCompletions = snap.dateKey in timers.completions;
   const activities = snap.activities
-    .filter((rec) => {
-      // Drop records that were frozen in by mistake (other week / created later,
-      // or demo activities frozen before the user's data had loaded).
-      const a = current.find((x) => x.id === rec.id);
-      if (!a) return !rec.id.startsWith("seed-");
-      return scheduledOn(a, snap.dateKey);
-    })
     .map((rec) => {
       const done = hasCompletions ? isCompletedToday(timers, rec.id, snap.dateKey) : rec.done;
       return { ...rec, done, realHours: creditedHours(rec.realHours, rec.plannedHours, done) };
+    })
+    .filter((rec) => {
+      if (current.some((x) => x.id === rec.id)) return true;
+      // Demo activities frozen before the user's data had loaded.
+      if (rec.id.startsWith("seed-")) return false;
+      // A deleted activity only stays in the day if it was done.
+      return rec.done;
     });
   const total = activities.length;
   const done = activities.filter((a) => a.done).length;
