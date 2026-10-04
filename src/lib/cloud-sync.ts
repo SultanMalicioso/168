@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { merge3 } from "@/lib/sync-merge";
 import { retryDelay } from "@/lib/sync-retry";
+import { toast } from "sonner";
 
 export const SYNC_KEYS = [
   "week168.v2",
@@ -128,7 +129,9 @@ let pushInFlight: Promise<void> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 /** Failed pushes in a row, for the retry backoff. */
 let failedPushes = 0;
-let pullInFlight: Promise<void> | null = null;
+let pullInFlight: Promise<Set<string> | null> | null = null;
+/** The first sync of this session failed: retry it instead of plain pulls. */
+let initialSyncPending = false;
 
 /** Changes made on THIS device that have not yet been uploaded. */
 const dirty = new Set<string>();
@@ -173,7 +176,7 @@ function scheduleRetry(succeeded: boolean) {
 }
 
 async function pushDirty(): Promise<void> {
-  if (deleting || !currentUser || dirty.size === 0) return;
+  if (deleting || bootstrapping || !currentUser || dirty.size === 0) return;
 
   if (pushInFlight) {
     return pushInFlight;
@@ -329,9 +332,10 @@ function schedulePush(key: string) {
  * `quiet` skips the "syncing" badge for background checks; `adopt` takes the
  * cloud copy even over pending local changes (first sync of an account).
  */
-async function pullFromCloud(quiet = false, adopt = false): Promise<void> {
-  if (deleting) return;
-  if (!currentUser) return;
+/** Resolves to the keys the cloud has, or null when it couldn't be read. */
+async function pullFromCloud(quiet = false, adopt = false): Promise<Set<string> | null> {
+  if (deleting) return null;
+  if (!currentUser) return null;
 
   if (pullInFlight) {
     return pullInFlight;
@@ -348,7 +352,7 @@ async function pullFromCloud(quiet = false, adopt = false): Promise<void> {
     if (error) {
       console.error("Cloud pull error:", error);
       setStatus("error");
-      return;
+      return null;
     }
 
     const remote = new Map((data ?? []).map((row) => [row.key as string, row]));
@@ -381,6 +385,7 @@ async function pullFromCloud(quiet = false, adopt = false): Promise<void> {
     }
 
     setStatus(dirty.size === 0 ? "synced" : "syncing");
+    return new Set(remote.keys());
   })().finally(() => {
     pullInFlight = null;
   });
@@ -394,40 +399,70 @@ async function pullFromCloud(quiet = false, adopt = false): Promise<void> {
 
 async function initialSync(): Promise<void> {
   if (!currentUser) return;
+  const userId = currentUser.id;
 
   bootstrapping = true;
+  initialSyncPending = false;
   setStatus("syncing");
 
   /*
    * First sync of this account on this device: what is stored locally is
    * demo data or another account's, never newer than the account's cloud
-   * copy. The cloud wins; only keys the cloud lacks get uploaded below.
+   * copy. The cloud wins.
    */
   const meta = readMeta();
   const legacySynced = meta.userId === undefined && Object.keys(meta.cloudHash).length > 0;
-  const firstSync = meta.userId !== currentUser.id && !legacySynced;
-  if (firstSync) {
-    dirty.clear();
-    writeMeta({ localAt: {}, cloudHash: {}, cloudBase: {}, userId: currentUser.id });
-  } else if (meta.userId !== currentUser.id) {
-    writeMeta({ ...meta, userId: currentUser.id });
-  }
+  const firstSync = meta.userId !== userId && !legacySynced;
+  /* Local data belongs to another account: it must never reach this one. */
+  const otherAccount = firstSync && meta.userId !== undefined;
+  if (firstSync) dirty.clear();
 
   try {
     /* Cloud first: a second device must adopt the account data. */
-    await pullFromCloud(false, firstSync);
+    const cloudKeys = await pullFromCloud(false, firstSync);
+    if (!cloudKeys) {
+      /* Upload nothing until the account's data could be read. */
+      initialSyncPending = true;
+      return;
+    }
+
+    if (firstSync) {
+      /* Hashes of keys this account lacks belonged to the previous one. */
+      const next = readMeta();
+      for (const key of SYNC_KEYS) {
+        if (cloudKeys.has(key)) continue;
+        delete next.cloudHash[key];
+        delete next.cloudBase[key];
+        delete next.localAt[key];
+      }
+      writeMeta({ ...next, userId });
+    } else if (meta.userId !== userId) {
+      writeMeta({ ...readMeta(), userId });
+    }
 
     /*
-     * Anything still unknown to the cloud (first login, or edits
-     * made before the pull finished) gets uploaded.
+     * Anything still unknown to the cloud (first login, or edits made
+     * before the pull finished) gets uploaded; another account's data is
+     * dropped instead.
      */
+    let dropped = false;
     for (const key of SYNC_KEYS) {
-      if (localStorage.getItem(key) != null && !matchesCloud(key)) {
+      if (localStorage.getItem(key) == null || matchesCloud(key)) continue;
+      if (otherAccount && !cloudKeys.has(key)) {
+        localStorage.removeItem(key);
+        dropped = true;
+      } else {
         dirty.add(key);
       }
     }
+    if (dropped) {
+      /* In-memory stores still hold the other account's data. */
+      window.location.reload();
+      return;
+    }
   } finally {
-    bootstrapping = false;
+    /* While the first sync is pending, local edits stay on this device. */
+    bootstrapping = initialSyncPending;
   }
 
   await pushDirty();
@@ -475,6 +510,9 @@ export function startCloudSync() {
     currentUser = nextUser;
 
     if (!nextUser) {
+      initialSyncPending = false;
+      bootstrapping = false;
+      cancelRetry();
       setStatus("offline");
       return;
     }
@@ -489,6 +527,11 @@ export function startCloudSync() {
   /* Save pending work and re-check the cloud when the tab regains focus. */
   window.addEventListener("focus", () => {
     if (!currentUser) return;
+
+    if (initialSyncPending) {
+      void initialSync();
+      return;
+    }
 
     void (async () => {
       if (dirty.size > 0) await pushDirty();
@@ -523,6 +566,11 @@ export function startCloudSync() {
       return;
     }
 
+    if (initialSyncPending) {
+      void initialSync();
+      return;
+    }
+
     /* Back in the app: pick up what other devices changed meanwhile. */
     void (async () => {
       if (dirty.size > 0) await pushDirty();
@@ -532,7 +580,12 @@ export function startCloudSync() {
 
   /* While the app is visible, keep up with other devices (e.g. a timer started elsewhere). */
   window.setInterval(() => {
-    if (!currentUser || bootstrapping || document.visibilityState !== "visible") return;
+    if (!currentUser || document.visibilityState !== "visible") return;
+    if (initialSyncPending) {
+      void initialSync();
+      return;
+    }
+    if (bootstrapping) return;
     if (pushInFlight) return;
     /* Pending local edits go up first; the cloud is checked on a later tick. */
     if (dirty.size > 0) {
@@ -564,13 +617,39 @@ export function useCloudSync() {
     };
   }, []);
 
-  const signOut = useCallback(async () => {
+  /**
+   * Uploads what is pending, unregisters this device's push subscription
+   * and leaves no account data behind. If the last changes can't be saved
+   * the session stays open and nothing is deleted.
+   */
+  const signOut = useCallback(async (): Promise<boolean> => {
     if (pushTimer) {
       clearTimeout(pushTimer);
+      pushTimer = null;
+    }
+    cancelRetry();
+
+    if (pushInFlight) await pushInFlight;
+    await pushDirty();
+    if (dirty.size > 0) {
+      toast.error(
+        "No pudimos guardar tus últimos cambios en la nube. Revisá tu conexión y probá de nuevo.",
+      );
+      return false;
     }
 
-    await pushDirty();
+    try {
+      const { disableDevicePush } = await import("@/lib/push-client");
+      await disableDevicePush();
+    } catch {
+      /* The subscription may already be gone; signing out matters more. */
+    }
+
     await supabase.auth.signOut();
+    clearDeviceData();
+    // In-memory stores still hold the account's data: start fresh.
+    window.location.assign("/");
+    return true;
   }, []);
 
   const refresh = useCallback(async () => {
@@ -588,6 +667,7 @@ export function useCloudSync() {
   const deleteAccount = useCallback(async () => {
     deleting = true;
     if (pushTimer) clearTimeout(pushTimer);
+    cancelRetry();
     dirty.clear();
     try {
       const { deleteAccount: deleteOnServer } = await import("@/lib/account.functions");
