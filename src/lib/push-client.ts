@@ -46,6 +46,42 @@ export const pushActiveHere = () => {
   }
 };
 
+/**
+ * Forgets server push on this device when its subscription is no longer
+ * active (expired, revoked, permission removed…), so the in-page engine
+ * goes back to showing notifications itself instead of staying silent.
+ */
+export async function recheckDevicePush(): Promise<void> {
+  if (!pushActiveHere()) return;
+  try {
+    if ((await pushState()) !== "on") clearStoredPushState();
+  } catch {
+    /* Offline or server unreachable: keep the current state. */
+  }
+}
+
+let watching = false;
+
+/** Re-checks the subscription on return to the app and when the service worker reports a change. */
+export function watchDevicePush() {
+  if (watching || typeof window === "undefined") return;
+  watching = true;
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void recheckDevicePush();
+  });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event: MessageEvent) => {
+      if ((event.data as { type?: string } | null)?.type === "week168:push-subscription-change") {
+        void recheckDevicePush();
+      }
+    });
+  }
+
+  void recheckDevicePush();
+}
+
 const supported = () =>
   typeof window !== "undefined" &&
   "serviceWorker" in navigator &&
