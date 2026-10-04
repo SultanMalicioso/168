@@ -139,7 +139,7 @@ function Index() {
   const realMode = timers.progressMode === "real";
 
   const chartView: ChartView = store.chartView ?? "activities";
-  const setChartView = (v: ChartView) => setStore({ ...store, chartView: v });
+  const setChartView = (v: ChartView) => setStore((s) => ({ ...s, chartView: v }));
 
 /*
  * Timer data is measured in the week being viewed, not always in the
@@ -304,12 +304,12 @@ const realTotal = filtered.reduce(
   }, [timers.data, timers.now, realTotal, plannedTotal, filtered, weekRef]);
 
   const updateTasks = (activityId: string, updater: (tasks: Task[]) => Task[]) => {
-    setStore({
-      ...store,
-      activities: store.activities.map((a) =>
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.map((a) =>
         a.id === activityId ? { ...a, tasks: updater(a.tasks ?? []) } : a,
       ),
-    });
+    }));
   };
 
   const upsert = (data: Omit<Activity, "id">) => {
@@ -319,17 +319,18 @@ const realTotal = filtered.reduce(
       if (newTotal > TOTAL) {
         toast.warning(`Has superado las 168h (${newTotal.toFixed(1)}h)`);
       }
-      setStore({ ...store, activities: next });
+      setStore((s) => ({
+        ...s,
+        activities: s.activities.map((a) => (a.id === editing.id ? { ...editing, ...data } : a)),
+      }));
       toast.success("Actividad actualizada");
     } else {
       const newTotal = totalUsed + data.hoursPerDay * data.daysPerWeek;
       if (newTotal > TOTAL) {
         toast.warning(`Al agregar superarías 168h (${newTotal.toFixed(1)}h)`);
       }
-      setStore({
-        ...store,
-        activities: [...store.activities, { id: uid(), ...data, createdAt: Date.now() }],
-      });
+      const created = { id: uid(), ...data, createdAt: Date.now() };
+      setStore((s) => ({ ...s, activities: [...s.activities, created] }));
       toast.success("Actividad agregada");
     }
     setEditing(null);
@@ -342,45 +343,46 @@ const realTotal = filtered.reduce(
     if (time && time !== a.startTime) next[String(day)] = time;
     else delete next[String(day)];
     const dayStartTimes = Object.keys(next).length ? next : undefined;
-    setStore({
-      ...store,
-      activities: store.activities.map((x) => (x.id === a.id ? { ...x, dayStartTimes } : x)),
-    });
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.map((x) => (x.id === a.id ? { ...x, dayStartTimes } : x)),
+    }));
   };
 
   const remove = (id: string) => {
-    setStore({
-      ...store,
-      activities: store.activities.filter((a) => a.id !== id),
-    });
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.filter((a) => a.id !== id),
+    }));
     toast.success("Actividad eliminada");
   };
 
 
   const duplicate = (a: Activity) =>
-    setStore({
-      ...store,
-      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false, createdAt: Date.now() }],
-    });
+    setStore((s) => ({
+      ...s,
+      activities: [
+        ...s.activities,
+        { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false, createdAt: Date.now() },
+      ],
+    }));
 
   const togglePermanent = (id: string) =>
-    setStore({
-      ...store,
-      activities: store.activities.map((a) =>
-        a.id === id ? { ...a, permanent: !a.permanent } : a,
-      ),
-    });
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.map((a) => (a.id === id ? { ...a, permanent: !a.permanent } : a)),
+    }));
 
   const createGoal = (data: Omit<Goal, "id" | "createdAt">): Goal => {
     const g: Goal = { ...data, id: uid(), createdAt: Date.now() };
-    setStore({ ...store, goals: [...store.goals, g] });
+    setStore((s) => ({ ...s, goals: [...s.goals, g] }));
     toast.success(`Objetivo "${g.name}" creado`);
     return g;
   };
 
 
   const toggleTheme = () =>
-    setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
+    setStore((s) => ({ ...s, theme: s.theme === "dark" ? "light" : "dark" }));
 
   if (!hydrated) {
     return <div className="min-h-screen bg-background" />;
@@ -962,8 +964,8 @@ const realTotal = filtered.reduce(
               activities={store.activities}
               weekActivities={weekActivities}
               realHours={(a) => realHoursForWeek(timers.data, a, weekRef)}
-              onGoalsChange={(goals) => setStore({ ...store, goals })}
-              onActivitiesChange={(activities) => setStore({ ...store, activities })}
+              onGoalsChange={(goals) => setStore((s) => ({ ...s, goals }))}
+              onActivitiesChange={(activities) => setStore((s) => ({ ...s, activities }))}
             />
           </div>
         </aside>
