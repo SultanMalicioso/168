@@ -141,6 +141,8 @@ function finishExpiredTimer(raw: Record<string, unknown> | null, nowMs: number) 
   };
 }
 
+const SUBS_BATCH = 500;
+
 interface SubRow {
   id: string;
   user_id: string;
@@ -188,15 +190,21 @@ export const Route = createFileRoute("/api/public/push-tick")({
         const vapid = readVapid();
         if (!vapid) return Response.json({ error: "vapid-missing" }, { status: 500 });
 
-        const { data: subs, error } = await supabaseAdmin
-          .from("push_subscriptions")
-          .select("id, user_id, endpoint, p256dh, auth, time_zone")
-          .eq("enabled", true)
-          .limit(500);
+        /* Every enabled subscription, read in batches so none is left out. */
+        const rows: SubRow[] = [];
+        for (let from = 0; ; from += SUBS_BATCH) {
+          const { data: subs, error } = await supabaseAdmin
+            .from("push_subscriptions")
+            .select("id, user_id, endpoint, p256dh, auth, time_zone")
+            .eq("enabled", true)
+            .order("id")
+            .range(from, from + SUBS_BATCH - 1);
 
-        if (error) return Response.json({ error: error.message }, { status: 500 });
+          if (error) return Response.json({ error: error.message }, { status: 500 });
+          rows.push(...((subs ?? []) as SubRow[]));
+          if (!subs || subs.length < SUBS_BATCH) break;
+        }
 
-        const rows = (subs ?? []) as SubRow[];
         const byUser = new Map<string, SubRow[]>();
         for (const row of rows) {
           byUser.set(row.user_id, [...(byUser.get(row.user_id) ?? []), row]);
