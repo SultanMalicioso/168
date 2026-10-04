@@ -209,7 +209,7 @@ function Index() {
       });
     }
     return items;
-  }, [chartView, chartBase, store, allT]);
+  }, [chartView, chartBase, store]);
 
   // For combined mode: subdivide each activity outer arc by its tasks
   const subSegments = useMemo<
@@ -228,7 +228,7 @@ function Index() {
       }));
     }
     return map;
-  }, [chartView, filtered, allT, store]);
+  }, [chartView, filtered, store]);
 
   const plannedTotal = filtered.reduce((s, a) => s + weeklyHours(a), 0);
 

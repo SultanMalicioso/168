@@ -437,15 +437,24 @@ const defaultStore: Store = {
   selectedWeek: getWeekKey(),
 };
 
-function migrate(raw: any): Store {
-  if (!raw || typeof raw !== "object") return defaultStore;
+/** Goals as saved by the first builds: one per activity, by name. */
+interface LegacyGoal {
+  id?: string;
+  activityName?: string;
+  minHours?: number;
+}
+
+function migrate(input: unknown): Store {
+  if (!input || typeof input !== "object") return defaultStore;
+  const raw = input as Partial<Record<keyof Store, unknown>>;
   const activities: Activity[] = Array.isArray(raw.activities)
-    ? raw.activities
+    ? (raw.activities as Activity[])
     : defaultStore.activities;
   let goals: Goal[] = [];
   if (Array.isArray(raw.goals)) {
-    goals = raw.goals.map((g: any, i: number): Goal => {
-      if (g && typeof g === "object" && "targetHours" in g) return g as Goal;
+    goals = (raw.goals as (Goal | LegacyGoal | null)[]).map((item, i): Goal => {
+      if (item && typeof item === "object" && "targetHours" in item) return item as Goal;
+      const g = item as LegacyGoal | null;
       const match = activities.find(
         (a) => a.name.toLowerCase() === String(g?.activityName ?? "").toLowerCase(),
       );
@@ -467,7 +476,7 @@ function migrate(raw: any): Store {
   return {
     activities,
     goals,
-    tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
+    tasks: Array.isArray(raw.tasks) ? (raw.tasks as Task[]) : [],
     theme: raw.theme === "dark" ? "dark" : "light",
     chartView:
       raw.chartView === "goals" || raw.chartView === "tasks" || raw.chartView === "combined"

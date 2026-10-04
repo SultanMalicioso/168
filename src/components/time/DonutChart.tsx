@@ -69,7 +69,7 @@ export function DonutChart({
       angle = a1;
       return { ...it, a0, a1, frac };
     });
-  }, [activities, free]);
+  }, [activities, free, TOTAL]);
 
   const arc = (a0: number, a1: number, R: number, IR: number, gap = 0.008) => {
     const s = a0 + gap;
