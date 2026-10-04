@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { planEvents, type PlannedEvent, type TimerSnapshot } from "@/lib/notify-plan";
+import {
+  planEvents,
+  withoutFinishedTimerDuplicate,
+  type PlannedEvent,
+  type TimerSnapshot,
+} from "@/lib/notify-plan";
 import type { Json } from "@/integrations/supabase/types";
 import type { NotifySettings } from "@/lib/notify-store";
 import type { Store } from "@/lib/time-store";
@@ -238,6 +243,7 @@ export const Route = createFileRoute("/api/public/push-tick")({
             Date.now(),
           );
           let timerEvent: PlannedEvent | null = null;
+          let finishedTimer: { activityId: string; dateKey: string } | null = null;
           if (expired) {
             const { error: saveError } = await supabaseAdmin
               .from("user_data")
@@ -251,6 +257,10 @@ export const Route = createFileRoute("/api/public/push-tick")({
               timers.active = null;
               timers.completions = expired.data.completions;
               timers.sessions = expired.data.sessions;
+              finishedTimer = {
+                activityId: expired.timer.activityId,
+                dateKey: expired.timer.dateKey,
+              };
               const act = store.activities.find((a) => a.id === expired.timer.activityId);
               timerEvent = {
                 key: `timer:${expired.timer.id}`,
@@ -279,9 +289,10 @@ export const Route = createFileRoute("/api/public/push-tick")({
             if (inQuietHours(settings, local)) continue;
 
             const localMs = local.getTime();
-            const events = planEvents(local, store, timers, settings).filter(
+            let events = planEvents(local, store, timers, settings).filter(
               (e) => e.at <= localMs && localMs - e.at <= Math.min(e.graceMs, 30 * 60_000),
             );
+            if (finishedTimer) events = withoutFinishedTimerDuplicate(events, finishedTimer);
             if (timerEvent) events.push(timerEvent);
             if (events.length === 0) continue;
 
