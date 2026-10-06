@@ -1,5 +1,13 @@
-import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Flame, Settings2, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  Lock,
+  Settings2,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -15,8 +23,17 @@ import {
 } from "@/lib/history-store";
 import { DAY_NAMES, DAY_SHORT, type Activity, type Goal, type Task } from "@/lib/time-store";
 import { dateKeyOf, weekStart, type TimerData } from "@/lib/timer-store";
-
-type View = "week" | "month" | "year";
+import {
+  backControl,
+  calendarAccess,
+  canOpenDay,
+  forwardControl,
+  normalizeCalendar,
+  viewControl,
+  type CalendarView as View,
+} from "@/lib/calendar-access";
+import { usePlan } from "@/lib/use-plan";
+import { UpgradeDialog } from "@/components/plan/ProGate";
 
 interface Props {
   activities: Activity[];
@@ -45,12 +62,34 @@ const MONTHS = [
 const heatColor = (d: DaySnapshot) => dayLook(d).color;
 
 export function CalendarModule({ activities, goals, tasks, timers, now }: Props) {
-  const [view, setView] = useState<View>("week");
-  const [cursor, setCursor] = useState(() => new Date());
+  const [state, setState] = useState(() => ({ view: "week" as View, cursor: new Date() }));
   const [selected, setSelected] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [proOpen, setProOpen] = useState(false);
 
   const history = useHistoryStore({ activities, goals, tasks, timers, now });
+
+  /* ---- plan: Free sees the current week only (see calendar-access) ---- */
+  const plan = usePlan();
+  const access = calendarAccess({
+    loading: plan.loading,
+    allowed: plan.can("calendar.history"),
+  });
+  const today = useMemo(() => new Date(now ?? Date.now()), [now]);
+  // Render from the allowed state right away; the effect below stores it.
+  const { view, cursor } = normalizeCalendar(state, access, today);
+  useEffect(() => {
+    setState((s) => normalizeCalendar(s, access, today));
+    setSelected((k) => (k && !canOpenDay(k, access, today) ? null : k));
+  }, [access, today]);
+  const setView = (v: View) => setState((s) => ({ ...s, view: v }));
+  const setCursor = (d: Date) => setState((s) => ({ ...s, cursor: d }));
+  const openDay = (k: string) => {
+    if (canOpenDay(k, access, today)) setSelected(k);
+    else if (access === "limited") setProOpen(true);
+  };
+  const back = backControl(access);
+  const forward = forwardControl(access);
 
   /* ---- range per view (same data source for the three of them) ---- */
   const range = useMemo(() => {
@@ -72,7 +111,10 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
   const days = useMemo(() => history.getDays(range), [history, range]);
   const stats = useMemo(() => computeStats(days), [days]);
   const byKey = useMemo(() => new Map(days.map((d) => [d.dateKey, d])), [days]);
-  const selectedDay = selected ? (byKey.get(selected) ?? history.getDay(selected)) : null;
+  const selectedDay =
+    selected && canOpenDay(selected, access, today)
+      ? (byKey.get(selected) ?? history.getDay(selected))
+      : null;
 
   const shift = (dir: number) => {
     const d = new Date(cursor);
@@ -95,19 +137,26 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
       <div className="rounded-3xl border bg-card p-4 sm:p-5 shadow-[var(--shadow-soft)] space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="inline-flex rounded-xl border p-1 bg-muted/40">
-            {(["week", "month", "year"] as View[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm transition-all duration-200 ${
-                  view === v
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {v === "week" ? "Semana" : v === "month" ? "Mes" : "Año"}
-              </button>
-            ))}
+            {(["week", "month", "year"] as View[]).map((v) => {
+              const control = viewControl(v, access);
+              const label = v === "week" ? "Semana" : v === "month" ? "Mes" : "Año";
+              return (
+                <button
+                  key={v}
+                  onClick={() => (control === "locked" ? setProOpen(true) : setView(v))}
+                  disabled={control === "disabled"}
+                  aria-label={control === "locked" ? `${label} (disponible en Pro)` : undefined}
+                  className={`inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 rounded-lg text-sm transition-all duration-200 disabled:opacity-50 ${
+                    view === v
+                      ? "bg-foreground text-background shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                  {control === "locked" && <Lock className="h-3 w-3" aria-hidden />}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -115,8 +164,9 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
               variant="outline"
               size="icon"
               className="h-8 w-8"
-              onClick={() => shift(-1)}
-              aria-label="Anterior"
+              onClick={() => (back === "locked" ? setProOpen(true) : shift(-1))}
+              disabled={back === "disabled"}
+              aria-label={back === "locked" ? "Anterior (disponible en Pro)" : "Anterior"}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -128,6 +178,7 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
               size="icon"
               className="h-8 w-8"
               onClick={() => shift(1)}
+              disabled={forward !== "enabled"}
               aria-label="Siguiente"
             >
               <ChevronRight className="h-4 w-4" />
@@ -148,9 +199,9 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
         </div>
 
         <div key={view} className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
-          {view === "week" && <WeekView days={days} onSelect={setSelected} />}
-          {view === "month" && <MonthView days={days} cursor={cursor} onSelect={setSelected} />}
-          {view === "year" && <YearView days={days} onSelect={setSelected} />}
+          {view === "week" && <WeekView days={days} onSelect={openDay} />}
+          {view === "month" && <MonthView days={days} cursor={cursor} onSelect={openDay} />}
+          {view === "year" && <YearView days={days} onSelect={openDay} />}
         </div>
 
         <Legend />
@@ -230,6 +281,7 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
       </div>
 
       <DayDetail day={selectedDay} onClose={() => setSelected(null)} />
+      <UpgradeDialog open={proOpen} onOpenChange={setProOpen} source="calendar.history" />
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="sm:max-w-md">

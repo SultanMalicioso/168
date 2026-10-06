@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      pro_waitlist: {
+        Row: {
+          created_at: string
+          email: string
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_sent: {
         Row: {
           dedupe_key: string
@@ -95,6 +116,24 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduler_state: {
+        Row: {
+          id: number
+          last_run: string | null
+          last_tick: string | null
+        }
+        Insert: {
+          id?: number
+          last_run?: string | null
+          last_tick?: string | null
+        }
+        Update: {
+          id?: number
+          last_run?: string | null
+          last_tick?: string | null
+        }
+        Relationships: []
+      }
       user_data: {
         Row: {
           key: string
@@ -121,7 +160,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_scheduler_tick: { Args: never; Returns: boolean }
+      cleanup_old_push_sent: { Args: never; Returns: undefined }
+      trigger_notification_scheduler: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

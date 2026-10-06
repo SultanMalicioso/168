@@ -56,6 +56,11 @@ function PrivacyPage() {
           hora correcta.
         </li>
         <li>
+          <strong>Lista de espera de Pro:</strong> si te anotás en la lista de espera de 168 Pro,
+          guardamos tu email para avisarte cuando esté disponible. Podés salir de la lista cuando
+          quieras desde la app, y se borra si eliminás tu cuenta.
+        </li>
+        <li>
           <strong>Registro de aceptación:</strong> la fecha y la versión de estos documentos que
           aceptaste y tu confirmación de edad.
         </li>

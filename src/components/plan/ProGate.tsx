@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { FEATURES, type Feature } from "@/lib/plan";
 import { usePlan } from "@/lib/use-plan";
+import { ProWaitlist } from "@/components/plan/ProWaitlist";
 
 /** Renders `children` only when the current plan includes `feature`. */
 export function ProGate({
@@ -64,7 +65,7 @@ export function ProLocked({ feature, compact = false }: { feature: Feature; comp
           </Button>
         </div>
       )}
-      <UpgradeDialog open={open} onOpenChange={setOpen} />
+      <UpgradeDialog open={open} onOpenChange={setOpen} source={feature} />
     </>
   );
 }
@@ -73,12 +74,15 @@ export function ProLocked({ feature, compact = false }: { feature: Feature; comp
  * What Pro includes. There is no checkout yet: when billing exists, this is
  * the single place to send people to it.
  */
-function UpgradeDialog({
+export function UpgradeDialog({
   open,
   onOpenChange,
+  source,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** The Pro feature that opened the dialog (recorded with a waitlist signup). */
+  source?: Feature;
 }) {
   const proFeatures = Object.values(FEATURES).filter((f) => f.plan === "pro");
   return (
@@ -100,6 +104,7 @@ function UpgradeDialog({
             </li>
           ))}
         </ul>
+        <ProWaitlist source={source} onNavigate={() => onOpenChange(false)} />
         <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
           Entendido
         </Button>

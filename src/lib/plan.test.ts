@@ -46,6 +46,13 @@ describe("planAllows", () => {
     assert.equal(planAllows("free", "stats.advanced"), false);
     assert.equal(planAllows("free", "goals.advanced"), false);
   });
+
+  it("the full calendar history is Pro", () => {
+    assert.equal(requiredPlan("calendar.history"), "pro");
+    assert.equal(planAllows("free", "calendar.history"), false);
+    assert.equal(planAllows("pro", "calendar.history"), true);
+    assert.equal(FEATURES["calendar.history"].title, "Calendario completo");
+  });
 });
 
 describe("dev override", () => {

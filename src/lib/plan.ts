@@ -38,6 +38,12 @@ export const FEATURES = {
     description:
       "Planificado vs realizado, horas restantes y diferencia de cada objetivo, con el detalle por actividad.",
   },
+  "calendar.history": {
+    plan: "pro",
+    title: "Calendario completo",
+    description:
+      "Vistas de mes y año, semanas anteriores, rachas largas y estadísticas de constancia.",
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type Feature = keyof typeof FEATURES;
