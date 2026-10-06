@@ -90,6 +90,33 @@ describe("normalizeCalendar", () => {
 });
 
 describe("currentWeekKeys", () => {
+  it("includes the first and last minute of the week", () => {
+    const week = { from: "2026-10-05", to: "2026-10-11" };
+    assert.deepEqual(currentWeekKeys(new Date("2026-10-05T00:00:00")), week);
+    assert.deepEqual(currentWeekKeys(new Date("2026-10-11T23:59:59")), week);
+  });
+
+  it("spans a change of month", () => {
+    const week = { from: "2026-09-28", to: "2026-10-04" };
+    assert.deepEqual(currentWeekKeys(at("2026-09-30")), week);
+    assert.deepEqual(currentWeekKeys(at("2026-10-04")), week);
+    assert.equal(canOpenDay("2026-09-28", "limited", at("2026-10-02")), true);
+    assert.equal(canOpenDay("2026-10-05", "limited", at("2026-10-02")), false);
+  });
+
+  it("spans a change of year", () => {
+    const week = { from: "2026-12-28", to: "2027-01-03" };
+    assert.deepEqual(currentWeekKeys(at("2026-12-31")), week);
+    assert.deepEqual(currentWeekKeys(at("2027-01-03")), week);
+    assert.equal(canOpenDay("2026-12-28", "limited", at("2027-01-02")), true);
+    const next = normalizeCalendar(
+      { view: "week", cursor: at("2026-12-29") },
+      "limited",
+      at("2027-01-04"),
+    );
+    assert.deepEqual(currentWeekKeys(next.cursor), { from: "2027-01-04", to: "2027-01-10" });
+  });
+
   it("runs Monday to Sunday", () => {
     assert.deepEqual(currentWeekKeys(at("2026-10-05")), { from: "2026-10-05", to: "2026-10-11" });
     assert.deepEqual(currentWeekKeys(at("2026-10-11")), { from: "2026-10-05", to: "2026-10-11" });
