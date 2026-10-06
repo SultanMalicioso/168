@@ -29,8 +29,8 @@ interface WaitlistRow {
 }
 
 /**
- * The few calls this module makes. `pro_waitlist` isn't in the generated
- * Supabase types until its SQL runs, so callers cast their client to this.
+ * The few calls this module makes, so tests can pass a fake client. The
+ * server functions adapt the typed Supabase client to it.
  */
 export interface WaitlistDb {
   from(table: "pro_waitlist"): {

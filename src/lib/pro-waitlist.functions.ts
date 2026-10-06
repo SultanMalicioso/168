@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   joinWaitlist,
@@ -10,12 +12,21 @@ import {
 
 /* Server functions for the Pro waitlist. They never touch user_entitlements. */
 
-/**
- * The user's own client (RLS applies). `pro_waitlist` isn't in the
- * generated types yet: regenerate src/integrations/supabase/types.ts after
- * running its SQL, then this cast can go.
- */
-const waitlistDb = (client: unknown) => client as WaitlistDb;
+/** The user's own client (RLS applies), seen through the few calls the waitlist makes. */
+const waitlistDb = (client: SupabaseClient<Database>): WaitlistDb => ({
+  from: () => {
+    const table = client.from("pro_waitlist");
+    return {
+      insert: (row) => table.insert(row),
+      delete: () => ({ eq: (column, value) => table.delete().eq(column, value) }),
+      select: (columns) => ({
+        eq: (column, value) => ({
+          maybeSingle: () => table.select(columns).eq(column, value).maybeSingle(),
+        }),
+      }),
+    };
+  },
+});
 
 /** Per-user and per-IP limits. */
 async function limit(name: string, userId: string, max: number) {
