@@ -281,7 +281,7 @@ export function CalendarModule({ activities, goals, tasks, timers, now }: Props)
       </div>
 
       <DayDetail day={selectedDay} onClose={() => setSelected(null)} />
-      <UpgradeDialog open={proOpen} onOpenChange={setProOpen} />
+      <UpgradeDialog open={proOpen} onOpenChange={setProOpen} source="calendar.history" />
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="sm:max-w-md">
