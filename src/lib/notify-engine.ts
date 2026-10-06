@@ -2,7 +2,7 @@ import { LOCAL_DATA_CHANGED_EVENT } from "@/lib/cloud-sync";
 import { deliver, loadNotify, updateNotify } from "@/lib/notify-store";
 import { planEvents, type TimerSnapshot } from "@/lib/notify-plan";
 import type { Store } from "@/lib/time-store";
-import { pushActiveHere } from "@/lib/push-client";
+import { pushActiveHere, watchDevicePush } from "@/lib/push-client";
 
 /* ------------------------------------------------------------------ *
  * In-page notification engine.
@@ -93,6 +93,7 @@ export function startNotifyEngine() {
   started = true;
 
   void tick();
+  watchDevicePush();
 
   timer = setInterval(() => void tick(), 20_000);
 

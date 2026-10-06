@@ -12,11 +12,10 @@ import {
   usesTimer,
   type Activity,
   type Goal,
-  formatDuration
+  formatDuration,
 } from "@/lib/time-store";
 import { ActivityTimer } from "@/components/time/ActivityTimer";
 import { dateKeyOf, dayCompletion, realHoursForDay, useTimerStore } from "@/lib/timer-store";
-
 
 interface Props {
   activities: Activity[];
@@ -56,7 +55,6 @@ export function DayView({
     realHoursForDay(timers.data, a, dayKey, a.hoursPerDay, timers.now);
   const dayDone = dayCompletion(timers.data, activities, day, dayKey);
 
-
   // Per-day activity counts for selector badges
   const countsPerDay = useMemo(() => {
     const arr = Array(7).fill(0) as number[];
@@ -93,10 +91,7 @@ export function DayView({
     [sorted, realMode, timers.data, timers.now, dayKey],
   );
 
-  const occupied = dayActivities.reduce(
-    (s, a) => s + (realMode ? realHours(a) : a.hoursPerDay),
-    0,
-  );
+  const occupied = dayActivities.reduce((s, a) => s + (realMode ? realHours(a) : a.hoursPerDay), 0);
   const free = Math.max(0, DAY_TOTAL - occupied);
   const overflow = occupied > DAY_TOTAL;
   const top = sorted[0];
@@ -138,9 +133,7 @@ export function DayView({
               key={i}
               onClick={() => setDay(i)}
               className={`relative rounded-xl border px-2 py-2.5 text-xs transition ${
-                active
-                  ? "bg-foreground text-background border-foreground"
-                  : "hover:bg-accent"
+                active ? "bg-foreground text-background border-foreground" : "hover:bg-accent"
               }`}
             >
               <div className="font-medium leading-none">{label}</div>
@@ -165,9 +158,8 @@ export function DayView({
           <div>
             <h3 className="font-display text-lg leading-tight">{DAY_NAMES[day]}</h3>
             <p className="text-xs text-muted-foreground">
-              {dayActivities.length}{" "}
-              {dayActivities.length === 1 ? "actividad" : "actividades"} · {occupied.toFixed(1)}h
-              / 24h
+              {dayActivities.length} {dayActivities.length === 1 ? "actividad" : "actividades"} ·{" "}
+              {occupied.toFixed(1)}h / 24h
             </p>
           </div>
           <span
@@ -177,7 +169,9 @@ export function DayView({
                 : "bg-muted text-muted-foreground"
             }`}
           >
-            {dayDone.complete ? "✅ Día completado" : `${dayDone.done}/${dayDone.total} finalizadas`}
+            {dayDone.complete
+              ? "✅ Día completado"
+              : `${dayDone.done}/${dayDone.total} finalizadas`}
           </span>
         </div>
 
@@ -207,24 +201,43 @@ export function DayView({
 
       {/* Daily stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Ocupado" value={`${occupied.toFixed(1)}h`} sub={`${((occupied / DAY_TOTAL) * 100).toFixed(0)}% del día`} />
-        <Stat label="Libre" value={`${free.toFixed(1)}h`} sub={`${((free / DAY_TOTAL) * 100).toFixed(0)}% del día`} />
+        <Stat
+          label="Ocupado"
+          value={`${occupied.toFixed(1)}h`}
+          sub={`${((occupied / DAY_TOTAL) * 100).toFixed(0)}% del día`}
+        />
+        <Stat
+          label="Libre"
+          value={`${free.toFixed(1)}h`}
+          sub={`${((free / DAY_TOTAL) * 100).toFixed(0)}% del día`}
+        />
         <Stat label="Actividades" value={String(dayActivities.length)} sub="programadas" />
         <Stat
           label="Top del día"
           value={top?.name ?? "—"}
           sub={top ? formatDuration(top.hoursPerDay) : ""}
         />
-        <Stat label="Objetivos tocados" value={String(goalsToday.length)} sub={goalsToday.map((g) => g.name).join(" · ") || "—"} />
-        <Stat label="Tareas pendientes" value={String(taskToday.pending)} sub={`${taskToday.done}/${taskToday.total} completadas`} />
-        <Stat label="Categorías" value={String(new Set(dayActivities.map((a) => a.category)).size)} sub={`de ${CATEGORIES.length}`} />
+        <Stat
+          label="Objetivos tocados"
+          value={String(goalsToday.length)}
+          sub={goalsToday.map((g) => g.name).join(" · ") || "—"}
+        />
+        <Stat
+          label="Tareas pendientes"
+          value={String(taskToday.pending)}
+          sub={`${taskToday.done}/${taskToday.total} completadas`}
+        />
+        <Stat
+          label="Categorías"
+          value={String(new Set(dayActivities.map((a) => a.category)).size)}
+          sub={`de ${CATEGORIES.length}`}
+        />
         <Stat label="Restante ahora" value={`${free.toFixed(1)}h`} sub="hasta llenar el día" />
         <Stat
           label="Progreso del día"
           value={`${dayDone.done}/${dayDone.total}`}
           sub={dayDone.complete ? "Día completado" : "actividades finalizadas"}
         />
-
       </div>
 
       {/* Activities of the day */}
@@ -262,7 +275,8 @@ export function DayView({
                         {CATEGORIES.find((c) => c.id === a.category)?.label ?? a.category}
                       </Badge>
                       <span className="text-xs text-muted-foreground tabular-nums">
-                        {formatDuration(a.hoursPerDay)} · {((a.hoursPerDay / DAY_TOTAL) * 100).toFixed(0)}%
+                        {formatDuration(a.hoursPerDay)} ·{" "}
+                        {((a.hoursPerDay / DAY_TOTAL) * 100).toFixed(0)}%
                       </span>
                       {tp.total > 0 && (
                         <span className="text-[10px] text-muted-foreground">

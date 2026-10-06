@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CLOUD_UPDATED_EVENT, LOCAL_DATA_CHANGED_EVENT } from "@/lib/cloud-sync";
+import { DEFAULT_NOTIFY_SETTINGS } from "@/lib/notify-defaults";
 
 /* ------------------------------------------------------------------ *
  * Notification store
@@ -65,21 +66,7 @@ export const leadLabel = (m: number) =>
         ? "1 hora antes"
         : `${m} minutos antes`;
 
-const DEFAULT_SETTINGS: NotifySettings = {
-  enabled: true,
-  morning: true,
-  morningTime: "08:00",
-  night: true,
-  nightTime: "21:30",
-  activities: true,
-  tasks: true,
-  pendingTasks: true,
-  completions: true,
-  quietEnabled: true,
-  quietFrom: "23:00",
-  quietTo: "07:00",
-  defaultLead: 10,
-};
+const DEFAULT_SETTINGS = DEFAULT_NOTIFY_SETTINGS;
 
 const DEFAULT: NotifyData = { settings: DEFAULT_SETTINGS, items: [], sent: {} };
 
@@ -258,8 +245,8 @@ export async function deliver(input: NotifyInput, at = Date.now(), osSilent = fa
   const options: NotificationOptions = {
     body: input.body,
     tag: input.tag ?? item.id,
-    icon: "/favicon.ico",
-    badge: "/favicon.ico",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
     data: { link: item.link },
   };
 

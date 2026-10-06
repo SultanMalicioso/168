@@ -69,8 +69,10 @@ export function dayLook(d: DaySnapshot, now = Date.now()): DayLook {
 export interface DayActivityRecord {
   id: string;
   name: string;
-  color: string;
-  mode: "timer" | "manual";
+  /** Absent on days compacted after a year. */
+  color?: string;
+  /** Absent on days compacted after a year. */
+  mode?: "timer" | "manual";
   plannedHours: number;
   realHours: number;
   done: boolean;
@@ -93,6 +95,8 @@ export interface DaySnapshot {
   status: DayStatus;
   /** Epoch ms when the day was frozen into history (absent = live value). */
   frozenAt?: number;
+  /** Set once the day was slimmed down after a year (see compactHistoryDays). */
+  compact?: true;
 }
 
 export type EmptyDayMode = "complete" | "ignore";
@@ -157,7 +161,13 @@ function goalsFor(
   }
   return goals
     .filter((g) => (hours.get(g.id) ?? 0) > 0)
-    .map((g) => ({ id: g.id, name: g.name, color: g.color, icon: g.icon, hours: hours.get(g.id)! }));
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      color: g.color,
+      icon: g.icon,
+      hours: hours.get(g.id)!,
+    }));
 }
 export const isFutureKey = (k: string, now = Date.now()) => k > dateKeyOf(new Date(now));
 
@@ -186,11 +196,12 @@ function dayPct(total: number, done: number, emptyDayMode: EmptyDayMode): number
 }
 
 /**
- * A frozen day keeps the activities that were scheduled then, but its
- * completions always come from the current timer data: a completion that
- * synced from another device after the day was frozen still counts.
+ * A frozen day keeps the activities that were scheduled then, even if the
+ * activity's days were edited later: history is never rewritten. Its
+ * completions always come from the current timer data, so a completion
+ * that synced from another device after the day was frozen still counts.
  */
-function refreshFrozen(
+export function refreshFrozen(
   snap: DaySnapshot,
   current: Activity[],
   goals: Goal[],
@@ -199,16 +210,16 @@ function refreshFrozen(
 ): DaySnapshot {
   const hasCompletions = snap.dateKey in timers.completions;
   const activities = snap.activities
-    .filter((rec) => {
-      // Drop records that were frozen in by mistake (other week / created later,
-      // or demo activities frozen before the user's data had loaded).
-      const a = current.find((x) => x.id === rec.id);
-      if (!a) return !rec.id.startsWith("seed-");
-      return scheduledOn(a, snap.dateKey);
-    })
     .map((rec) => {
       const done = hasCompletions ? isCompletedToday(timers, rec.id, snap.dateKey) : rec.done;
       return { ...rec, done, realHours: creditedHours(rec.realHours, rec.plannedHours, done) };
+    })
+    .filter((rec) => {
+      if (current.some((x) => x.id === rec.id)) return true;
+      // Demo activities frozen before the user's data had loaded.
+      if (rec.id.startsWith("seed-")) return false;
+      // A deleted activity only stays in the day if it was done.
+      return rec.done;
     });
   const total = activities.length;
   const done = activities.filter((a) => a.done).length;
@@ -420,7 +431,44 @@ function load(): HistoryData {
   return memory;
 }
 
+const COMPACT_AFTER_DAYS = 365;
+
+/**
+ * Days older than a year are slimmed down so the synced history stops
+ * growing forever: per-activity colors and modes and the day's goal list
+ * are dropped. Everything the calendar, the streaks and the statistics use
+ * (status, pct, totals, hours and each activity's name and completion)
+ * stays, so they read exactly the same. Older app versions can still read
+ * the result.
+ */
+export function compactHistoryDays(
+  days: Record<string, DaySnapshot>,
+  now = Date.now(),
+): Record<string, DaySnapshot> {
+  const cutoff = dateKeyOf(new Date(now - COMPACT_AFTER_DAYS * 86_400_000));
+  let out: Record<string, DaySnapshot> | null = null;
+  for (const [key, day] of Object.entries(days)) {
+    if (key >= cutoff || day.compact) continue;
+    out ??= { ...days };
+    out[key] = {
+      ...day,
+      goals: [],
+      activities: (day.activities ?? []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        plannedHours: a.plannedHours,
+        realHours: a.realHours,
+        done: a.done,
+      })),
+      compact: true,
+    };
+  }
+  return out ?? days;
+}
+
 function commit(next: HistoryData) {
+  const days = compactHistoryDays(next.days);
+  if (days !== next.days) next = { ...next, days };
   memory = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));

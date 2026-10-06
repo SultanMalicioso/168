@@ -28,8 +28,6 @@ import {
   CATEGORIES,
   completionMode,
   DAY_SHORT,
-  getWeekKey,
-  addWeeks,
   mondayKeyOf,
   type Activity,
   type Category,
@@ -37,6 +35,7 @@ import {
   type Goal,
   type Task,
 } from "@/lib/time-store";
+import { getWeekKey, addWeeks } from "@/lib/week-utils";
 import { LEAD_OPTIONS, leadLabel } from "@/lib/notify-store";
 import {
   describeConflict,

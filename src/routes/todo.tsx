@@ -157,18 +157,11 @@ function TodoPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-
-
-
   const toggleTheme = () =>
     setStore((s) => ({ ...s, theme: s.theme === "dark" ? "light" : "dark" }));
 
   const viewDefaults = (): Partial<ParsedTask> =>
-    view === "today"
-      ? { dueDate: todayISO() }
-      : view === "unassigned"
-        ? {}
-        : {};
+    view === "today" ? { dueDate: todayISO() } : view === "unassigned" ? {} : {};
 
   const openNew = (preset?: Partial<Task>) => {
     setEditing(emptyTaskDraft({ ...viewDefaults(), ...preset }));
@@ -375,8 +368,6 @@ function TodoPage() {
 
   if (!hydrated) return <div className="min-h-screen bg-background" />;
 
-
-
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 lg:pb-0">
       <Toaster position="top-center" />
@@ -430,7 +421,6 @@ function TodoPage() {
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Cambiar tema">
               {store.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-
           </div>
         </div>
 
@@ -442,9 +432,7 @@ function TodoPage() {
                 key={v.id}
                 onClick={() => setView(v.id)}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition ${
-                  view === v.id
-                    ? "bg-foreground text-background"
-                    : "bg-muted text-muted-foreground"
+                  view === v.id ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
                 }`}
               >
                 {v.icon}
@@ -452,11 +440,7 @@ function TodoPage() {
                 {counts[v.id] > 0 && (
                   <span
                     className={`tabular-nums ${
-                      view === v.id
-                        ? "opacity-80"
-                        : v.accent
-                          ? "text-destructive font-medium"
-                          : ""
+                      view === v.id ? "opacity-80" : v.accent ? "text-destructive font-medium" : ""
                     }`}
                   >
                     {counts[v.id]}
@@ -539,9 +523,7 @@ function TodoPage() {
 
           {/* Toolbar */}
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-display text-xl">
-              {VIEW_META.find((v) => v.id === view)?.label}
-            </h2>
+            <h2 className="font-display text-xl">{VIEW_META.find((v) => v.id === view)?.label}</h2>
             <span className="text-xs text-muted-foreground">
               {list.length} · {fmtMinutes(listStats.plannedMin)}
             </span>
@@ -601,7 +583,11 @@ function TodoPage() {
                     className="text-[11px] px-2.5 py-1 rounded-full border transition whitespace-nowrap"
                     style={
                       on
-                        ? { background: meta.color, borderColor: meta.color, color: "var(--background)" }
+                        ? {
+                            background: meta.color,
+                            borderColor: meta.color,
+                            color: "var(--background)",
+                          }
                         : { borderColor: `color-mix(in oklab, ${meta.color} 35%, transparent)` }
                     }
                   >
@@ -730,7 +716,8 @@ function TodoPage() {
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  bulk((s, ids) => updateManyTasks(s, ids, { dueDate: todayISO() }),
+                  bulk(
+                    (s, ids) => updateManyTasks(s, ids, { dueDate: todayISO() }),
                     "Movidas a hoy",
                   )
                 }

@@ -106,7 +106,8 @@ function PrivacyPage() {
       </ul>
       <p>
         Algunos de estos proveedores están en Estados Unidos u otros países. Al aceptar esta
-        política consentís esa transferencia internacional. También podemos revelar datos si lo exige una autoridad competente según la ley.
+        política consentís esa transferencia internacional. También podemos revelar datos si lo
+        exige una autoridad competente según la ley.
       </p>
 
       <h2 id="cookies">5. Cookies y almacenamiento local</h2>

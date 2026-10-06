@@ -578,9 +578,7 @@ function Section({
           {items.map((a) => (
             <li key={a.id} className="flex items-center gap-2 text-sm">
               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: a.color }} />
-              <span className="truncate flex-1">
-                {a.name}
-              </span>
+              <span className="truncate flex-1">{a.name}</span>
               <span className="text-xs text-muted-foreground tabular-nums">
                 {a.realHours.toFixed(1)}/{a.plannedHours}h
               </span>

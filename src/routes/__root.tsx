@@ -96,20 +96,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "168 · Visualiza tu semana en un círculo" },
       {
         property: "og:description",
-        content: "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
+        content:
+          "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "168 · Visualiza tu semana en un círculo" },
-      { name: "twitter:description", content: "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e0bb55bd-aa1d-4bfd-b257-e2730163d7e7/id-preview-61917182--999d52b7-1804-44d9-a731-d2a9de7dfa49.lovable.app-1784503259900.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e0bb55bd-aa1d-4bfd-b257-e2730163d7e7/id-preview-61917182--999d52b7-1804-44d9-a731-d2a9de7dfa49.lovable.app-1784503259900.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e0bb55bd-aa1d-4bfd-b257-e2730163d7e7/id-preview-61917182--999d52b7-1804-44d9-a731-d2a9de7dfa49.lovable.app-1784503259900.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e0bb55bd-aa1d-4bfd-b257-e2730163d7e7/id-preview-61917182--999d52b7-1804-44d9-a731-d2a9de7dfa49.lovable.app-1784503259900.png",
+      },
     ],
     links: [
-  { rel: "stylesheet", href: appCss },
-  { rel: "manifest", href: "/manifest.json" },
-  { rel: "icon", href: "/icons/icon-192.png", type: "image/png" },
-  { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "icon", href: "/icons/icon-192.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
     ],
   }),
   shellComponent: RootShell,

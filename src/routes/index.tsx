@@ -57,9 +57,6 @@ import { BarChart3, Calendar, CalendarDays } from "lucide-react";
 import {
   CATEGORIES,
   completionIcon,
-  getWeekKey,
-  addWeeks,
-  formatWeekRange,
   nextColor,
   taskProgress,
   uid,
@@ -74,6 +71,7 @@ import {
   formatDuration,
   activityDays,
 } from "@/lib/time-store";
+import { getWeekKey, addWeeks, formatWeekRange } from "@/lib/week-utils";
 import { allTasks, taskColor, taskMinutes, tasksInWeek } from "@/lib/task-utils";
 import { TimerBar } from "@/components/time/TimerBar";
 import { ActivityTimer } from "@/components/time/ActivityTimer";
@@ -85,7 +83,6 @@ import {
   weekStart as weekStartOf,
   type TimerData,
 } from "@/lib/timer-store";
-
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -99,7 +96,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "168 · Visualiza tu semana en un círculo" },
       {
         property: "og:description",
-        content: "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
+        content:
+          "Dashboard interactivo para ver cómo distribuyes las 168 horas de tu semana: donut proporcional, estadísticas, objetivos y vista semanal.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -111,21 +109,13 @@ export const Route = createFileRoute("/")({
 const TOTAL = 168;
 
 function Index() {
-  const {
-  store,
-  setStore,
-  hydrated,
-  goToPreviousWeek,
-  goToNextWeek,
-  goToCurrentWeek,
-} = useTimeStore();
+  const { store, setStore, hydrated, goToPreviousWeek, goToNextWeek, goToCurrentWeek } =
+    useTimeStore();
   const [editing, setEditing] = useState<Activity | null>(null);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<Activity | null>(null);
   const [filter, setFilter] = useState<Category | "all">("all");
   const [scope, setScope] = useState<"week" | "day">("week");
-
-
 
   const timers = useTimerStore({ tickMs: 15_000 });
   /* Past days are frozen into the history as soon as the app opens, not only on the calendar. */
@@ -139,29 +129,24 @@ function Index() {
   const realMode = timers.progressMode === "real";
 
   const chartView: ChartView = store.chartView ?? "activities";
-  const setChartView = (v: ChartView) => setStore({ ...store, chartView: v });
+  const setChartView = (v: ChartView) => setStore((s) => ({ ...s, chartView: v }));
 
-/*
- * Timer data is measured in the week being viewed, not always in the
- * current one: completing something today must not show up in every week.
- */
-const isCurrentWeek = (store.selectedWeek || getWeekKey()) === getWeekKey();
-const weekRef = isCurrentWeek
-  ? timers.now
-  : new Date(`${store.selectedWeek}T12:00:00`).getTime();
+  /*
+   * Timer data is measured in the week being viewed, not always in the
+   * current one: completing something today must not show up in every week.
+   */
+  const isCurrentWeek = (store.selectedWeek || getWeekKey()) === getWeekKey();
+  const weekRef = isCurrentWeek ? timers.now : new Date(`${store.selectedWeek}T12:00:00`).getTime();
 
-const weekActivities = useMemo(
-  () => activitiesInWeek(store.activities, store.selectedWeek || getWeekKey()),
-  [store.activities, store.selectedWeek],
-);
+  const weekActivities = useMemo(
+    () => activitiesInWeek(store.activities, store.selectedWeek || getWeekKey()),
+    [store.activities, store.selectedWeek],
+  );
 
-const filtered = useMemo(
-  () =>
-    filter === "all"
-      ? weekActivities
-      : weekActivities.filter((a) => a.category === filter),
-  [weekActivities, filter],
-);
+  const filtered = useMemo(
+    () => (filter === "all" ? weekActivities : weekActivities.filter((a) => a.category === filter)),
+    [weekActivities, filter],
+  );
 
   /** In "real" mode every activity is measured by tracked timer hours. */
   const chartBase = useMemo<Activity[]>(
@@ -184,15 +169,14 @@ const filtered = useMemo(
     if (chartView === "activities" || chartView === "combined") return chartBase;
     if (chartView === "tasks") {
       // Each task → pseudo-activity with weeklyHours = estimatedMinutes/60
-      return tasksInWeek(store)
-        .map((t) => ({
-          id: `task-${t.id}`,
-          name: t.name,
-          hoursPerDay: taskMinutes(t) / 60,
-          daysPerWeek: 1,
-          color: taskColor(t, store),
-          category: t.category ?? "otro",
-        }));
+      return tasksInWeek(store).map((t) => ({
+        id: `task-${t.id}`,
+        name: t.name,
+        hoursPerDay: taskMinutes(t) / 60,
+        daysPerWeek: 1,
+        color: taskColor(t, store),
+        category: t.category ?? "otro",
+      }));
     }
     // goals
     const items: Activity[] = [];
@@ -223,10 +207,12 @@ const filtered = useMemo(
       });
     }
     return items;
-  }, [chartView, chartBase, store, allT]);
+  }, [chartView, chartBase, store]);
 
   // For combined mode: subdivide each activity outer arc by its tasks
-  const subSegments = useMemo<Record<string, { id: string; name: string; hours: number; color: string }[]>>(() => {
+  const subSegments = useMemo<
+    Record<string, { id: string; name: string; hours: number; color: string }[]>
+  >(() => {
     if (chartView !== "combined") return {};
     const map: Record<string, { id: string; name: string; hours: number; color: string }[]> = {};
     for (const a of filtered) {
@@ -240,22 +226,15 @@ const filtered = useMemo(
       }));
     }
     return map;
-  }, [chartView, filtered, allT, store]);
+  }, [chartView, filtered, store]);
 
-const plannedTotal = filtered.reduce(
-  (s, a) => s + weeklyHours(a),
-  0,
-);
+  const plannedTotal = filtered.reduce((s, a) => s + weeklyHours(a), 0);
 
-const realTotal = filtered.reduce(
-  (s, a) => s + realHoursForWeek(timers.data, a, weekRef),
-  0,
-);
+  const realTotal = filtered.reduce((s, a) => s + realHoursForWeek(timers.data, a, weekRef), 0);
   const totalUsed = realMode ? realTotal : plannedTotal;
   const free = Math.max(0, TOTAL - totalUsed);
   const overflow = totalUsed > TOTAL;
-  const topActivity = [...filtered]
-  .sort((a, b) => weeklyHours(b) - weeklyHours(a))[0];
+  const topActivity = [...filtered].sort((a, b) => weeklyHours(b) - weeklyHours(a))[0];
 
   const taskStats = useMemo(() => {
     let total = 0,
@@ -304,12 +283,12 @@ const realTotal = filtered.reduce(
   }, [timers.data, timers.now, realTotal, plannedTotal, filtered, weekRef]);
 
   const updateTasks = (activityId: string, updater: (tasks: Task[]) => Task[]) => {
-    setStore({
-      ...store,
-      activities: store.activities.map((a) =>
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.map((a) =>
         a.id === activityId ? { ...a, tasks: updater(a.tasks ?? []) } : a,
       ),
-    });
+    }));
   };
 
   const upsert = (data: Omit<Activity, "id">) => {
@@ -319,17 +298,18 @@ const realTotal = filtered.reduce(
       if (newTotal > TOTAL) {
         toast.warning(`Has superado las 168h (${newTotal.toFixed(1)}h)`);
       }
-      setStore({ ...store, activities: next });
+      setStore((s) => ({
+        ...s,
+        activities: s.activities.map((a) => (a.id === editing.id ? { ...editing, ...data } : a)),
+      }));
       toast.success("Actividad actualizada");
     } else {
       const newTotal = totalUsed + data.hoursPerDay * data.daysPerWeek;
       if (newTotal > TOTAL) {
         toast.warning(`Al agregar superarías 168h (${newTotal.toFixed(1)}h)`);
       }
-      setStore({
-        ...store,
-        activities: [...store.activities, { id: uid(), ...data, createdAt: Date.now() }],
-      });
+      const created = { id: uid(), ...data, createdAt: Date.now() };
+      setStore((s) => ({ ...s, activities: [...s.activities, created] }));
       toast.success("Actividad agregada");
     }
     setEditing(null);
@@ -342,45 +322,44 @@ const realTotal = filtered.reduce(
     if (time && time !== a.startTime) next[String(day)] = time;
     else delete next[String(day)];
     const dayStartTimes = Object.keys(next).length ? next : undefined;
-    setStore({
-      ...store,
-      activities: store.activities.map((x) => (x.id === a.id ? { ...x, dayStartTimes } : x)),
-    });
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.map((x) => (x.id === a.id ? { ...x, dayStartTimes } : x)),
+    }));
   };
 
   const remove = (id: string) => {
-    setStore({
-      ...store,
-      activities: store.activities.filter((a) => a.id !== id),
-    });
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.filter((a) => a.id !== id),
+    }));
     toast.success("Actividad eliminada");
   };
 
-
   const duplicate = (a: Activity) =>
-    setStore({
-      ...store,
-      activities: [...store.activities, { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false, createdAt: Date.now() }],
-    });
+    setStore((s) => ({
+      ...s,
+      activities: [
+        ...s.activities,
+        { ...a, id: uid(), name: `${a.name} (copia)`, permanent: false, createdAt: Date.now() },
+      ],
+    }));
 
   const togglePermanent = (id: string) =>
-    setStore({
-      ...store,
-      activities: store.activities.map((a) =>
-        a.id === id ? { ...a, permanent: !a.permanent } : a,
-      ),
-    });
+    setStore((s) => ({
+      ...s,
+      activities: s.activities.map((a) => (a.id === id ? { ...a, permanent: !a.permanent } : a)),
+    }));
 
   const createGoal = (data: Omit<Goal, "id" | "createdAt">): Goal => {
     const g: Goal = { ...data, id: uid(), createdAt: Date.now() };
-    setStore({ ...store, goals: [...store.goals, g] });
+    setStore((s) => ({ ...s, goals: [...s.goals, g] }));
     toast.success(`Objetivo "${g.name}" creado`);
     return g;
   };
 
-
   const toggleTheme = () =>
-    setStore({ ...store, theme: store.theme === "dark" ? "light" : "dark" });
+    setStore((s) => ({ ...s, theme: s.theme === "dark" ? "light" : "dark" }));
 
   if (!hydrated) {
     return <div className="min-h-screen bg-background" />;
@@ -389,46 +368,30 @@ const realTotal = filtered.reduce(
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="flex items-center justify-center gap-2 py-3">
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={goToPreviousWeek}
-    aria-label="Semana anterior"
-  >
-    ←
-  </Button>
+        <Button variant="ghost" size="icon" onClick={goToPreviousWeek} aria-label="Semana anterior">
+          ←
+        </Button>
 
-  <div className="min-w-[220px] text-center">
-    <div className="text-sm font-medium">
-      {store.selectedWeek === getWeekKey()
-        ? "Esta semana"
-        : `Semana del ${formatWeekRange(store.selectedWeek)}`}
-    </div>
+        <div className="min-w-[220px] text-center">
+          <div className="text-sm font-medium">
+            {store.selectedWeek === getWeekKey()
+              ? "Esta semana"
+              : `Semana del ${formatWeekRange(store.selectedWeek)}`}
+          </div>
 
-    <div className="text-xs text-muted-foreground">
-      {formatWeekRange(store.selectedWeek)}
-    </div>
-  </div>
+          <div className="text-xs text-muted-foreground">{formatWeekRange(store.selectedWeek)}</div>
+        </div>
 
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={goToNextWeek}
-    aria-label="Semana siguiente"
-  >
-    →
-  </Button>
+        <Button variant="ghost" size="icon" onClick={goToNextWeek} aria-label="Semana siguiente">
+          →
+        </Button>
 
-  {store.selectedWeek !== getWeekKey() && (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={goToCurrentWeek}
-    >
-      Hoy
-    </Button>
-  )}
-</div>
+        {store.selectedWeek !== getWeekKey() && (
+          <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+            Hoy
+          </Button>
+        )}
+      </div>
       <Toaster position="top-center" />
       <TimerBar store={store} setStore={setStore} ready={hydrated} />
       <Button
@@ -459,7 +422,6 @@ const realTotal = filtered.reduce(
           </button>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-
             <Link
               to="/calendar"
               aria-label="Calendario"
@@ -478,9 +440,6 @@ const realTotal = filtered.reduce(
             </Link>
             <SyncBadge />
             <NotificationCenter />
-
-
-            
 
             <Link
               to="/estadisticas"
@@ -504,10 +463,12 @@ const realTotal = filtered.reduce(
           {/* Planned vs real progress */}
           <div className="flex justify-center">
             <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
-              {([
-                ["planned", "Planificado"],
-                ["real", "Progreso real"],
-              ] as const).map(([v, label]) => (
+              {(
+                [
+                  ["planned", "Planificado"],
+                  ["real", "Progreso real"],
+                ] as const
+              ).map(([v, label]) => (
                 <button
                   key={v}
                   onClick={() => timers.setProgressMode(v)}
@@ -517,7 +478,11 @@ const realTotal = filtered.reduce(
                       : "text-muted-foreground"
                   }`}
                 >
-                  {v === "real" ? <Timer className="h-3 w-3" /> : <LayoutGrid className="h-3 w-3" />}
+                  {v === "real" ? (
+                    <Timer className="h-3 w-3" />
+                  ) : (
+                    <LayoutGrid className="h-3 w-3" />
+                  )}
                   {label}
                 </button>
               ))}
@@ -550,7 +515,6 @@ const realTotal = filtered.reduce(
 
           {/* Filter chips */}
           <div className="flex flex-wrap items-center gap-2">
-
             <span className="text-xs text-muted-foreground mr-1">Filtrar:</span>
             <button
               onClick={() => setFilter("all")}
@@ -567,199 +531,236 @@ const realTotal = filtered.reduce(
                 key={c.id}
                 onClick={() => setFilter(c.id)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition inline-flex items-center gap-1.5 ${
-                  filter === c.id ? "bg-foreground text-background border-foreground" : "hover:bg-accent"
+                  filter === c.id
+                    ? "bg-foreground text-background border-foreground"
+                    : "hover:bg-accent"
                 }`}
               >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: c.color }}
-                />
+                <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
                 {c.label}
               </button>
             ))}
           </div>
 
           {scope === "week" ? (
-          <>
-          {/* Chart card */}
-          <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
-
-            <div className="flex justify-center mb-4">
-              <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs flex-wrap">
-                {([
-                  ["activities", "Actividades", <LayoutGrid className="h-3 w-3" key="a" />],
-                  ["goals", "Objetivos", <Target className="h-3 w-3" key="g" />],
-                  ["tasks", "Tareas", <ListChecks className="h-3 w-3" key="t" />],
-                  ["combined", "Combinado", <Layers className="h-3 w-3" key="c" />],
-                ] as [ChartView, string, React.ReactElement][]).map(([v, label, icon]) => (
-                  <button
-                    key={v}
-                    onClick={() => setChartView(v)}
-                    className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
-                      chartView === v ? "bg-background shadow-sm font-medium" : "text-muted-foreground"
-                    }`}
-                  >
-                    {icon} {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <DonutChart
-                activities={chartActivities}
-                subSegments={chartView === "combined" ? subSegments : undefined}
-                activeId={timers.active?.activityId ?? null}
-              />
-            </div>
-
-            {/* Live counter */}
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm">
-              <div
-                className={`px-4 py-2 rounded-full ${
-                  overflow
-                    ? "bg-destructive/10 text-destructive"
-                    : free < 10
-                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                }`}
-              >
-                {overflow
-                  ? `Has superado las 168 horas por ${(totalUsed - TOTAL).toFixed(1)}h`
-                  : `Te quedan ${free.toFixed(1)}h libres esta semana`}
-              </div>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard label="Ocupadas" value={`${totalUsed.toFixed(1)}h`} sub={`${((totalUsed / TOTAL) * 100).toFixed(0)}% semana`} />
-            <StatCard label="Libres" value={`${free.toFixed(1)}h`} sub={`${((free / TOTAL) * 100).toFixed(0)}% semana`} />
-            <StatCard label="Actividades" value={String(store.activities.length)} sub="registradas" />
-            <StatCard
-              label="Top actividad"
-              value={topActivity?.name ?? "—"}
-              sub={topActivity ? `${weeklyHours(topActivity).toFixed(1)}h/sem` : ""}
-            />
-            <StatCard
-              label="Prom. ocupado / día"
-              value={`${(totalUsed / 7).toFixed(1)}h`}
-              sub="lunes a domingo"
-            />
-            <StatCard
-              label="Prom. libre / día"
-              value={`${(free / 7).toFixed(1)}h`}
-              sub="lunes a domingo"
-            />
-            <StatCard
-              label="Categorías activas"
-              value={String(new Set(store.activities.map((a) => a.category)).size)}
-              sub={`de ${CATEGORIES.length}`}
-            />
-            <StatCard
-              label="Sueño"
-              value={`${(store.activities.find((a) => /dormir|sue/i.test(a.name)) ? weeklyHours(store.activities.find((a) => /dormir|sue/i.test(a.name))!) : 0).toFixed(0)}h`}
-              sub="por semana"
-            />
-          </div>
-
-          {/* Timer stats */}
-          <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-display text-lg">Seguimiento real</h2>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {timerStats.sessions} sesiones registradas
-              </span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard label="Planificado" value={`${timerStats.planned.toFixed(1)}h`} sub="esta semana" />
-              <StatCard label="Realizado" value={`${timerStats.done.toFixed(1)}h`} sub="temporizador + manual" />
-              <StatCard
-                label="Diferencia"
-                value={`${timerStats.diff >= 0 ? "+" : ""}${timerStats.diff.toFixed(1)}h`}
-                sub="real vs planificado"
-              />
-              <StatCard
-                label="Cumplimiento"
-                value={`${timerStats.compliance.toFixed(0)}%`}
-                sub={`${timerStats.completedToday} completadas hoy`}
-              />
-            </div>
-          </div>
-
-          {/* Task stats */}
-          <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-display text-lg">Tareas</h2>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {taskStats.done}/{taskStats.total} completadas
-              </span>
-            </div>
-            {taskStats.total > 0 ? (
-              <>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-4">
-                  <div
-                    className="h-full bg-foreground transition-all duration-500"
-                    style={{ width: `${taskStats.pct}%` }}
+            <>
+              {/* Chart card */}
+              <div className="rounded-3xl border bg-card p-6 md:p-10 shadow-[var(--shadow-soft)]">
+                <div className="flex justify-center mb-4">
+                  <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs flex-wrap">
+                    {(
+                      [
+                        ["activities", "Actividades", <LayoutGrid className="h-3 w-3" key="a" />],
+                        ["goals", "Objetivos", <Target className="h-3 w-3" key="g" />],
+                        ["tasks", "Tareas", <ListChecks className="h-3 w-3" key="t" />],
+                        ["combined", "Combinado", <Layers className="h-3 w-3" key="c" />],
+                      ] as [ChartView, string, React.ReactElement][]
+                    ).map(([v, label, icon]) => (
+                      <button
+                        key={v}
+                        onClick={() => setChartView(v)}
+                        className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition ${
+                          chartView === v
+                            ? "bg-background shadow-sm font-medium"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {icon} {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <DonutChart
+                    activities={chartActivities}
+                    subSegments={chartView === "combined" ? subSegments : undefined}
+                    activeId={timers.active?.activityId ?? null}
                   />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <StatCard label="Total" value={String(taskStats.total)} sub="tareas registradas" />
-                  <StatCard label="Pendientes" value={String(taskStats.pending)} sub="por hacer" />
-                  <StatCard label="En progreso" value={String(taskStats.inProg)} sub="activas" />
-                  <StatCard label="Completadas" value={`${taskStats.pct.toFixed(0)}%`} sub={`${taskStats.done} tareas`} />
-                  {taskStats.topByCount && (
-                    <StatCard
-                      label="Más tareas"
-                      value={taskStats.topByCount.name}
-                      sub={`${taskStats.topByCount.count} tareas`}
-                    />
-                  )}
-                  {taskStats.topByCompletion && (
-                    <StatCard
-                      label="Mayor avance"
-                      value={taskStats.topByCompletion.name}
-                      sub={`${taskStats.topByCompletion.pct.toFixed(0)}% completado`}
-                    />
-                  )}
+
+                {/* Live counter */}
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm">
+                  <div
+                    className={`px-4 py-2 rounded-full ${
+                      overflow
+                        ? "bg-destructive/10 text-destructive"
+                        : free < 10
+                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                    }`}
+                  >
+                    {overflow
+                      ? `Has superado las 168 horas por ${(totalUsed - TOTAL).toFixed(1)}h`
+                      : `Te quedan ${free.toFixed(1)}h libres esta semana`}
+                  </div>
                 </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Aún no hay tareas. Editá una actividad para agregar tareas dentro de ella.
-              </p>
-            )}
-          </div>
+              </div>
 
+              {/* Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatCard
+                  label="Ocupadas"
+                  value={`${totalUsed.toFixed(1)}h`}
+                  sub={`${((totalUsed / TOTAL) * 100).toFixed(0)}% semana`}
+                />
+                <StatCard
+                  label="Libres"
+                  value={`${free.toFixed(1)}h`}
+                  sub={`${((free / TOTAL) * 100).toFixed(0)}% semana`}
+                />
+                <StatCard
+                  label="Actividades"
+                  value={String(store.activities.length)}
+                  sub="registradas"
+                />
+                <StatCard
+                  label="Top actividad"
+                  value={topActivity?.name ?? "—"}
+                  sub={topActivity ? `${weeklyHours(topActivity).toFixed(1)}h/sem` : ""}
+                />
+                <StatCard
+                  label="Prom. ocupado / día"
+                  value={`${(totalUsed / 7).toFixed(1)}h`}
+                  sub="lunes a domingo"
+                />
+                <StatCard
+                  label="Prom. libre / día"
+                  value={`${(free / 7).toFixed(1)}h`}
+                  sub="lunes a domingo"
+                />
+                <StatCard
+                  label="Categorías activas"
+                  value={String(new Set(store.activities.map((a) => a.category)).size)}
+                  sub={`de ${CATEGORIES.length}`}
+                />
+                <StatCard
+                  label="Sueño"
+                  value={`${(store.activities.find((a) => /dormir|sue/i.test(a.name)) ? weeklyHours(store.activities.find((a) => /dormir|sue/i.test(a.name))!) : 0).toFixed(0)}h`}
+                  sub="por semana"
+                />
+              </div>
 
-          {/* Week grid + day planner */}
-          <div className="rounded-3xl border bg-card p-6 shadow-[var(--shadow-soft)] space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg">Vista semanal</h2>
-              <span className="text-xs text-muted-foreground">
-                Global de la semana y planificación diaria
-              </span>
-            </div>
-            <WeekGrid activities={filtered} />
-            <div className="pt-4 border-t">
-              <DayPlanner
-                activities={filtered}
-                scheduleActivities={weekActivities}
-                goals={store.goals}
-                onNew={() => {
-                  setEditing(null);
-                  setOpen(true);
-                }}
-                onEdit={(a) => {
-                  setEditing(a);
-                  setOpen(true);
-                }}
-                onDuplicate={(a) => duplicate(a)}
-                onDelete={(a) => setDeleting(a)}
-                onSetDayTime={setDayTime}
-              />
-            </div>
-          </div>
-          </>
+              {/* Timer stats */}
+              <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-display text-lg">Seguimiento real</h2>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {timerStats.sessions} sesiones registradas
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatCard
+                    label="Planificado"
+                    value={`${timerStats.planned.toFixed(1)}h`}
+                    sub="esta semana"
+                  />
+                  <StatCard
+                    label="Realizado"
+                    value={`${timerStats.done.toFixed(1)}h`}
+                    sub="temporizador + manual"
+                  />
+                  <StatCard
+                    label="Diferencia"
+                    value={`${timerStats.diff >= 0 ? "+" : ""}${timerStats.diff.toFixed(1)}h`}
+                    sub="real vs planificado"
+                  />
+                  <StatCard
+                    label="Cumplimiento"
+                    value={`${timerStats.compliance.toFixed(0)}%`}
+                    sub={`${timerStats.completedToday} completadas hoy`}
+                  />
+                </div>
+              </div>
+
+              {/* Task stats */}
+              <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-display text-lg">Tareas</h2>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {taskStats.done}/{taskStats.total} completadas
+                  </span>
+                </div>
+                {taskStats.total > 0 ? (
+                  <>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-4">
+                      <div
+                        className="h-full bg-foreground transition-all duration-500"
+                        style={{ width: `${taskStats.pct}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <StatCard
+                        label="Total"
+                        value={String(taskStats.total)}
+                        sub="tareas registradas"
+                      />
+                      <StatCard
+                        label="Pendientes"
+                        value={String(taskStats.pending)}
+                        sub="por hacer"
+                      />
+                      <StatCard
+                        label="En progreso"
+                        value={String(taskStats.inProg)}
+                        sub="activas"
+                      />
+                      <StatCard
+                        label="Completadas"
+                        value={`${taskStats.pct.toFixed(0)}%`}
+                        sub={`${taskStats.done} tareas`}
+                      />
+                      {taskStats.topByCount && (
+                        <StatCard
+                          label="Más tareas"
+                          value={taskStats.topByCount.name}
+                          sub={`${taskStats.topByCount.count} tareas`}
+                        />
+                      )}
+                      {taskStats.topByCompletion && (
+                        <StatCard
+                          label="Mayor avance"
+                          value={taskStats.topByCompletion.name}
+                          sub={`${taskStats.topByCompletion.pct.toFixed(0)}% completado`}
+                        />
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Aún no hay tareas. Editá una actividad para agregar tareas dentro de ella.
+                  </p>
+                )}
+              </div>
+
+              {/* Week grid + day planner */}
+              <div className="rounded-3xl border bg-card p-6 shadow-[var(--shadow-soft)] space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-display text-lg">Vista semanal</h2>
+                  <span className="text-xs text-muted-foreground">
+                    Global de la semana y planificación diaria
+                  </span>
+                </div>
+                <WeekGrid activities={filtered} />
+                <div className="pt-4 border-t">
+                  <DayPlanner
+                    activities={filtered}
+                    scheduleActivities={weekActivities}
+                    goals={store.goals}
+                    onNew={() => {
+                      setEditing(null);
+                      setOpen(true);
+                    }}
+                    onEdit={(a) => {
+                      setEditing(a);
+                      setOpen(true);
+                    }}
+                    onDuplicate={(a) => duplicate(a)}
+                    onDelete={(a) => setDeleting(a)}
+                    onSetDayTime={setDayTime}
+                  />
+                </div>
+              </div>
+            </>
           ) : (
             <DayView
               activities={filtered}
@@ -774,9 +775,7 @@ const realTotal = filtered.reduce(
               onDelete={(a) => setDeleting(a)}
             />
           )}
-
         </div>
-
 
         {/* RIGHT: side panel */}
         <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
@@ -841,7 +840,9 @@ const realTotal = filtered.reduce(
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium truncate">
-                              <span title={usesTimer(a) ? "Con temporizador" : "Completación manual"}>
+                              <span
+                                title={usesTimer(a) ? "Con temporizador" : "Completación manual"}
+                              >
                                 {completionIcon(a)}
                               </span>{" "}
                               {a.name}
@@ -879,7 +880,11 @@ const realTotal = filtered.reduce(
                           {isCurrentWeek ? (
                             <ActivityTimer activity={a} compact />
                           ) : (
-                            <WeekCompletion activity={a} weekKey={store.selectedWeek} data={timers.data} />
+                            <WeekCompletion
+                              activity={a}
+                              weekKey={store.selectedWeek}
+                              data={timers.data}
+                            />
                           )}
                           <InlineTasks
                             activity={a}
@@ -909,11 +914,7 @@ const realTotal = filtered.reduce(
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </IconBtn>
-                            <IconBtn
-                              onClick={() => setDeleting(a)}
-                              label="Eliminar"
-                              danger
-                            >
+                            <IconBtn onClick={() => setDeleting(a)} label="Eliminar" danger>
                               <Trash2 className="h-3.5 w-3.5" />
                             </IconBtn>
                           </div>
@@ -926,18 +927,15 @@ const realTotal = filtered.reduce(
             </ScrollArea>
           </div>
 
-          <AlertDialog
-            open={deleting !== null}
-            onOpenChange={(v) => !v && setDeleting(null)}
-          >
+          <AlertDialog open={deleting !== null} onOpenChange={(v) => !v && setDeleting(null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle className="font-display text-2xl">
                   ¿Eliminar “{deleting?.name}”?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  ¿Estás seguro de que querés eliminar esta actividad? Esta acción no
-                  se puede deshacer.
+                  ¿Estás seguro de que querés eliminar esta actividad? Esta acción no se puede
+                  deshacer.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -955,15 +953,14 @@ const realTotal = filtered.reduce(
             </AlertDialogContent>
           </AlertDialog>
 
-
           <div className="rounded-3xl border bg-card p-5 shadow-[var(--shadow-soft)]">
             <GoalsManager
               goals={store.goals}
               activities={store.activities}
               weekActivities={weekActivities}
               realHours={(a) => realHoursForWeek(timers.data, a, weekRef)}
-              onGoalsChange={(goals) => setStore({ ...store, goals })}
-              onActivitiesChange={(activities) => setStore({ ...store, activities })}
+              onGoalsChange={(goals) => setStore((s) => ({ ...s, goals }))}
+              onActivitiesChange={(activities) => setStore((s) => ({ ...s, activities }))}
             />
           </div>
         </aside>
@@ -1075,9 +1072,7 @@ function InlineTasks({
             </li>
           );
         })}
-        {more > 0 && (
-          <li className="text-[10px] text-muted-foreground pl-5">+{more} más</li>
-        )}
+        {more > 0 && <li className="text-[10px] text-muted-foreground pl-5">+{more} más</li>}
       </ul>
     </div>
   );
@@ -1109,4 +1104,3 @@ function IconBtn({
     </button>
   );
 }
-

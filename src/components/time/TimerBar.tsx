@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Activity, Store, Task } from "@/lib/time-store";
 import { completeTasksIn, openTasksOf } from "@/lib/task-utils";
+import { pushActiveHere } from "@/lib/push-client";
 import {
   elapsedMs,
   formatClock,
@@ -59,7 +60,12 @@ export function TimerBar({ store, setStore, ready }: Props) {
       toast.success(`✅ ${act?.name ?? "Actividad"} completada`, {
         description: "El tiempo programado se cumplió y ya se actualizó todo.",
       });
-      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      // With server push on, the "completed" push arrives on this device too.
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted" &&
+        !pushActiveHere()
+      ) {
         try {
           new Notification("Actividad completada", { body: act?.name ?? "" });
         } catch {
@@ -143,7 +149,11 @@ export function TimerBar({ store, setStore, ready }: Props) {
                   onClick={() => setSettings({ sound: !settings.sound })}
                   aria-label={settings.sound ? "Silenciar sonido" : "Activar sonido"}
                 >
-                  {settings.sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  {settings.sound ? (
+                    <Volume2 className="h-4 w-4" />
+                  ) : (
+                    <VolumeX className="h-4 w-4" />
+                  )}
                 </Button>
                 <Button
                   size="icon"
@@ -195,7 +205,8 @@ export function TimerBar({ store, setStore, ready }: Props) {
               ¿Marcar tareas como completadas?
             </DialogTitle>
             <DialogDescription>
-              Terminaste la sesión de “{taskPrompt?.activity.name}”. Elegí qué tareas se completaron.
+              Terminaste la sesión de “{taskPrompt?.activity.name}”. Elegí qué tareas se
+              completaron.
             </DialogDescription>
           </DialogHeader>
           <ul className="space-y-1.5">
@@ -242,7 +253,6 @@ export function TimerBar({ store, setStore, ready }: Props) {
           </div>
         </DialogContent>
       </Dialog>
-
     </>
   );
 }

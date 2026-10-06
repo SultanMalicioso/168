@@ -20,7 +20,6 @@ import {
   type ScheduleConflict,
 } from "@/lib/schedule-conflicts";
 
-
 interface Props {
   activities: Activity[];
   /** Every activity of the week, to detect overlaps even while filtering. */
@@ -288,7 +287,8 @@ function DayCard({
   const cat = CATEGORIES.find((c) => c.id === a.category);
   const time = startTimeOn(a, day) ?? "";
   const start = parseTime(time);
-  const changedThisDay = !!a.dayStartTimes?.[String(day)] && a.dayStartTimes[String(day)] !== a.startTime;
+  const changedThisDay =
+    !!a.dayStartTimes?.[String(day)] && a.dayStartTimes[String(day)] !== a.startTime;
   return (
     <li
       className="group rounded-2xl border bg-card p-3 shadow-[var(--shadow-soft)] transition hover:border-foreground/20"
@@ -432,7 +432,9 @@ function MiniBtn({
       aria-label={label}
       title={label}
       className={`h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground transition ${
-        danger ? "hover:bg-destructive/10 hover:text-destructive" : "hover:bg-accent hover:text-foreground"
+        danger
+          ? "hover:bg-destructive/10 hover:text-destructive"
+          : "hover:bg-accent hover:text-foreground"
       }`}
     >
       {children}
