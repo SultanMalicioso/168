@@ -1,14 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  Copy,
-  GripVertical,
-  ListTodo,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Check, ChevronDown, Copy, GripVertical, ListTodo, Plus, Trash2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -78,7 +69,17 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
 
   const remove = (id: string) => onChange(tasks.filter((t) => t.id !== id));
   const duplicate = (t: Task) =>
-    onChange([...tasks, { ...t, id: uid(), name: `${t.name} (copia)`, status: "pending", completedAt: undefined, createdAt: Date.now() }]);
+    onChange([
+      ...tasks,
+      {
+        ...t,
+        id: uid(),
+        name: `${t.name} (copia)`,
+        status: "pending",
+        completedAt: undefined,
+        createdAt: Date.now(),
+      },
+    ]);
 
   const toggle = (t: Task) =>
     update(t.id, { status: t.status === "completed" ? "pending" : "completed" });
@@ -177,7 +178,9 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
                   onClick={() => toggle(t)}
                   aria-label={done ? "Desmarcar" : "Completar"}
                   className={`h-5 w-5 shrink-0 rounded-md border flex items-center justify-center transition ${
-                    done ? "bg-foreground border-foreground" : "border-muted-foreground/40 hover:border-foreground"
+                    done
+                      ? "bg-foreground border-foreground"
+                      : "border-muted-foreground/40 hover:border-foreground"
                   }`}
                 >
                   {done && <Check className="h-3 w-3 text-background" />}
@@ -188,7 +191,9 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
                   onClick={() => setExpanded(isOpen ? null : t.id)}
                   className="flex-1 text-left min-w-0"
                 >
-                  <div className={`text-sm truncate ${done ? "line-through text-muted-foreground" : ""}`}>
+                  <div
+                    className={`text-sm truncate ${done ? "line-through text-muted-foreground" : ""}`}
+                  >
                     {t.name}
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
@@ -232,7 +237,9 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
                     aria-label={isOpen ? "Cerrar" : "Detalles"}
                     className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
-                    <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
                 </div>
               </div>
@@ -248,7 +255,10 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[10px] text-muted-foreground">Estado</label>
-                      <Select value={t.status} onValueChange={(v) => update(t.id, { status: v as TaskStatus })}>
+                      <Select
+                        value={t.status}
+                        onValueChange={(v) => update(t.id, { status: v as TaskStatus })}
+                      >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -261,7 +271,10 @@ export function TaskList({ tasks, onChange, accentColor }: Props) {
                     </div>
                     <div>
                       <label className="text-[10px] text-muted-foreground">Prioridad</label>
-                      <Select value={t.priority} onValueChange={(v) => update(t.id, { priority: v as TaskPriority })}>
+                      <Select
+                        value={t.priority}
+                        onValueChange={(v) => update(t.id, { priority: v as TaskPriority })}
+                      >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>

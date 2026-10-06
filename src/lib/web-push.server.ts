@@ -176,6 +176,8 @@ export async function sendWebPush(
     body: body as unknown as BodyInit,
     // Push services answer directly; a redirect could lead anywhere.
     redirect: "manual",
+    // A push service that hangs must not stall the whole tick.
+    signal: AbortSignal.timeout(10_000),
   });
 
   return {

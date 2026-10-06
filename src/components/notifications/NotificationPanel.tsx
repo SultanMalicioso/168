@@ -6,13 +6,7 @@ import {
   testDevicePush,
   type PushState,
 } from "@/lib/push-client";
-import {
-  Check,
-  CheckCheck,
-  Moon,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Check, CheckCheck, Moon, Trash2, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,12 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  LEAD_OPTIONS,
-  leadLabel,
-  useNotifyStore,
-  type NotifyItem,
-} from "@/lib/notify-store";
+import { LEAD_OPTIONS, leadLabel, useNotifyStore, type NotifyItem } from "@/lib/notify-store";
 
 type Filter = "all" | "activity" | "task" | "summary";
 
@@ -91,11 +80,23 @@ function Row({
         </div>
         <div className="flex shrink-0 flex-col gap-1">
           {!item.read && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRead} aria-label="Marcar leída">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onRead}
+              aria-label="Marcar leída"
+            >
               <Check className="h-3.5 w-3.5" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} aria-label="Eliminar">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onRemove}
+            aria-label="Eliminar"
+          >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -114,15 +115,14 @@ function BackgroundPush() {
     void pushState().then(setState);
   }, []);
 
-    const run = async (fn: () => Promise<PushState>) => {
+  const run = async (fn: () => Promise<PushState>) => {
     setBusy(true);
     setNote(null);
 
     try {
       setState(await fn());
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
 
       console.error("[push-register] error", error);
       setNote(`Error de registro: ${message}`);
@@ -222,200 +222,212 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
   );
 
   return (
-        <Tabs defaultValue="inbox" className="flex min-h-0 flex-1 flex-col">
-          <TabsList className="mx-4 grid grid-cols-2">
-            <TabsTrigger value="inbox">Centro</TabsTrigger>
-            <TabsTrigger value="settings">⚙️ Ajustes</TabsTrigger>
-          </TabsList>
+    <Tabs defaultValue="inbox" className="flex min-h-0 flex-1 flex-col">
+      <TabsList className="mx-4 grid grid-cols-2">
+        <TabsTrigger value="inbox">Centro</TabsTrigger>
+        <TabsTrigger value="settings">⚙️ Ajustes</TabsTrigger>
+      </TabsList>
 
-          {/* ---------------- inbox ---------------- */}
-          <TabsContent value="inbox" className="min-h-0 flex-1 px-4 pb-4 data-[state=inactive]:hidden">
-            {permission !== "granted" && (
-              <div className="mt-3 rounded-xl border border-dashed p-3">
-                <p className="text-sm font-medium">Activá los avisos del sistema</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Los usamos solo para recordarte tus actividades y tareas del día. Sin permiso,
-                  las notificaciones quedan únicamente en este centro.
-                </p>
-                {permission === "denied" ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Están bloqueadas en el navegador: habilitalas desde los permisos del sitio.
-                  </p>
-                ) : permission === "unsupported" ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Este navegador no admite notificaciones del sistema.
-                  </p>
-                ) : (
-                  <Button size="sm" className="mt-2" onClick={() => void requestPermission()}>
-                    Permitir notificaciones
-                  </Button>
-                )}
-              </div>
+      {/* ---------------- inbox ---------------- */}
+      <TabsContent value="inbox" className="min-h-0 flex-1 px-4 pb-4 data-[state=inactive]:hidden">
+        {permission !== "granted" && (
+          <div className="mt-3 rounded-xl border border-dashed p-3">
+            <p className="text-sm font-medium">Activá los avisos del sistema</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Los usamos solo para recordarte tus actividades y tareas del día. Sin permiso, las
+              notificaciones quedan únicamente en este centro.
+            </p>
+            {permission === "denied" ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Están bloqueadas en el navegador: habilitalas desde los permisos del sitio.
+              </p>
+            ) : permission === "unsupported" ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Este navegador no admite notificaciones del sistema.
+              </p>
+            ) : (
+              <Button size="sm" className="mt-2" onClick={() => void requestPermission()}>
+                Permitir notificaciones
+              </Button>
             )}
+          </div>
+        )}
 
-            <BackgroundPush />
+        <BackgroundPush />
 
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFilter(f.id)}
-                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                    filter === f.id ? "border-foreground bg-accent" : "hover:bg-accent/50"
-                  }`}
-                >
-                  {f.label}
-                </button>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                filter === f.id ? "border-foreground bg-accent" : "hover:bg-accent/50"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+          <div className="ml-auto flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={markAllRead}
+              aria-label="Marcar todas como leídas"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={clearAll}
+              aria-label="Borrar todas"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        <ScrollArea className="mt-3 h-[calc(100vh-230px)] pr-2">
+          <div className="space-y-2">
+            {filtered.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                No hay notificaciones todavía.
+              </p>
+            ) : (
+              filtered.map((item) => (
+                <Row
+                  key={item.id}
+                  item={item}
+                  onRead={() => markRead(item.id)}
+                  onRemove={() => remove(item.id)}
+                  onNavigate={() => {
+                    markRead(item.id);
+                    onClose();
+                  }}
+                />
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </TabsContent>
+
+      {/* ---------------- settings ---------------- */}
+      <TabsContent value="settings" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-[calc(100vh-170px)] px-4">
+          <div className="space-y-5 py-4">
+            <section className="space-y-3">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                General
+              </h3>
+              {(
+                [
+                  ["enabled", "Notificaciones activadas"],
+                  ["morning", "Resumen de la mañana"],
+                  ["night", "Resumen de la noche"],
+                  ["activities", "Notificaciones de actividades"],
+                  ["tasks", "Notificaciones de tareas"],
+                  ["pendingTasks", "Aviso de tareas pendientes"],
+                  ["completions", "Confirmación al completar"],
+                ] as const
+              ).map(([id, label]) => (
+                <div key={id} className="flex items-center justify-between gap-3">
+                  <Label htmlFor={`n-${id}`} className="text-sm font-normal">
+                    {label}
+                  </Label>
+                  <Switch
+                    id={`n-${id}`}
+                    checked={settings[id]}
+                    onCheckedChange={(v) => setSettings({ [id]: v })}
+                  />
+                </div>
               ))}
-              <div className="ml-auto flex gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={markAllRead} aria-label="Marcar todas como leídas">
-                  <CheckCheck className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearAll} aria-label="Borrar todas">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
+            </section>
 
-            <ScrollArea className="mt-3 h-[calc(100vh-230px)] pr-2">
-              <div className="space-y-2">
-                {filtered.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    No hay notificaciones todavía.
-                  </p>
-                ) : (
-                  filtered.map((item) => (
-                    <Row
-                      key={item.id}
-                      item={item}
-                      onRead={() => markRead(item.id)}
-                      onRemove={() => remove(item.id)}
-                      onNavigate={() => {
-                        markRead(item.id);
-                        onClose();
-                      }}
+            <section className="space-y-3">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Horarios
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Resumen mañana</Label>
+                  <Input
+                    type="time"
+                    value={settings.morningTime}
+                    onChange={(e) => setSettings({ morningTime: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Resumen noche</Label>
+                  <Input
+                    type="time"
+                    value={settings.nightTime}
+                    onChange={(e) => setSettings({ nightTime: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="n-quiet" className="flex items-center gap-1.5 text-sm font-normal">
+                  <Moon className="h-3.5 w-3.5" /> No molestar
+                </Label>
+                <Switch
+                  id="n-quiet"
+                  checked={settings.quietEnabled}
+                  onCheckedChange={(v) => setSettings({ quietEnabled: v })}
+                />
+              </div>
+
+              {settings.quietEnabled && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Desde</Label>
+                    <Input
+                      type="time"
+                      value={settings.quietFrom}
+                      onChange={(e) => setSettings({ quietFrom: e.target.value })}
                     />
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Hasta</Label>
+                    <Input
+                      type="time"
+                      value={settings.quietTo}
+                      onChange={(e) => setSettings({ quietTo: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </section>
 
-          {/* ---------------- settings ---------------- */}
-          <TabsContent value="settings" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-            <ScrollArea className="h-[calc(100vh-170px)] px-4">
-              <div className="space-y-5 py-4">
-                <section className="space-y-3">
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    General
-                  </h3>
-                  {(
-                    [
-                      ["enabled", "Notificaciones activadas"],
-                      ["morning", "Resumen de la mañana"],
-                      ["night", "Resumen de la noche"],
-                      ["activities", "Notificaciones de actividades"],
-                      ["tasks", "Notificaciones de tareas"],
-                      ["pendingTasks", "Aviso de tareas pendientes"],
-                      ["completions", "Confirmación al completar"],
-                    ] as const
-                  ).map(([id, label]) => (
-                    <div key={id} className="flex items-center justify-between gap-3">
-                      <Label htmlFor={`n-${id}`} className="text-sm font-normal">
-                        {label}
-                      </Label>
-                      <Switch
-                        id={`n-${id}`}
-                        checked={settings[id]}
-                        onCheckedChange={(v) => setSettings({ [id]: v })}
-                      />
-                    </div>
+            <section className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Anticipación
+              </h3>
+              <Select
+                value={String(settings.defaultLead)}
+                onValueChange={(v) => setSettings({ defaultLead: Number(v) })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_OPTIONS.map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {leadLabel(m)}
+                    </SelectItem>
                   ))}
-                </section>
-
-                <section className="space-y-3">
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Horarios
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Resumen mañana</Label>
-                      <Input
-                        type="time"
-                        value={settings.morningTime}
-                        onChange={(e) => setSettings({ morningTime: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Resumen noche</Label>
-                      <Input
-                        type="time"
-                        value={settings.nightTime}
-                        onChange={(e) => setSettings({ nightTime: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="n-quiet" className="flex items-center gap-1.5 text-sm font-normal">
-                      <Moon className="h-3.5 w-3.5" /> No molestar
-                    </Label>
-                    <Switch
-                      id="n-quiet"
-                      checked={settings.quietEnabled}
-                      onCheckedChange={(v) => setSettings({ quietEnabled: v })}
-                    />
-                  </div>
-
-                  {settings.quietEnabled && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Desde</Label>
-                        <Input
-                          type="time"
-                          value={settings.quietFrom}
-                          onChange={(e) => setSettings({ quietFrom: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Hasta</Label>
-                        <Input
-                          type="time"
-                          value={settings.quietTo}
-                          onChange={(e) => setSettings({ quietTo: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </section>
-
-                <section className="space-y-2">
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Anticipación
-                  </h3>
-                  <Select
-                    value={String(settings.defaultLead)}
-                    onValueChange={(v) => setSettings({ defaultLead: Number(v) })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LEAD_OPTIONS.map((m) => (
-                        <SelectItem key={m} value={String(m)}>
-                          {leadLabel(m)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Valor por defecto. Cada actividad puede tener su propia anticipación.
-                  </p>
-                </section>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Valor por defecto. Cada actividad puede tener su propia anticipación.
+              </p>
+            </section>
+          </div>
+        </ScrollArea>
+      </TabsContent>
+    </Tabs>
   );
 }

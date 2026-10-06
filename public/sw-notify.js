@@ -52,7 +52,26 @@ self.addEventListener("push", (event) => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       timestamp: payload.at || Date.now(),
-      data: { link: payload.link || "/", kind: payload.kind, activityId: payload.activityId, taskId: payload.taskId },
+      data: {
+        link: payload.link || "/",
+        kind: payload.kind,
+        activityId: payload.activityId,
+        taskId: payload.taskId,
+      },
+    }),
+  );
+});
+
+/*
+ * The browser replaced or dropped this device's push subscription (expired,
+ * revoked…). Tell the open pages so they re-check it: until then they'd keep
+ * relying on server push and stay silent.
+ */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients)
+        client.postMessage({ type: "week168:push-subscription-change" });
     }),
   );
 });

@@ -88,12 +88,12 @@
   /* Curated activity palette */
   --chart-1: oklch(0.68 0.15 255); /* blue */
   --chart-2: oklch(0.72 0.16 155); /* green */
-  --chart-3: oklch(0.75 0.16 60);  /* amber */
-  --chart-4: oklch(0.68 0.19 20);  /* red-orange */
+  --chart-3: oklch(0.75 0.16 60); /* amber */
+  --chart-4: oklch(0.68 0.19 20); /* red-orange */
   --chart-5: oklch(0.66 0.18 310); /* violet */
-  --chart-6: oklch(0.7 0.14 200);  /* teal */
+  --chart-6: oklch(0.7 0.14 200); /* teal */
   --chart-7: oklch(0.72 0.17 350); /* pink */
-  --chart-8: oklch(0.62 0.12 90);  /* olive */
+  --chart-8: oklch(0.62 0.12 90); /* olive */
 }
 
 .dark {
@@ -166,8 +166,14 @@
 }
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(2px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @utility animate-fade-in {

@@ -2,12 +2,12 @@ import {
   activityDays,
   startTimeOn,
   completionMode,
-  getWeekKey,
   type Activity,
   type Store,
   type Task,
   type TaskPriority,
 } from "@/lib/time-store";
+import { getWeekKey } from "@/lib/week-utils";
 import type { NotifyInput, NotifySettings } from "@/lib/notify-store";
 
 /* ------------------------------------------------------------------ *
@@ -335,4 +335,17 @@ export function planEvents(
   }
 
   return events;
+}
+
+/**
+ * When the server finishes a timer it sends its own "completed" push: drop
+ * the generic completion confirmation for that activity and day so the
+ * user doesn't get both.
+ */
+export function withoutFinishedTimerDuplicate(
+  events: PlannedEvent[],
+  finished: { activityId: string; dateKey: string },
+): PlannedEvent[] {
+  const duplicate = `done:${finished.activityId}:${finished.dateKey}`;
+  return events.filter((e) => e.key !== duplicate);
 }

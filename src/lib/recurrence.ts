@@ -45,11 +45,24 @@ export function nextRepeatDate(from: string, repeat: TaskRepeat, anchorDay?: num
   return iso(d);
 }
 
-/** First occurrence after `base` that is not before `today`. */
-function nextOccurrence(base: string, repeat: TaskRepeat, today: string): string {
+/**
+ * Next occurrence of a series after `base` (its due date). It must fall
+ * strictly after the day the task was completed, so finishing an overdue
+ * task never brings it straight back for that same day, and never before
+ * `today`, so a completion processed late doesn't create past-due copies.
+ * Completing a task ahead of time still keeps the series' rhythm: the next
+ * one is the occurrence after its due date.
+ */
+export function nextOccurrence(
+  base: string,
+  repeat: TaskRepeat,
+  completedOn: string,
+  today: string,
+): string {
   const anchor = parse(base).getDate();
   let next = nextRepeatDate(base, repeat, anchor);
-  for (let i = 0; next < today && i < 1000; i++) next = nextRepeatDate(next, repeat, anchor);
+  for (let i = 0; (next <= completedOn || next < today) && i < 1000; i++)
+    next = nextRepeatDate(next, repeat, anchor);
   return next;
 }
 
@@ -76,7 +89,7 @@ export function rollRecurring(store: Store, now = new Date()): Store {
       changed = true;
       const done = t.completedAt ? new Date(t.completedAt) : now;
       const base = t.dueDate ?? iso(done);
-      const due = nextOccurrence(base, t.repeat, t.dueDate ? today : iso(done));
+      const due = nextOccurrence(base, t.repeat, iso(done), today);
       const seriesId = t.seriesId ?? t.id;
       const id = `${seriesId}~${due}`;
 

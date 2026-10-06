@@ -33,9 +33,10 @@ interface Props {
 
 export function ActivityTimer({ activity, plannedHours, dateKey, compact }: Props) {
   const key = dateKey ?? dateKeyOf();
-  const { data, active, now, start, pause, resume, reset, finish, toggleCompletion } = useTimerStore({
-    tickFor: activity.id,
-  });
+  const { data, active, now, start, pause, resume, reset, finish, toggleCompletion } =
+    useTimerStore({
+      tickFor: activity.id,
+    });
   const [conflict, setConflict] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
 
@@ -55,7 +56,11 @@ export function ActivityTimer({ activity, plannedHours, dateKey, compact }: Prop
     begin();
   };
 
-  const pct = mine ? timerPct(active, now) : hours > 0 ? Math.min(100, (doneToday / hours) * 100) : 0;
+  const pct = mine
+    ? timerPct(active, now)
+    : hours > 0
+      ? Math.min(100, (doneToday / hours) * 100)
+      : 0;
 
   /* ---------- manual mode: no timer controls at all ---------- */
   if (!usesTimer(activity)) {
@@ -92,7 +97,6 @@ export function ActivityTimer({ activity, plannedHours, dateKey, compact }: Prop
   }
 
   return (
-
     <div className={compact ? "mt-2" : "mt-3"}>
       <div className="flex items-center gap-1.5 flex-wrap">
         {!mine ? (
@@ -107,7 +111,9 @@ export function ActivityTimer({ activity, plannedHours, dateKey, compact }: Prop
           >
             <Play className="h-3 w-3 fill-current" />
             Iniciar
-            <span className="text-muted-foreground tabular-nums">{formatClock(hours * 3_600_000)}</span>
+            <span className="text-muted-foreground tabular-nums">
+              {formatClock(hours * 3_600_000)}
+            </span>
           </button>
         ) : (
           <>
@@ -150,7 +156,6 @@ export function ActivityTimer({ activity, plannedHours, dateKey, compact }: Prop
             </TinyBtn>
           </>
         )}
-
       </div>
 
       {(mine || doneToday > 0) && (

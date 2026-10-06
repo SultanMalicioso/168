@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { planEvents, type PlannedEvent, type TimerSnapshot } from "@/lib/notify-plan";
+import {
+  planEvents,
+  withoutFinishedTimerDuplicate,
+  type PlannedEvent,
+  type TimerSnapshot,
+} from "@/lib/notify-plan";
 import type { Json } from "@/integrations/supabase/types";
 import type { NotifySettings } from "@/lib/notify-store";
+import { DEFAULT_NOTIFY_SETTINGS } from "@/lib/notify-defaults";
 import type { Store } from "@/lib/time-store";
 
 /* ------------------------------------------------------------------ *
@@ -11,21 +17,7 @@ import type { Store } from "@/lib/time-store";
  * own time zone, and pushes whatever became due — once, ever.
  * ------------------------------------------------------------------ */
 
-const DEFAULT_SETTINGS: NotifySettings = {
-  enabled: true,
-  morning: true,
-  morningTime: "08:00",
-  night: true,
-  nightTime: "21:30",
-  activities: true,
-  tasks: true,
-  pendingTasks: true,
-  completions: false,
-  quietEnabled: true,
-  quietFrom: "23:00",
-  quietTo: "07:00",
-  defaultLead: 10,
-};
+const DEFAULT_SETTINGS = DEFAULT_NOTIFY_SETTINGS;
 
 const hhmmToMin = (v: string) => {
   const [h, m] = String(v)
@@ -136,6 +128,8 @@ function finishExpiredTimer(raw: Record<string, unknown> | null, nowMs: number) 
   };
 }
 
+const SUBS_BATCH = 500;
+
 interface SubRow {
   id: string;
   user_id: string;
@@ -183,15 +177,21 @@ export const Route = createFileRoute("/api/public/push-tick")({
         const vapid = readVapid();
         if (!vapid) return Response.json({ error: "vapid-missing" }, { status: 500 });
 
-        const { data: subs, error } = await supabaseAdmin
-          .from("push_subscriptions")
-          .select("id, user_id, endpoint, p256dh, auth, time_zone")
-          .eq("enabled", true)
-          .limit(500);
+        /* Every enabled subscription, read in batches so none is left out. */
+        const rows: SubRow[] = [];
+        for (let from = 0; ; from += SUBS_BATCH) {
+          const { data: subs, error } = await supabaseAdmin
+            .from("push_subscriptions")
+            .select("id, user_id, endpoint, p256dh, auth, time_zone")
+            .eq("enabled", true)
+            .order("id")
+            .range(from, from + SUBS_BATCH - 1);
 
-        if (error) return Response.json({ error: error.message }, { status: 500 });
+          if (error) return Response.json({ error: error.message }, { status: 500 });
+          rows.push(...((subs ?? []) as SubRow[]));
+          if (!subs || subs.length < SUBS_BATCH) break;
+        }
 
-        const rows = (subs ?? []) as SubRow[];
         const byUser = new Map<string, SubRow[]>();
         for (const row of rows) {
           byUser.set(row.user_id, [...(byUser.get(row.user_id) ?? []), row]);
@@ -238,6 +238,7 @@ export const Route = createFileRoute("/api/public/push-tick")({
             Date.now(),
           );
           let timerEvent: PlannedEvent | null = null;
+          let finishedTimer: { activityId: string; dateKey: string } | null = null;
           if (expired) {
             const { error: saveError } = await supabaseAdmin
               .from("user_data")
@@ -251,6 +252,10 @@ export const Route = createFileRoute("/api/public/push-tick")({
               timers.active = null;
               timers.completions = expired.data.completions;
               timers.sessions = expired.data.sessions;
+              finishedTimer = {
+                activityId: expired.timer.activityId,
+                dateKey: expired.timer.dateKey,
+              };
               const act = store.activities.find((a) => a.id === expired.timer.activityId);
               timerEvent = {
                 key: `timer:${expired.timer.id}`,
@@ -279,9 +284,10 @@ export const Route = createFileRoute("/api/public/push-tick")({
             if (inQuietHours(settings, local)) continue;
 
             const localMs = local.getTime();
-            const events = planEvents(local, store, timers, settings).filter(
+            let events = planEvents(local, store, timers, settings).filter(
               (e) => e.at <= localMs && localMs - e.at <= Math.min(e.graceMs, 30 * 60_000),
             );
+            if (finishedTimer) events = withoutFinishedTimerDuplicate(events, finishedTimer);
             if (timerEvent) events.push(timerEvent);
             if (events.length === 0) continue;
 
