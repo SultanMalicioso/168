@@ -73,7 +73,7 @@ export function ProLocked({ feature, compact = false }: { feature: Feature; comp
  * What Pro includes. There is no checkout yet: when billing exists, this is
  * the single place to send people to it.
  */
-function UpgradeDialog({
+export function UpgradeDialog({
   open,
   onOpenChange,
 }: {
